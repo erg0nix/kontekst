@@ -1,0 +1,15 @@
+package sessions
+
+import "github.com/erg0nix/kontekst/internal/core"
+
+type SessionService interface {
+	Create() (core.SessionID, string, error)
+	Ensure(sessionID core.SessionID) (string, error)
+}
+
+type RunService interface {
+	StartRun(sessionID core.SessionID, runID core.RunID) error
+	CompleteRun(runID core.RunID) error
+	CancelRun(runID core.RunID) error
+	FailRun(runID core.RunID) error
+}

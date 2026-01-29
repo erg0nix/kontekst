@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package kontekst;
+option go_package = "kontekst-go/internal/grpc/pb;pb";
+
+service AgentService {
+  rpc Run(stream RunCommand) returns (stream RunEvent);
+}
+
+service DaemonService {
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+}
+
+message GetStatusRequest {}
+message GetStatusResponse {
+  string bind = 1;
+  string endpoint = 2;
+  string model = 3;
+  string model_dir = 4;
+  string llama_server_bin = 5;
+  bool llama_server_healthy = 6;
+  bool llama_server_running = 7;
+  int32 llama_server_pid = 8;
+  int64 uptime_seconds = 9;
+  string started_at_rfc3339 = 10;
+  string data_dir = 11;
+}
+
+message ShutdownRequest {}
+message ShutdownResponse { string message = 1; }
+
+message RunCommand {
+  oneof command {
+    StartRunCommand start = 1;
+    ApproveToolCommand approve_tool = 2;
+    DenyToolCommand deny_tool = 3;
+    ApproveAllToolsCommand approve_all = 4;
+    DenyAllToolsCommand deny_all = 5;
+    CancelRunCommand cancel = 6;
+  }
+}
+
+message StartRunCommand {
+  string prompt = 1;
+  string session_id = 2;
+}
+message ApproveToolCommand { string call_id = 1; }
+message DenyToolCommand { string call_id = 1; string reason = 2; }
+message ApproveAllToolsCommand { string batch_id = 1; }
+message DenyAllToolsCommand { string batch_id = 1; string reason = 2; }
+message CancelRunCommand {}
+
+message RunEvent {
+  oneof event {
+    RunStartedEvent started = 1;
+    TokenDeltaEvent token = 2;
+    ReasoningDeltaEvent reasoning = 3;
+    ToolBatchProposedEvent batch_proposed = 4;
+    ToolExecutionStartedEvent tool_started = 5;
+    ToolExecutionCompletedEvent tool_completed = 6;
+    ToolExecutionFailedEvent tool_failed = 7;
+    ToolBatchCompletedEvent batch_completed = 8;
+    RunCompletedEvent completed = 9;
+    RunCancelledEvent cancelled = 10;
+    RunFailedEvent failed = 11;
+  }
+}
+
+message RunStartedEvent {
+  string run_id = 1;
+  string session_id = 2;
+}
+message TokenDeltaEvent { string text = 1; }
+message ReasoningDeltaEvent { string text = 1; }
+message ToolBatchProposedEvent { string batch_id = 1; repeated ProposedToolCall calls = 2; }
+message ProposedToolCall { string call_id = 1; string name = 2; string arguments_json = 3; }
+message ToolExecutionStartedEvent { string call_id = 1; }
+message ToolExecutionCompletedEvent { string call_id = 1; string output = 2; }
+message ToolExecutionFailedEvent { string call_id = 1; string error = 2; }
+message ToolBatchCompletedEvent { string batch_id = 1; }
+message RunCompletedEvent { string run_id = 1; string content = 2; }
+message RunCancelledEvent { string run_id = 1; }
+message RunFailedEvent { string run_id = 1; string error = 2; }

@@ -1,0 +1,73 @@
+package agent
+
+import (
+	ctx "github.com/erg0nix/kontekst/internal/context"
+	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/providers"
+	"github.com/erg0nix/kontekst/internal/tools"
+)
+
+type Agent struct {
+	provider providers.ProviderRouter
+	tools    tools.ToolExecutor
+	context  ctx.ContextWindow
+}
+
+func New(provider providers.ProviderRouter, toolExecutor tools.ToolExecutor, contextWindow ctx.ContextWindow) *Agent {
+	return &Agent{provider: provider, tools: toolExecutor, context: contextWindow}
+}
+
+func (agent *Agent) Run(prompt string) (chan<- AgentCommand, <-chan AgentEvent) {
+	commandChannel := make(chan AgentCommand, 16)
+	eventChannel := make(chan AgentEvent, 32)
+
+	go agent.loop(prompt, commandChannel, eventChannel)
+
+	return commandChannel, eventChannel
+}
+
+func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, eventChannel chan<- AgentEvent) {
+	runID := core.NewRunID()
+	eventChannel <- AgentEvent{Type: EvtRunStarted, RunID: runID}
+
+	userMessage, _ := agent.context.RenderUserMessage(prompt)
+	_ = agent.context.AddMessage(core.Message{Role: core.RoleUser, Content: userMessage})
+
+	for {
+		contextMessages, _ := agent.context.BuildContext(agent.provider.CountTokens)
+		chatResponse, err := agent.provider.GenerateChat(contextMessages, agent.tools.ToolDefinitions(), 4096, nil, nil)
+
+		if err != nil {
+			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
+			return
+		}
+
+		if len(chatResponse.ToolCalls) == 0 {
+			_ = agent.context.AddMessage(core.Message{Role: core.RoleAssistant, Content: chatResponse.Content})
+			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
+			return
+		}
+
+		batchID := newID("batch")
+		pendingToolCalls := buildPending(chatResponse.ToolCalls)
+		assistantMessage := core.Message{
+			Role:      core.RoleAssistant,
+			Content:   chatResponse.Content,
+			ToolCalls: pendingToolCalls.asToolCalls(),
+		}
+		_ = agent.context.AddMessage(assistantMessage)
+		eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: pendingToolCalls.asProposed()}
+
+		toolDecisions, err := collectApprovals(commandChannel, pendingToolCalls, batchID)
+
+		if err != nil {
+			eventChannel <- AgentEvent{Type: EvtRunCancelled, RunID: runID}
+			return
+		}
+
+		if err := agent.executeTools(runID, batchID, toolDecisions, eventChannel); err != nil {
+			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
+			return
+		}
+	}
+}
