@@ -9,6 +9,7 @@ import (
 
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/config"
+	agentcfg "github.com/erg0nix/kontekst/internal/config/agents"
 	"github.com/erg0nix/kontekst/internal/context"
 	grpcsvc "github.com/erg0nix/kontekst/internal/grpc"
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
@@ -55,9 +56,8 @@ func main() {
 	setIfNotEmpty(&daemonConfig.LlamaServerBin, *binFlag)
 	setIfNotEmpty(&daemonConfig.DataDir, *dataDirFlag)
 
-	modelPath := daemonConfig.Model
-	if modelPath == "" && daemonConfig.ModelDir != "" {
-		modelPath = filepath.Join(daemonConfig.ModelDir, "model.gguf")
+	if err := agentcfg.EnsureDefault(daemonConfig.DataDir); err != nil {
+		log.Printf("failed to ensure default agent: %v", err)
 	}
 
 	llamaProvider := providers.NewLlamaServerProvider(config.LlamaServerConfig{
@@ -65,13 +65,14 @@ func main() {
 		BinPath:      daemonConfig.LlamaServerBin,
 		AutoStart:    true,
 		InheritStdio: true,
-		ModelPath:    modelPath,
+		ModelPath:    daemonConfig.Model,
+		ModelDir:     daemonConfig.ModelDir,
 		ContextSize:  daemonConfig.ContextSize,
 		GPULayers:    daemonConfig.GPULayers,
 		StartupWait:  15 * time.Second,
 		HTTPTimeout:  300 * time.Second,
 	})
-	if modelPath != "" {
+	if daemonConfig.ModelDir != "" || daemonConfig.Model != "" {
 		if err := llamaProvider.LoadModel(); err != nil {
 			log.Printf("failed to load model: %v", err)
 		}
@@ -105,7 +106,8 @@ func main() {
 	startTime := time.Now()
 	grpcServer := grpc.NewServer()
 
-	pb.RegisterAgentServiceServer(grpcServer, &grpcsvc.AgentHandler{Runner: runner})
+	agentRegistry := agent.NewRegistry(daemonConfig.DataDir, daemonConfig.ModelDir)
+	pb.RegisterAgentServiceServer(grpcServer, &grpcsvc.AgentHandler{Runner: runner, Registry: agentRegistry})
 	pb.RegisterDaemonServiceServer(grpcServer, &grpcsvc.DaemonHandler{
 		Config:    daemonConfig,
 		Provider:  llamaProvider,

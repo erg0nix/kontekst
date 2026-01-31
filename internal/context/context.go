@@ -7,6 +7,7 @@ type ContextWindow interface {
 	BuildContext(countTokens func(string) (int, error)) ([]core.Message, error)
 	RenderUserMessage(prompt string) (string, error)
 	AddToolResult(result core.ToolResult) error
+	SetAgentSystemPrompt(prompt string)
 }
 
 type ContextService interface {

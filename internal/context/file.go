@@ -31,12 +31,13 @@ func (service *FileContextService) NewWindow(sessionID core.SessionID) (ContextW
 }
 
 type FileContext struct {
-	Path           string
-	mu             sync.Mutex
-	Messages       []core.Message
-	SystemTemplate string
-	UserTemplate   string
-	MaxTokens      int
+	Path              string
+	mu                sync.Mutex
+	Messages          []core.Message
+	SystemTemplate    string
+	UserTemplate      string
+	MaxTokens         int
+	AgentSystemPrompt string
 }
 
 func NewFileContext(path string, systemTemplate string, userTemplate string, maxTokens int) (*FileContext, error) {
@@ -67,11 +68,23 @@ func (fileContext *FileContext) BuildContext(_ func(string) (int, error)) ([]cor
 	fileContext.mu.Lock()
 	defer fileContext.mu.Unlock()
 
-	systemMessage := core.Message{Role: core.RoleSystem, Content: fileContext.SystemTemplate}
+	systemContent := fileContext.SystemTemplate
+	if fileContext.AgentSystemPrompt != "" {
+		systemContent = systemContent + "\n\n---\n\n" + fileContext.AgentSystemPrompt
+	}
+
+	systemMessage := core.Message{Role: core.RoleSystem, Content: systemContent}
 	out := []core.Message{systemMessage}
 	out = append(out, fileContext.Messages...)
 
 	return out, nil
+}
+
+func (fileContext *FileContext) SetAgentSystemPrompt(prompt string) {
+	fileContext.mu.Lock()
+	defer fileContext.mu.Unlock()
+
+	fileContext.AgentSystemPrompt = prompt
 }
 
 func (fileContext *FileContext) RenderUserMessage(prompt string) (string, error) {

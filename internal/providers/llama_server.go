@@ -112,7 +112,7 @@ func (p *LlamaServerProvider) CountTokens(text string) (int, error) {
 }
 
 func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core.ToolDef, maxTokens int,
-	tokenCb func(string) bool, reasoningCb func(string) bool) (core.ChatResponse, error) {
+	tokenCb func(string) bool, reasoningCb func(string) bool, sampling *core.SamplingConfig, model string) (core.ChatResponse, error) {
 	if err := p.ensureRunning(); err != nil {
 		return core.ChatResponse{}, err
 	}
@@ -154,12 +154,32 @@ func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core
 		})
 	}
 
+	modelName := model
+	if modelName == "" {
+		modelName = "default"
+	}
+
 	payload := map[string]any{
-		"model":      "default",
+		"model":      modelName,
 		"messages":   msgJSON,
 		"tools":      toolJSON,
 		"max_tokens": maxTokens,
 		"stream":     false,
+	}
+
+	if sampling != nil {
+		if sampling.Temperature != nil {
+			payload["temperature"] = *sampling.Temperature
+		}
+		if sampling.TopP != nil {
+			payload["top_p"] = *sampling.TopP
+		}
+		if sampling.TopK != nil {
+			payload["top_k"] = *sampling.TopK
+		}
+		if sampling.RepeatPenalty != nil {
+			payload["repeat_penalty"] = *sampling.RepeatPenalty
+		}
 	}
 
 	body, _ := json.Marshal(payload)
@@ -222,12 +242,16 @@ func (p *LlamaServerProvider) LoadModel() error {
 		return errors.New("auto_start disabled")
 	}
 
-	if p.cfg.ModelPath == "" {
-		return errors.New("model path required")
-	}
-
-	if _, err := os.Stat(p.cfg.ModelPath); err != nil {
-		return err
+	if p.cfg.ModelDir != "" {
+		if _, err := os.Stat(p.cfg.ModelDir); err != nil {
+			return err
+		}
+	} else if p.cfg.ModelPath != "" {
+		if _, err := os.Stat(p.cfg.ModelPath); err != nil {
+			return err
+		}
+	} else {
+		return errors.New("model path or model dir required")
 	}
 
 	p.stopProcess()
@@ -289,13 +313,20 @@ func (p *LlamaServerProvider) spawnProcess() error {
 		bin = "llama-server"
 	}
 
-	cmd := exec.Command(bin,
-		"--model", p.cfg.ModelPath,
+	args := []string{
 		"--host", host,
 		"--port", port,
 		"--ctx-size", intToString(p.cfg.ContextSize),
 		"--n-gpu-layers", intToString(p.cfg.GPULayers),
-	)
+	}
+
+	if p.cfg.ModelDir != "" {
+		args = append(args, "--models-dir", p.cfg.ModelDir)
+	} else if p.cfg.ModelPath != "" {
+		args = append(args, "--model", p.cfg.ModelPath)
+	}
+
+	cmd := exec.Command(bin, args...)
 	if p.cfg.InheritStdio {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

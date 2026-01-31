@@ -44,6 +44,7 @@ message RunCommand {
 message StartRunCommand {
   string prompt = 1;
   string session_id = 2;
+  string agent_name = 3; // Agent to use for this run (empty = use default)
 }
 message ApproveToolCommand { string call_id = 1; }
 message DenyToolCommand { string call_id = 1; string reason = 2; }
@@ -70,6 +71,7 @@ message RunEvent {
 message RunStartedEvent {
   string run_id = 1;
   string session_id = 2;
+  string agent_name = 3; // Agent being used for this run
 }
 message TokenDeltaEvent { string text = 1; }
 message ReasoningDeltaEvent { string text = 1; }

@@ -7,7 +7,10 @@ import (
 	"os"
 	"strings"
 
+	agentcfg "github.com/erg0nix/kontekst/internal/config/agents"
+	"github.com/erg0nix/kontekst/internal/core"
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
+	"github.com/erg0nix/kontekst/internal/sessions"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -19,6 +22,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	serverOverride, _ := cmd.Flags().GetString("server")
 	autoApprove, _ := cmd.Flags().GetBool("auto-approve")
 	sessionOverride, _ := cmd.Flags().GetString("session")
+	agentName, _ := cmd.Flags().GetString("agent")
 
 	config, _ := loadConfig(configPath)
 	serverAddr := resolveServer(serverOverride, config)
@@ -31,6 +35,16 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	sessionID := strings.TrimSpace(sessionOverride)
 	if sessionID == "" {
 		sessionID = loadActiveSession(config.DataDir)
+	}
+
+	if agentName == "" && sessionID != "" {
+		sessionService := &sessions.FileSessionService{BaseDir: config.DataDir}
+		if defaultAgent, err := sessionService.GetDefaultAgent(core.SessionID(sessionID)); err == nil && defaultAgent != "" {
+			agentName = defaultAgent
+		}
+	}
+	if agentName == "" {
+		agentName = agentcfg.DefaultAgentName
 	}
 
 	grpcConn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -48,7 +62,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := stream.Send(&pb.RunCommand{Command: &pb.RunCommand_Start{Start: &pb.StartRunCommand{Prompt: prompt, SessionId: sessionID}}}); err != nil {
+	if err := stream.Send(&pb.RunCommand{Command: &pb.RunCommand_Start{Start: &pb.StartRunCommand{Prompt: prompt, SessionId: sessionID, AgentName: agentName}}}); err != nil {
 		return err
 	}
 

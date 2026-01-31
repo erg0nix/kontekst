@@ -10,7 +10,8 @@ import (
 )
 
 type AgentHandler struct {
-	Runner agent.Runner
+	Runner   agent.Runner
+	Registry *agent.Registry
 	pb.UnimplementedAgentServiceServer
 }
 
@@ -43,7 +44,23 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			}
 
 			startCommand := commandPayload.Start
-			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(startCommand.Prompt, core.SessionID(startCommand.SessionId))
+			agentName := startCommand.AgentName
+			agentSystemPrompt := ""
+			agentModel := ""
+			var agentSampling *core.SamplingConfig
+
+			if agentName != "" && h.Registry != nil {
+				loadedAgent, err := h.Registry.Load(agentName)
+				if err != nil {
+					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})
+					continue
+				}
+				agentSystemPrompt = loadedAgent.SystemPrompt
+				agentSampling = loadedAgent.Sampling
+				agentModel = loadedAgent.Model
+			}
+
+			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(startCommand.Prompt, core.SessionID(startCommand.SessionId), agentName, agentSystemPrompt, agentSampling, agentModel)
 			if err != nil {
 				_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})
 				continue
@@ -94,7 +111,7 @@ func forwardEvents(ctx context.Context, stream pb.AgentService_RunServer, eventC
 func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 	switch event.Type {
 	case agent.EvtRunStarted:
-		return &pb.RunEvent{Event: &pb.RunEvent_Started{Started: &pb.RunStartedEvent{RunId: string(event.RunID), SessionId: string(event.SessionID)}}}
+		return &pb.RunEvent{Event: &pb.RunEvent_Started{Started: &pb.RunStartedEvent{RunId: string(event.RunID), SessionId: string(event.SessionID), AgentName: event.AgentName}}}
 	case agent.EvtTokenDelta:
 		return &pb.RunEvent{Event: &pb.RunEvent_Token{Token: &pb.TokenDeltaEvent{Text: event.Token}}}
 	case agent.EvtReasoningDelta:

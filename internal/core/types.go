@@ -16,23 +16,24 @@ const (
 )
 
 type Message struct {
-	Role       Role
-	Content    string
-	ToolCalls  []ToolCall
-	ToolResult *ToolResult
+	Role       Role        `json:"role"`
+	Content    string      `json:"content"`
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
+	ToolResult *ToolResult `json:"tool_result,omitempty"`
+	AgentName  string      `json:"agent_name,omitempty"`
 }
 
 type ToolCall struct {
-	ID        string
-	Name      string
-	Arguments map[string]any
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments,omitempty"`
 }
 
 type ToolResult struct {
-	CallID  string
-	Name    string
-	Output  string
-	IsError bool
+	CallID  string `json:"call_id"`
+	Name    string `json:"name"`
+	Output  string `json:"output"`
+	IsError bool   `json:"is_error,omitempty"`
 }
 
 type ToolDef struct {
@@ -45,6 +46,13 @@ type ChatResponse struct {
 	Content   string
 	Reasoning string
 	ToolCalls []ToolCall
+}
+
+type SamplingConfig struct {
+	Temperature   *float64
+	TopP          *float64
+	TopK          *int
+	RepeatPenalty *float64
 }
 
 type RunID string
