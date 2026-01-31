@@ -18,9 +18,6 @@ repeat_penalty = 1.1
 max_tokens = 4096
 `
 
-const defaultAgentPromptMD = `You are a helpful assistant.
-`
-
 func EnsureDefault(baseDir string) error {
 	agentDir := filepath.Join(baseDir, "agents", DefaultAgentName)
 
@@ -38,9 +35,5 @@ func EnsureDefault(baseDir string) error {
 	}
 
 	promptPath := filepath.Join(agentDir, "agent.md")
-	if err := os.WriteFile(promptPath, []byte(defaultAgentPromptMD), 0o644); err != nil {
-		return err
-	}
-
-	return nil
+	return os.WriteFile(promptPath, []byte(DefaultSystemPrompt), 0o644)
 }
