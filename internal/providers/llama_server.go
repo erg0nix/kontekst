@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,7 +41,6 @@ func NewLlamaServerProvider(cfg config.LlamaServerConfig) *LlamaServerProvider {
 
 type LlamaServerStatus struct {
 	Endpoint  string
-	ModelPath string
 	AutoStart bool
 	Healthy   bool
 	Running   bool
@@ -59,14 +57,12 @@ func (p *LlamaServerProvider) Status() LlamaServerStatus {
 	}
 
 	endpoint := p.cfg.Endpoint
-	modelPath := p.cfg.ModelPath
 	autoStart := p.cfg.AutoStart
 	started := p.start
 	p.mu.Unlock()
 
 	return LlamaServerStatus{
 		Endpoint:  endpoint,
-		ModelPath: modelPath,
 		AutoStart: autoStart,
 		Healthy:   p.isHealthy(),
 		Running:   processID != 0,
@@ -111,7 +107,7 @@ func (p *LlamaServerProvider) CountTokens(text string) (int, error) {
 	return estimateTokens(text), nil
 }
 
-func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core.ToolDef, maxTokens int,
+func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core.ToolDef,
 	tokenCb func(string) bool, reasoningCb func(string) bool, sampling *core.SamplingConfig, model string) (core.ChatResponse, error) {
 	if err := p.ensureRunning(); err != nil {
 		return core.ChatResponse{}, err
@@ -157,6 +153,12 @@ func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core
 	modelName := model
 	if modelName == "" {
 		modelName = "default"
+	}
+	modelName = strings.TrimSuffix(modelName, ".gguf")
+
+	maxTokens := 4096
+	if sampling != nil && sampling.MaxTokens != nil {
+		maxTokens = *sampling.MaxTokens
 	}
 
 	payload := map[string]any{
@@ -237,21 +239,17 @@ func (p *LlamaServerProvider) ConcurrencyLimit() int {
 	return 1
 }
 
-func (p *LlamaServerProvider) LoadModel() error {
+func (p *LlamaServerProvider) Start() error {
 	if !p.cfg.AutoStart {
 		return errors.New("auto_start disabled")
 	}
 
-	if p.cfg.ModelDir != "" {
-		if _, err := os.Stat(p.cfg.ModelDir); err != nil {
-			return err
-		}
-	} else if p.cfg.ModelPath != "" {
-		if _, err := os.Stat(p.cfg.ModelPath); err != nil {
-			return err
-		}
-	} else {
-		return errors.New("model path or model dir required")
+	if p.cfg.ModelDir == "" {
+		return errors.New("model_dir required")
+	}
+
+	if _, err := os.Stat(p.cfg.ModelDir); err != nil {
+		return err
 	}
 
 	p.stopProcess()
@@ -267,7 +265,7 @@ func (p *LlamaServerProvider) ensureRunning() error {
 		return errors.New("llama-server not reachable")
 	}
 
-	if err := p.LoadModel(); err != nil {
+	if err := p.Start(); err != nil {
 		return err
 	}
 
@@ -318,12 +316,7 @@ func (p *LlamaServerProvider) spawnProcess() error {
 		"--port", port,
 		"--ctx-size", intToString(p.cfg.ContextSize),
 		"--n-gpu-layers", intToString(p.cfg.GPULayers),
-	}
-
-	if p.cfg.ModelDir != "" {
-		args = append(args, "--models-dir", p.cfg.ModelDir)
-	} else if p.cfg.ModelPath != "" {
-		args = append(args, "--model", p.cfg.ModelPath)
+		"--models-dir", p.cfg.ModelDir,
 	}
 
 	cmd := exec.Command(bin, args...)
@@ -331,7 +324,7 @@ func (p *LlamaServerProvider) spawnProcess() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
-	cmd.Dir = filepath.Dir(p.cfg.ModelPath)
+	cmd.Dir = p.cfg.ModelDir
 
 	if err := cmd.Start(); err != nil {
 		return err

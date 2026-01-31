@@ -26,7 +26,7 @@ func runAgentsCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	registry := agent.NewRegistry(cfg.DataDir, cfg.ModelDir)
+	registry := agent.NewRegistry(cfg.DataDir)
 	agentList, err := registry.List()
 	if err != nil {
 		return err

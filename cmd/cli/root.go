@@ -162,10 +162,8 @@ func printStatus(addr string, resp *pb.GetStatusResponse) {
 	}
 
 	fmt.Println("  data_dir:", resp.DataDir)
-	fmt.Println("  model:", resp.Model)
 	fmt.Println("  model_dir:", resp.ModelDir)
 	fmt.Println("  endpoint:", resp.Endpoint)
-	fmt.Println("  llama_server_bin:", resp.LlamaServerBin)
 	fmt.Println("llama-server")
 	fmt.Println("  running:", resp.LlamaServerRunning)
 	fmt.Println("  healthy:", resp.LlamaServerHealthy)

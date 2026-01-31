@@ -38,7 +38,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 
 	for {
 		contextMessages, _ := agent.context.BuildContext(agent.provider.CountTokens)
-		chatResponse, err := agent.provider.GenerateChat(contextMessages, agent.tools.ToolDefinitions(), 4096, nil, nil, agent.sampling, agent.model)
+		chatResponse, err := agent.provider.GenerateChat(contextMessages, agent.tools.ToolDefinitions(), nil, nil, agent.sampling, agent.model)
 
 		if err != nil {
 			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}

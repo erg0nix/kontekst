@@ -10,26 +10,21 @@ import (
 )
 
 type Config struct {
-	Bind           string `toml:"bind"`
-	Endpoint       string `toml:"endpoint"`
-	Model          string `toml:"model"`
-	ModelDir       string `toml:"model_dir"`
-	LlamaServerBin string `toml:"llama_server_bin"`
-	ContextSize    int    `toml:"context_size"`
-	GPULayers      int    `toml:"gpu_layers"`
-	MaxTokens      int    `toml:"max_tokens"`
-	DataDir        string `toml:"data_dir"`
+	Bind        string `toml:"bind"`
+	Endpoint    string `toml:"endpoint"`
+	ModelDir    string `toml:"model_dir"`
+	ContextSize int    `toml:"context_size"`
+	GPULayers   int    `toml:"gpu_layers"`
+	DataDir     string `toml:"data_dir"`
 }
 
 func Default() Config {
 	return Config{
 		Bind:        ":50051",
 		Endpoint:    "http://127.0.0.1:8080",
-		Model:       filepath.Join(defaultModelsDir(), "gpt-oss-20b-Q4_K_M.gguf"),
 		ModelDir:    defaultModelsDir(),
 		ContextSize: 4096,
 		GPULayers:   0,
-		MaxTokens:   4096,
 		DataDir:     defaultDataDir(),
 	}
 }
@@ -69,8 +64,6 @@ func LoadOrCreate(path string) (Config, error) {
 
 	config.DataDir = expandPath(config.DataDir)
 	config.ModelDir = expandPath(config.ModelDir)
-	config.Model = expandPath(config.Model)
-	config.LlamaServerBin = expandPath(config.LlamaServerBin)
 	config.Endpoint = strings.TrimSpace(config.Endpoint)
 	config.Bind = strings.TrimSpace(config.Bind)
 

@@ -61,9 +61,7 @@ type GetStatusResponse struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Bind               string                 `protobuf:"bytes,1,opt,name=bind,proto3" json:"bind,omitempty"`
 	Endpoint           string                 `protobuf:"bytes,2,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	Model              string                 `protobuf:"bytes,3,opt,name=model,proto3" json:"model,omitempty"`
 	ModelDir           string                 `protobuf:"bytes,4,opt,name=model_dir,json=modelDir,proto3" json:"model_dir,omitempty"`
-	LlamaServerBin     string                 `protobuf:"bytes,5,opt,name=llama_server_bin,json=llamaServerBin,proto3" json:"llama_server_bin,omitempty"`
 	LlamaServerHealthy bool                   `protobuf:"varint,6,opt,name=llama_server_healthy,json=llamaServerHealthy,proto3" json:"llama_server_healthy,omitempty"`
 	LlamaServerRunning bool                   `protobuf:"varint,7,opt,name=llama_server_running,json=llamaServerRunning,proto3" json:"llama_server_running,omitempty"`
 	LlamaServerPid     int32                  `protobuf:"varint,8,opt,name=llama_server_pid,json=llamaServerPid,proto3" json:"llama_server_pid,omitempty"`
@@ -118,23 +116,9 @@ func (x *GetStatusResponse) GetEndpoint() string {
 	return ""
 }
 
-func (x *GetStatusResponse) GetModel() string {
-	if x != nil {
-		return x.Model
-	}
-	return ""
-}
-
 func (x *GetStatusResponse) GetModelDir() string {
 	if x != nil {
 		return x.ModelDir
-	}
-	return ""
-}
-
-func (x *GetStatusResponse) GetLlamaServerBin() string {
-	if x != nil {
-		return x.LlamaServerBin
 	}
 	return ""
 }
@@ -1526,13 +1510,11 @@ var File_proto_kontekst_proto protoreflect.FileDescriptor
 const file_proto_kontekst_proto_rawDesc = "" +
 	"\n" +
 	"\x14proto/kontekst.proto\x12\bkontekst\"\x12\n" +
-	"\x10GetStatusRequest\"\x9e\x03\n" +
+	"\x10GetStatusRequest\"\xde\x02\n" +
 	"\x11GetStatusResponse\x12\x12\n" +
 	"\x04bind\x18\x01 \x01(\tR\x04bind\x12\x1a\n" +
-	"\bendpoint\x18\x02 \x01(\tR\bendpoint\x12\x14\n" +
-	"\x05model\x18\x03 \x01(\tR\x05model\x12\x1b\n" +
-	"\tmodel_dir\x18\x04 \x01(\tR\bmodelDir\x12(\n" +
-	"\x10llama_server_bin\x18\x05 \x01(\tR\x0ellamaServerBin\x120\n" +
+	"\bendpoint\x18\x02 \x01(\tR\bendpoint\x12\x1b\n" +
+	"\tmodel_dir\x18\x04 \x01(\tR\bmodelDir\x120\n" +
 	"\x14llama_server_healthy\x18\x06 \x01(\bR\x12llamaServerHealthy\x120\n" +
 	"\x14llama_server_running\x18\a \x01(\bR\x12llamaServerRunning\x12(\n" +
 	"\x10llama_server_pid\x18\b \x01(\x05R\x0ellamaServerPid\x12%\n" +

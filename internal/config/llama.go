@@ -7,11 +7,9 @@ type LlamaServerConfig struct {
 	BinPath      string
 	AutoStart    bool
 	InheritStdio bool
-	ModelPath    string
 	ModelDir     string
 	ContextSize  int
 	GPULayers    int
-	MaxTokens    int
 	StartupWait  time.Duration
 	HTTPTimeout  time.Duration
 }

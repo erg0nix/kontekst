@@ -26,9 +26,7 @@ func main() {
 		configPathFlag = flag.String("config", "", "path to config file (default ~/.kontekst/config.toml)")
 		bindFlag       = flag.String("bind", "", "gRPC bind address")
 		endpointFlag   = flag.String("endpoint", "", "llama-server endpoint")
-		modelFlag      = flag.String("model", "", "path to gguf model")
 		modelDirFlag   = flag.String("model-dir", "", "directory where models live")
-		binFlag        = flag.String("llama-server-bin", "", "llama-server binary")
 		dataDirFlag    = flag.String("data-dir", "", "base data dir (default ~/.kontekst)")
 	)
 	flag.Parse()
@@ -51,9 +49,7 @@ func main() {
 
 	setIfNotEmpty(&daemonConfig.Bind, *bindFlag)
 	setIfNotEmpty(&daemonConfig.Endpoint, *endpointFlag)
-	setIfNotEmpty(&daemonConfig.Model, *modelFlag)
 	setIfNotEmpty(&daemonConfig.ModelDir, *modelDirFlag)
-	setIfNotEmpty(&daemonConfig.LlamaServerBin, *binFlag)
 	setIfNotEmpty(&daemonConfig.DataDir, *dataDirFlag)
 
 	if err := agentcfg.EnsureDefault(daemonConfig.DataDir); err != nil {
@@ -62,19 +58,17 @@ func main() {
 
 	llamaProvider := providers.NewLlamaServerProvider(config.LlamaServerConfig{
 		Endpoint:     daemonConfig.Endpoint,
-		BinPath:      daemonConfig.LlamaServerBin,
 		AutoStart:    true,
 		InheritStdio: true,
-		ModelPath:    daemonConfig.Model,
 		ModelDir:     daemonConfig.ModelDir,
 		ContextSize:  daemonConfig.ContextSize,
 		GPULayers:    daemonConfig.GPULayers,
 		StartupWait:  15 * time.Second,
 		HTTPTimeout:  300 * time.Second,
 	})
-	if daemonConfig.ModelDir != "" || daemonConfig.Model != "" {
-		if err := llamaProvider.LoadModel(); err != nil {
-			log.Printf("failed to load model: %v", err)
+	if daemonConfig.ModelDir != "" {
+		if err := llamaProvider.Start(); err != nil {
+			log.Printf("failed to start llama-server: %v", err)
 		}
 	}
 
@@ -106,7 +100,7 @@ func main() {
 	startTime := time.Now()
 	grpcServer := grpc.NewServer()
 
-	agentRegistry := agent.NewRegistry(daemonConfig.DataDir, daemonConfig.ModelDir)
+	agentRegistry := agent.NewRegistry(daemonConfig.DataDir)
 	pb.RegisterAgentServiceServer(grpcServer, &grpcsvc.AgentHandler{Runner: runner, Registry: agentRegistry})
 	pb.RegisterDaemonServiceServer(grpcServer, &grpcsvc.DaemonHandler{
 		Config:    daemonConfig,

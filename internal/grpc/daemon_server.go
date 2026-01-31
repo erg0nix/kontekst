@@ -33,9 +33,7 @@ func (h *DaemonHandler) GetStatus(ctx context.Context, _ *pb.GetStatusRequest) (
 	return &pb.GetStatusResponse{
 		Bind:               h.Config.Bind,
 		Endpoint:           llamaStatus.Endpoint,
-		Model:              llamaStatus.ModelPath,
 		ModelDir:           h.Config.ModelDir,
-		LlamaServerBin:     h.Config.LlamaServerBin,
 		LlamaServerHealthy: llamaStatus.Healthy,
 		LlamaServerRunning: llamaStatus.Running,
 		LlamaServerPid:     int32(llamaStatus.PID),

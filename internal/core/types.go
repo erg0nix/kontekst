@@ -53,6 +53,7 @@ type SamplingConfig struct {
 	TopP          *float64
 	TopK          *int
 	RepeatPenalty *float64
+	MaxTokens     *int
 }
 
 type RunID string

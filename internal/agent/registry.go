@@ -10,13 +10,11 @@ import (
 
 type Registry struct {
 	AgentsDir string
-	ModelDir  string
 }
 
-func NewRegistry(dataDir string, modelDir string) *Registry {
+func NewRegistry(dataDir string) *Registry {
 	return &Registry{
 		AgentsDir: filepath.Join(dataDir, "agents"),
-		ModelDir:  modelDir,
 	}
 }
 
@@ -105,13 +103,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 				cfg.DisplayName = tomlCfg.Name
 			}
 			if tomlCfg.Model != "" {
-				if filepath.IsAbs(tomlCfg.Model) {
-					cfg.Model = tomlCfg.Model
-				} else if r.ModelDir != "" {
-					cfg.Model = filepath.Join(r.ModelDir, tomlCfg.Model)
-				} else {
-					cfg.Model = tomlCfg.Model
-				}
+				cfg.Model = tomlCfg.Model
 			}
 			cfg.Sampling = tomlCfg.Sampling
 		}

@@ -16,9 +16,7 @@ message GetStatusRequest {}
 message GetStatusResponse {
   string bind = 1;
   string endpoint = 2;
-  string model = 3;
   string model_dir = 4;
-  string llama_server_bin = 5;
   bool llama_server_healthy = 6;
   bool llama_server_running = 7;
   int32 llama_server_pid = 8;
