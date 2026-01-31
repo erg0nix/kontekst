@@ -411,6 +411,7 @@ type StartRunCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Prompt        string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	AgentName     string                 `protobuf:"bytes,3,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"` // Agent to use for this run (empty = use default)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -455,6 +456,13 @@ func (x *StartRunCommand) GetPrompt() string {
 func (x *StartRunCommand) GetSessionId() string {
 	if x != nil {
 		return x.SessionId
+	}
+	return ""
+}
+
+func (x *StartRunCommand) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
 	}
 	return ""
 }
@@ -917,6 +925,7 @@ type RunStartedEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	AgentName     string                 `protobuf:"bytes,3,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"` // Agent being used for this run
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -961,6 +970,13 @@ func (x *RunStartedEvent) GetRunId() string {
 func (x *RunStartedEvent) GetSessionId() string {
 	if x != nil {
 		return x.SessionId
+	}
+	return ""
+}
+
+func (x *RunStartedEvent) GetAgentName() string {
+	if x != nil {
+		return x.AgentName
 	}
 	return ""
 }
@@ -1536,11 +1552,13 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"approveAll\x12:\n" +
 	"\bdeny_all\x18\x05 \x01(\v2\x1d.kontekst.DenyAllToolsCommandH\x00R\adenyAll\x124\n" +
 	"\x06cancel\x18\x06 \x01(\v2\x1a.kontekst.CancelRunCommandH\x00R\x06cancelB\t\n" +
-	"\acommand\"H\n" +
+	"\acommand\"g\n" +
 	"\x0fStartRunCommand\x12\x16\n" +
 	"\x06prompt\x18\x01 \x01(\tR\x06prompt\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\"-\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\x03 \x01(\tR\tagentName\"-\n" +
 	"\x12ApproveToolCommand\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\"B\n" +
 	"\x0fDenyToolCommand\x12\x17\n" +
@@ -1566,11 +1584,13 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\tcancelled\x18\n" +
 	" \x01(\v2\x1b.kontekst.RunCancelledEventH\x00R\tcancelled\x122\n" +
 	"\x06failed\x18\v \x01(\v2\x18.kontekst.RunFailedEventH\x00R\x06failedB\a\n" +
-	"\x05event\"G\n" +
+	"\x05event\"f\n" +
 	"\x0fRunStartedEvent\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\"%\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1d\n" +
+	"\n" +
+	"agent_name\x18\x03 \x01(\tR\tagentName\"%\n" +
 	"\x0fTokenDeltaEvent\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\")\n" +
 	"\x13ReasoningDeltaEvent\x12\x12\n" +

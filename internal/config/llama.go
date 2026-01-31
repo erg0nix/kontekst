@@ -8,6 +8,7 @@ type LlamaServerConfig struct {
 	AutoStart    bool
 	InheritStdio bool
 	ModelPath    string
+	ModelDir     string
 	ContextSize  int
 	GPULayers    int
 	MaxTokens    int

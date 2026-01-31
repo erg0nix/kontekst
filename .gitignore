@@ -76,3 +76,6 @@ tags
 
 # Build output
 bin/
+
+# Git worktrees
+.worktrees/

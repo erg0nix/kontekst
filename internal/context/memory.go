@@ -7,10 +7,11 @@ import (
 )
 
 type InMemoryContext struct {
-	Messages       []core.Message
-	MaxTokens      int
-	SystemTemplate string
-	UserTemplate   string
+	Messages          []core.Message
+	MaxTokens         int
+	SystemTemplate    string
+	UserTemplate      string
+	AgentSystemPrompt string
 }
 
 func (contextWindow *InMemoryContext) AddMessage(msg core.Message) error {
@@ -20,11 +21,20 @@ func (contextWindow *InMemoryContext) AddMessage(msg core.Message) error {
 }
 
 func (contextWindow *InMemoryContext) BuildContext(_ func(string) (int, error)) ([]core.Message, error) {
-	systemMessage := core.Message{Role: core.RoleSystem, Content: contextWindow.SystemTemplate}
+	systemContent := contextWindow.SystemTemplate
+	if contextWindow.AgentSystemPrompt != "" {
+		systemContent = systemContent + "\n\n---\n\n" + contextWindow.AgentSystemPrompt
+	}
+
+	systemMessage := core.Message{Role: core.RoleSystem, Content: systemContent}
 	out := []core.Message{systemMessage}
 	out = append(out, contextWindow.Messages...)
 
 	return out, nil
+}
+
+func (contextWindow *InMemoryContext) SetAgentSystemPrompt(prompt string) {
+	contextWindow.AgentSystemPrompt = prompt
 }
 
 func (contextWindow *InMemoryContext) RenderUserMessage(prompt string) (string, error) {

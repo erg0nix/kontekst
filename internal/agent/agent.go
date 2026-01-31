@@ -8,13 +8,16 @@ import (
 )
 
 type Agent struct {
-	provider providers.ProviderRouter
-	tools    tools.ToolExecutor
-	context  ctx.ContextWindow
+	provider  providers.ProviderRouter
+	tools     tools.ToolExecutor
+	context   ctx.ContextWindow
+	agentName string
+	sampling  *core.SamplingConfig
+	model     string
 }
 
-func New(provider providers.ProviderRouter, toolExecutor tools.ToolExecutor, contextWindow ctx.ContextWindow) *Agent {
-	return &Agent{provider: provider, tools: toolExecutor, context: contextWindow}
+func New(provider providers.ProviderRouter, toolExecutor tools.ToolExecutor, contextWindow ctx.ContextWindow, agentName string, sampling *core.SamplingConfig, model string) *Agent {
+	return &Agent{provider: provider, tools: toolExecutor, context: contextWindow, agentName: agentName, sampling: sampling, model: model}
 }
 
 func (agent *Agent) Run(prompt string) (chan<- AgentCommand, <-chan AgentEvent) {
@@ -35,7 +38,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 
 	for {
 		contextMessages, _ := agent.context.BuildContext(agent.provider.CountTokens)
-		chatResponse, err := agent.provider.GenerateChat(contextMessages, agent.tools.ToolDefinitions(), 4096, nil, nil)
+		chatResponse, err := agent.provider.GenerateChat(contextMessages, agent.tools.ToolDefinitions(), 4096, nil, nil, agent.sampling, agent.model)
 
 		if err != nil {
 			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
@@ -43,7 +46,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 		}
 
 		if len(chatResponse.ToolCalls) == 0 {
-			_ = agent.context.AddMessage(core.Message{Role: core.RoleAssistant, Content: chatResponse.Content})
+			_ = agent.context.AddMessage(core.Message{Role: core.RoleAssistant, Content: chatResponse.Content, AgentName: agent.agentName})
 			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
 			return
 		}
@@ -54,6 +57,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			Role:      core.RoleAssistant,
 			Content:   chatResponse.Content,
 			ToolCalls: pendingToolCalls.asToolCalls(),
+			AgentName: agent.agentName,
 		}
 		_ = agent.context.AddMessage(assistantMessage)
 		eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: pendingToolCalls.asProposed()}

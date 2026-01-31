@@ -9,7 +9,7 @@ import (
 )
 
 type Runner interface {
-	StartRun(prompt string, sessionID core.SessionID) (chan<- AgentCommand, <-chan AgentEvent, error)
+	StartRun(prompt string, sessionID core.SessionID, agentName string, agentSystemPrompt string, sampling *core.SamplingConfig, model string) (chan<- AgentCommand, <-chan AgentEvent, error)
 }
 
 type AgentRunner struct {
@@ -20,7 +20,7 @@ type AgentRunner struct {
 	Runs     sessions.RunService
 }
 
-func (runner *AgentRunner) StartRun(prompt string, sessionID core.SessionID) (chan<- AgentCommand, <-chan AgentEvent, error) {
+func (runner *AgentRunner) StartRun(prompt string, sessionID core.SessionID, agentName string, agentSystemPrompt string, sampling *core.SamplingConfig, model string) (chan<- AgentCommand, <-chan AgentEvent, error) {
 	if sessionID == "" {
 		newSessionID, _, err := runner.Sessions.Create()
 		if err != nil {
@@ -39,7 +39,11 @@ func (runner *AgentRunner) StartRun(prompt string, sessionID core.SessionID) (ch
 		return nil, nil, err
 	}
 
-	agentEngine := New(runner.Provider, runner.Tools, ctxWindow)
+	if agentSystemPrompt != "" {
+		ctxWindow.SetAgentSystemPrompt(agentSystemPrompt)
+	}
+
+	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, agentName, sampling, model)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)
@@ -48,6 +52,7 @@ func (runner *AgentRunner) StartRun(prompt string, sessionID core.SessionID) (ch
 		for event := range eventChannel {
 			if event.Type == EvtRunStarted {
 				event.SessionID = sessionID
+				event.AgentName = agentName
 			}
 
 			switch event.Type {
@@ -73,6 +78,4 @@ func (runner *AgentRunner) StartRun(prompt string, sessionID core.SessionID) (ch
 	return commandChannel, outputChannel, nil
 }
 
-// Ensure interfaces are used.
 var _ Runner = (*AgentRunner)(nil)
-var _ = core.RunID("")

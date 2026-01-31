@@ -36,6 +36,7 @@ type AgentEvent struct {
 	Type      AgentEventType
 	RunID     core.RunID
 	SessionID core.SessionID
+	AgentName string
 	Token     string
 	Reasoning string
 	BatchID   string

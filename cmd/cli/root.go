@@ -30,8 +30,11 @@ func execute() {
 	rootCmd.PersistentFlags().String("server", "", "gRPC server address")
 	rootCmd.PersistentFlags().Bool("auto-approve", false, "auto-approve tools")
 	rootCmd.PersistentFlags().String("session", "", "session id to reuse")
+	rootCmd.PersistentFlags().String("agent", "", "agent to use for this run")
 
 	rootCmd.AddCommand(newStartCmd())
+	rootCmd.AddCommand(newAgentsCmd())
+	rootCmd.AddCommand(newSessionCmd())
 	rootCmd.AddCommand(newStopCmd())
 	rootCmd.AddCommand(newPsCmd())
 
