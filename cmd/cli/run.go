@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	agentcfg "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
 	"github.com/erg0nix/kontekst/internal/core"
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
 	"github.com/erg0nix/kontekst/internal/sessions"
@@ -44,7 +44,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if agentName == "" {
-		agentName = agentcfg.DefaultAgentName
+		agentName = agentConfig.DefaultAgentName
 	}
 
 	grpcConn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	agentcfg "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
 )
 
 type Registry struct {
@@ -56,7 +56,7 @@ func (r *Registry) List() ([]AgentSummary, error) {
 
 		displayName := name
 		if hasConfig {
-			cfg, err := agentcfg.LoadTOML(configPath)
+			cfg, err := agentConfig.LoadTOML(configPath)
 			if err == nil && cfg != nil && cfg.Name != "" {
 				displayName = cfg.Name
 			}
@@ -73,7 +73,7 @@ func (r *Registry) List() ([]AgentSummary, error) {
 	return agents, nil
 }
 
-func (r *Registry) Load(name string) (*agentcfg.AgentConfig, error) {
+func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	agentDir := filepath.Join(r.AgentsDir, name)
 	configPath := filepath.Join(agentDir, "config.toml")
 	promptPath := filepath.Join(agentDir, "agent.md")
@@ -90,13 +90,13 @@ func (r *Registry) Load(name string) (*agentcfg.AgentConfig, error) {
 		return nil, &AgentNotFoundError{Name: name, Available: names}
 	}
 
-	cfg := &agentcfg.AgentConfig{
+	cfg := &agentConfig.AgentConfig{
 		Name:        name,
 		DisplayName: name,
 	}
 
 	if hasConfig {
-		tomlCfg, err := agentcfg.LoadTOML(configPath)
+		tomlCfg, err := agentConfig.LoadTOML(configPath)
 		if err != nil {
 			return nil, &AgentConfigError{Name: name, Err: err}
 		}
@@ -118,7 +118,7 @@ func (r *Registry) Load(name string) (*agentcfg.AgentConfig, error) {
 	}
 
 	if hasPrompt {
-		prompt, err := agentcfg.LoadPrompt(promptPath)
+		prompt, err := agentConfig.LoadPrompt(promptPath)
 		if err != nil {
 			return nil, &AgentConfigError{Name: name, Err: err}
 		}
@@ -161,4 +161,8 @@ type AgentConfigError struct {
 
 func (e *AgentConfigError) Error() string {
 	return "invalid config for agent " + e.Name + ": " + e.Err.Error()
+}
+
+func (e *AgentConfigError) Unwrap() error {
+	return e.Err
 }
