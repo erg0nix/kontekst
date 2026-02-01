@@ -75,13 +75,9 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("skill not found: %s", startCommand.Skill.Name)}}})
 					continue
 				}
-				rendered, shellCmds, err := loadedSkill.Render(startCommand.Skill.Arguments)
+				rendered, err := loadedSkill.Render(startCommand.Skill.Arguments)
 				if err != nil {
 					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("failed to render skill: %v", err)}}})
-					continue
-				}
-				if len(shellCmds) > 0 {
-					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "skill has shell preprocessing which is not yet supported"}}})
 					continue
 				}
 				skill = loadedSkill
