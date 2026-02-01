@@ -14,7 +14,6 @@ type skillContextKey struct{}
 
 type SkillCallbacks struct {
 	ContextInjector func(msg core.Message) error
-	SetActiveSkill  func(skill *skills.Skill)
 }
 
 func WithSkillCallbacks(ctx context.Context, callbacks *SkillCallbacks) context.Context {
@@ -92,10 +91,6 @@ func (tool *SkillTool) Execute(args map[string]any, ctx context.Context) (string
 	callbacks := GetSkillCallbacks(ctx)
 	if callbacks == nil {
 		return "", fmt.Errorf("skill execution not supported in this context")
-	}
-
-	if callbacks.SetActiveSkill != nil {
-		callbacks.SetActiveSkill(skill)
 	}
 
 	msg := core.Message{

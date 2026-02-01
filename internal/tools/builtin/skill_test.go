@@ -76,15 +76,11 @@ Echo: $ARGUMENTS
 	tool := &SkillTool{Registry: registry}
 
 	var injectedMsg core.Message
-	var activeSkill *skills.Skill
 
 	callbacks := &SkillCallbacks{
 		ContextInjector: func(msg core.Message) error {
 			injectedMsg = msg
 			return nil
-		},
-		SetActiveSkill: func(skill *skills.Skill) {
-			activeSkill = skill
 		},
 	}
 
@@ -110,10 +106,6 @@ Echo: $ARGUMENTS
 	if !strings.Contains(injectedMsg.Content, "Echo: hello world") {
 		t.Errorf("injected content should contain rendered skill, got: %s", injectedMsg.Content)
 	}
-
-	if activeSkill == nil || activeSkill.Name != "echo" {
-		t.Errorf("active skill should be set to 'echo'")
-	}
 }
 
 func TestSkillToolExecuteNotFound(t *testing.T) {
@@ -124,7 +116,6 @@ func TestSkillToolExecuteNotFound(t *testing.T) {
 
 	callbacks := &SkillCallbacks{
 		ContextInjector: func(msg core.Message) error { return nil },
-		SetActiveSkill:  func(skill *skills.Skill) {},
 	}
 	ctx := WithSkillCallbacks(context.Background(), callbacks)
 
@@ -163,7 +154,6 @@ Content
 
 	callbacks := &SkillCallbacks{
 		ContextInjector: func(msg core.Message) error { return nil },
-		SetActiveSkill:  func(skill *skills.Skill) {},
 	}
 	ctx := WithSkillCallbacks(context.Background(), callbacks)
 

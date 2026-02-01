@@ -69,7 +69,6 @@ func (runner *AgentRunner) StartRun(
 	}
 
 	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, agentName, sampling, model, workingDir)
-	agentEngine.SetActiveSkill(skill)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)
