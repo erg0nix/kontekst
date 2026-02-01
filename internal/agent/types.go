@@ -51,4 +51,5 @@ type ProposedToolCall struct {
 	CallID        string
 	Name          string
 	ArgumentsJSON string
+	Preview       string
 }

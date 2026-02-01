@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -37,12 +38,22 @@ func buildPending(calls []core.ToolCall) *pendingBatch {
 	return out
 }
 
-func (b *pendingBatch) asProposed() []ProposedToolCall {
+type previewFunc func(name string, args map[string]any, ctx context.Context) (string, error)
+
+func (b *pendingBatch) asProposed(preview previewFunc, ctx context.Context) []ProposedToolCall {
 	var out []ProposedToolCall
 
 	for _, call := range b.calls {
 		argsJSON, _ := jsonMarshal(call.Args)
-		out = append(out, ProposedToolCall{CallID: call.ID, Name: call.Name, ArgumentsJSON: argsJSON})
+		proposed := ProposedToolCall{CallID: call.ID, Name: call.Name, ArgumentsJSON: argsJSON}
+
+		if preview != nil {
+			if previewText, err := preview(call.Name, call.Args, ctx); err == nil {
+				proposed.Preview = previewText
+			}
+		}
+
+		out = append(out, proposed)
 	}
 
 	return out

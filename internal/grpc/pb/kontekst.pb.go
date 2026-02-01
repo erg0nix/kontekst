@@ -1118,6 +1118,7 @@ type ProposedToolCall struct {
 	CallId        string                 `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	ArgumentsJson string                 `protobuf:"bytes,3,opt,name=arguments_json,json=argumentsJson,proto3" json:"arguments_json,omitempty"`
+	Preview       string                 `protobuf:"bytes,4,opt,name=preview,proto3" json:"preview,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1169,6 +1170,13 @@ func (x *ProposedToolCall) GetName() string {
 func (x *ProposedToolCall) GetArgumentsJson() string {
 	if x != nil {
 		return x.ArgumentsJson
+	}
+	return ""
+}
+
+func (x *ProposedToolCall) GetPreview() string {
+	if x != nil {
+		return x.Preview
 	}
 	return ""
 }
@@ -1589,11 +1597,12 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"e\n" +
 	"\x16ToolBatchProposedEvent\x12\x19\n" +
 	"\bbatch_id\x18\x01 \x01(\tR\abatchId\x120\n" +
-	"\x05calls\x18\x02 \x03(\v2\x1a.kontekst.ProposedToolCallR\x05calls\"f\n" +
+	"\x05calls\x18\x02 \x03(\v2\x1a.kontekst.ProposedToolCallR\x05calls\"\x80\x01\n" +
 	"\x10ProposedToolCall\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
-	"\x0earguments_json\x18\x03 \x01(\tR\rargumentsJson\"4\n" +
+	"\x0earguments_json\x18\x03 \x01(\tR\rargumentsJson\x12\x18\n" +
+	"\apreview\x18\x04 \x01(\tR\apreview\"4\n" +
 	"\x19ToolExecutionStartedEvent\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\"N\n" +
 	"\x1bToolExecutionCompletedEvent\x12\x17\n" +

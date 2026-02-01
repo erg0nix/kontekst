@@ -31,9 +31,14 @@ type Tool interface {
 	Execute(args map[string]any, ctx context.Context) (string, error)
 }
 
+type Previewer interface {
+	Preview(args map[string]any, ctx context.Context) (string, error)
+}
+
 type ToolExecutor interface {
 	Execute(name string, args map[string]any, ctx context.Context) (string, error)
 	ToolDefinitions() []core.ToolDef
+	Preview(name string, args map[string]any, ctx context.Context) (string, error)
 }
 
 type Registry struct {
@@ -62,6 +67,30 @@ func (registry *Registry) Execute(name string, args map[string]any, ctx context.
 	}
 
 	return tool.Execute(args, ctx)
+}
+
+func (registry *Registry) GetTool(name string) (Tool, bool) {
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+
+	tool, ok := registry.tools[name]
+	return tool, ok
+}
+
+func (registry *Registry) Preview(name string, args map[string]any, ctx context.Context) (string, error) {
+	registry.mu.RLock()
+	tool, ok := registry.tools[name]
+	registry.mu.RUnlock()
+
+	if !ok {
+		return "", nil
+	}
+
+	if previewer, ok := tool.(Previewer); ok {
+		return previewer.Preview(args, ctx)
+	}
+
+	return "", nil
 }
 
 func (registry *Registry) ToolDefinitions() []core.ToolDef {

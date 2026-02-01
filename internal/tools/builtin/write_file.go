@@ -11,6 +11,8 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
+const maxPreviewLines = 50
+
 type WriteFile struct {
 	BaseDir    string
 	FileConfig config.FileToolsConfig
@@ -37,6 +39,35 @@ func (tool *WriteFile) Parameters() map[string]any {
 	}
 }
 func (tool *WriteFile) RequiresApproval() bool { return true }
+
+func (tool *WriteFile) Preview(args map[string]any, ctx context.Context) (string, error) {
+	path, ok := getStringArg("path", args)
+	if !ok || path == "" {
+		return "", nil
+	}
+
+	if !isSafeRelative(path) {
+		return "", nil
+	}
+
+	content, ok := getStringArg("content", args)
+	if !ok {
+		return "", nil
+	}
+
+	baseDir := resolveBaseDir(ctx, tool.BaseDir)
+	fullPath := filepath.Join(baseDir, path)
+
+	existingData, err := os.ReadFile(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return generateNewFileDiff(path, content, maxPreviewLines), nil
+		}
+		return "", nil
+	}
+
+	return generateUnifiedDiff(path, string(existingData), content), nil
+}
 
 func (tool *WriteFile) Execute(args map[string]any, ctx context.Context) (string, error) {
 	path, ok := getStringArg("path", args)
