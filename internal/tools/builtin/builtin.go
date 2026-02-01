@@ -68,11 +68,8 @@ func getIntArg(key string, args map[string]any) (int, bool) {
 }
 
 func RegisterAll(registry *tools.Registry, baseDir string, toolsConfig config.ToolsConfig) {
-	RegisterCalculator(registry)
 	RegisterReadFile(registry, baseDir)
 	RegisterListFiles(registry, baseDir)
-	RegisterGlob(registry, baseDir)
-	RegisterGrep(registry, baseDir)
 	RegisterWriteFile(registry, baseDir, toolsConfig.File)
 	RegisterEditFile(registry, baseDir, toolsConfig.File)
 	RegisterWebFetch(registry, toolsConfig.Web)

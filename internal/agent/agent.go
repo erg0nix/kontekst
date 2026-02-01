@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"context"
+
 	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/providers"
@@ -77,7 +79,10 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			AgentName: agent.agentName,
 		}
 		_ = agent.context.AddMessage(assistantMessage)
-		eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: pendingToolCalls.asProposed()}
+
+		previewCtx := tools.WithWorkingDir(context.Background(), agent.workingDir)
+		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)
+		eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: proposedCalls}
 
 		toolDecisions, err := collectApprovals(commandChannel, pendingToolCalls, batchID)
 

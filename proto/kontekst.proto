@@ -75,7 +75,12 @@ message RunStartedEvent {
 message TokenDeltaEvent { string text = 1; }
 message ReasoningDeltaEvent { string text = 1; }
 message ToolBatchProposedEvent { string batch_id = 1; repeated ProposedToolCall calls = 2; }
-message ProposedToolCall { string call_id = 1; string name = 2; string arguments_json = 3; }
+message ProposedToolCall {
+  string call_id = 1;
+  string name = 2;
+  string arguments_json = 3;
+  string preview = 4;
+}
 message ToolExecutionStartedEvent { string call_id = 1; }
 message ToolExecutionCompletedEvent { string call_id = 1; string output = 2; }
 message ToolExecutionFailedEvent { string call_id = 1; string error = 2; }

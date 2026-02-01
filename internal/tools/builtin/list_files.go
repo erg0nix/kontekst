@@ -14,8 +14,10 @@ type ListFiles struct {
 	BaseDir string
 }
 
-func (tool *ListFiles) Name() string        { return "list_files" }
-func (tool *ListFiles) Description() string { return "Lists files matching a glob" }
+func (tool *ListFiles) Name() string { return "list_files" }
+func (tool *ListFiles) Description() string {
+	return "Lists files matching a glob pattern. Returns relative paths, excludes directories."
+}
 func (tool *ListFiles) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",

@@ -98,6 +98,12 @@ func runCmd(cmd *cobra.Command, args []string) error {
 
 			for _, c := range e.BatchProposed.Calls {
 				fmt.Printf("- %s(%s)\n", c.Name, c.ArgumentsJson)
+				if c.Preview != "" {
+					fmt.Println("  Preview:")
+					for _, line := range strings.Split(c.Preview, "\n") {
+						fmt.Printf("    %s\n", line)
+					}
+				}
 			}
 
 			fmt.Print("approve all? [y/N]: ")

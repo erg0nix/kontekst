@@ -47,6 +47,51 @@ func (tool *EditFile) Parameters() map[string]any {
 }
 func (tool *EditFile) RequiresApproval() bool { return true }
 
+func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string, error) {
+	path, ok := getStringArg("path", args)
+	if !ok || path == "" {
+		return "", nil
+	}
+
+	if !isSafeRelative(path) {
+		return "", nil
+	}
+
+	oldStr, ok := getStringArg("old_str", args)
+	if !ok {
+		return "", nil
+	}
+
+	newStr, ok := getStringArg("new_str", args)
+	if !ok {
+		return "", nil
+	}
+
+	occurrence, _ := getIntArg("occurrence", args)
+
+	baseDir := resolveBaseDir(ctx, tool.BaseDir)
+	fullPath := filepath.Join(baseDir, path)
+
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		return "", nil
+	}
+
+	content := string(data)
+	if !strings.Contains(content, oldStr) {
+		return "", nil
+	}
+
+	var newContent string
+	if occurrence == 0 {
+		newContent = strings.ReplaceAll(content, oldStr, newStr)
+	} else {
+		newContent, _ = replaceNth(content, oldStr, newStr, occurrence)
+	}
+
+	return generateUnifiedDiff(path, content, newContent), nil
+}
+
 func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string, error) {
 	path, ok := getStringArg("path", args)
 	if !ok || path == "" {

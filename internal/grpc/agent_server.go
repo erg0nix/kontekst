@@ -128,7 +128,12 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 		proposedCalls := make([]*pb.ProposedToolCall, 0, len(event.Calls))
 
 		for _, call := range event.Calls {
-			proposedCalls = append(proposedCalls, &pb.ProposedToolCall{CallId: call.CallID, Name: call.Name, ArgumentsJson: call.ArgumentsJSON})
+			proposedCalls = append(proposedCalls, &pb.ProposedToolCall{
+				CallId:        call.CallID,
+				Name:          call.Name,
+				ArgumentsJson: call.ArgumentsJSON,
+				Preview:       call.Preview,
+			})
 		}
 
 		return &pb.RunEvent{Event: &pb.RunEvent_BatchProposed{BatchProposed: &pb.ToolBatchProposedEvent{BatchId: event.BatchID, Calls: proposedCalls}}}
