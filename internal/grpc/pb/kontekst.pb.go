@@ -395,7 +395,8 @@ type StartRunCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Prompt        string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	AgentName     string                 `protobuf:"bytes,3,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"` // Agent to use for this run (empty = use default)
+	AgentName     string                 `protobuf:"bytes,3,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
+	WorkingDir    string                 `protobuf:"bytes,4,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -447,6 +448,13 @@ func (x *StartRunCommand) GetSessionId() string {
 func (x *StartRunCommand) GetAgentName() string {
 	if x != nil {
 		return x.AgentName
+	}
+	return ""
+}
+
+func (x *StartRunCommand) GetWorkingDir() string {
+	if x != nil {
+		return x.WorkingDir
 	}
 	return ""
 }
@@ -1534,13 +1542,15 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"approveAll\x12:\n" +
 	"\bdeny_all\x18\x05 \x01(\v2\x1d.kontekst.DenyAllToolsCommandH\x00R\adenyAll\x124\n" +
 	"\x06cancel\x18\x06 \x01(\v2\x1a.kontekst.CancelRunCommandH\x00R\x06cancelB\t\n" +
-	"\acommand\"g\n" +
+	"\acommand\"\x88\x01\n" +
 	"\x0fStartRunCommand\x12\x16\n" +
 	"\x06prompt\x18\x01 \x01(\tR\x06prompt\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1d\n" +
 	"\n" +
-	"agent_name\x18\x03 \x01(\tR\tagentName\"-\n" +
+	"agent_name\x18\x03 \x01(\tR\tagentName\x12\x1f\n" +
+	"\vworking_dir\x18\x04 \x01(\tR\n" +
+	"workingDir\"-\n" +
 	"\x12ApproveToolCommand\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\"B\n" +
 	"\x0fDenyToolCommand\x12\x17\n" +

@@ -73,7 +73,7 @@ func main() {
 	}
 
 	toolRegistry := tools.NewRegistry()
-	builtin.RegisterAll(toolRegistry, daemonConfig.DataDir)
+	builtin.RegisterAll(toolRegistry, daemonConfig.DataDir, daemonConfig.Tools)
 
 	contextService := &context.FileContextService{
 		BaseDir:        daemonConfig.DataDir,

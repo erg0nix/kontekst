@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/tools"
 )
 
 func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pendingCall, eventChannel chan<- AgentEvent) error {
@@ -22,6 +23,9 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		if agent.workingDir != "" {
+			ctx = tools.WithWorkingDir(ctx, agent.workingDir)
+		}
 		eventChannel <- AgentEvent{Type: EvtToolStarted, RunID: runID, CallID: call.ID}
 		output, err := agent.tools.Execute(call.Name, call.Args, ctx)
 		cancel()

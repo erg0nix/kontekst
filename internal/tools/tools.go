@@ -8,6 +8,21 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+type contextKey string
+
+const workingDirKey contextKey = "workingDir"
+
+func WithWorkingDir(ctx context.Context, dir string) context.Context {
+	return context.WithValue(ctx, workingDirKey, dir)
+}
+
+func WorkingDir(ctx context.Context) string {
+	if dir, ok := ctx.Value(workingDirKey).(string); ok {
+		return dir
+	}
+	return ""
+}
+
 type Tool interface {
 	Name() string
 	Description() string

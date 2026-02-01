@@ -26,7 +26,7 @@ func (tool *ReadFile) Parameters() map[string]any {
 }
 func (tool *ReadFile) RequiresApproval() bool { return true }
 
-func (tool *ReadFile) Execute(args map[string]any, _ context.Context) (string, error) {
+func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string, error) {
 	path, ok := getStringArg("path", args)
 
 	if !ok {
@@ -37,7 +37,8 @@ func (tool *ReadFile) Execute(args map[string]any, _ context.Context) (string, e
 		return "", errors.New("absolute or parent paths are not allowed")
 	}
 
-	fullPath := filepath.Join(tool.BaseDir, path)
+	baseDir := resolveBaseDir(ctx, tool.BaseDir)
+	fullPath := filepath.Join(baseDir, path)
 	data, err := os.ReadFile(fullPath)
 
 	if err != nil {

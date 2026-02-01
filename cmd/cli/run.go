@@ -62,7 +62,14 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := stream.Send(&pb.RunCommand{Command: &pb.RunCommand_Start{Start: &pb.StartRunCommand{Prompt: prompt, SessionId: sessionID, AgentName: agentName}}}); err != nil {
+	workingDir, _ := os.Getwd()
+	startCmd := &pb.StartRunCommand{
+		Prompt:     prompt,
+		SessionId:  sessionID,
+		AgentName:  agentName,
+		WorkingDir: workingDir,
+	}
+	if err := stream.Send(&pb.RunCommand{Command: &pb.RunCommand_Start{Start: startCmd}}); err != nil {
 		return err
 	}
 

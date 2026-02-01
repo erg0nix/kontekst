@@ -9,7 +9,15 @@ import (
 )
 
 type Runner interface {
-	StartRun(prompt string, sessionID core.SessionID, agentName string, agentSystemPrompt string, sampling *core.SamplingConfig, model string) (chan<- AgentCommand, <-chan AgentEvent, error)
+	StartRun(
+		prompt string,
+		sessionID core.SessionID,
+		agentName string,
+		agentSystemPrompt string,
+		sampling *core.SamplingConfig,
+		model string,
+		workingDir string,
+	) (chan<- AgentCommand, <-chan AgentEvent, error)
 }
 
 type AgentRunner struct {
@@ -20,7 +28,15 @@ type AgentRunner struct {
 	Runs     sessions.RunService
 }
 
-func (runner *AgentRunner) StartRun(prompt string, sessionID core.SessionID, agentName string, agentSystemPrompt string, sampling *core.SamplingConfig, model string) (chan<- AgentCommand, <-chan AgentEvent, error) {
+func (runner *AgentRunner) StartRun(
+	prompt string,
+	sessionID core.SessionID,
+	agentName string,
+	agentSystemPrompt string,
+	sampling *core.SamplingConfig,
+	model string,
+	workingDir string,
+) (chan<- AgentCommand, <-chan AgentEvent, error) {
 	if sessionID == "" {
 		newSessionID, _, err := runner.Sessions.Create()
 		if err != nil {
@@ -43,7 +59,7 @@ func (runner *AgentRunner) StartRun(prompt string, sessionID core.SessionID, age
 		ctxWindow.SetAgentSystemPrompt(agentSystemPrompt)
 	}
 
-	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, agentName, sampling, model)
+	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, agentName, sampling, model, workingDir)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)

@@ -1,4 +1,4 @@
-.PHONY: build proto run
+.PHONY: build proto run test
 
 RUN_ARGS ?= $(filter-out $@,$(MAKECMDGOALS))
 
@@ -13,6 +13,9 @@ proto:
 
 run: build
 	./bin/kontekst $(RUN_ARGS)
+
+test:
+	go test ./...
 
 %:
 	@:
