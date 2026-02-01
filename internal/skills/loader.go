@@ -9,11 +9,10 @@ import (
 )
 
 type skillFrontmatter struct {
-	Name                   string   `toml:"name"`
-	Description            string   `toml:"description"`
-	DisableModelInvocation bool     `toml:"disable_model_invocation"`
-	UserInvocable          *bool    `toml:"user_invocable"`
-	AllowedTools           []string `toml:"allowed_tools"`
+	Name                   string `toml:"name"`
+	Description            string `toml:"description"`
+	DisableModelInvocation bool   `toml:"disable_model_invocation"`
+	UserInvocable          *bool  `toml:"user_invocable"`
 }
 
 func loadSkillFile(path string) (*Skill, error) {
@@ -49,7 +48,6 @@ func loadSkillFile(path string) (*Skill, error) {
 		Path:                   filepath.Dir(path),
 		DisableModelInvocation: fm.DisableModelInvocation,
 		UserInvocable:          userInvocable,
-		AllowedTools:           fm.AllowedTools,
 	}, nil
 }
 

@@ -7,5 +7,4 @@ type Skill struct {
 	Path                   string
 	DisableModelInvocation bool
 	UserInvocable          bool
-	AllowedTools           []string
 }

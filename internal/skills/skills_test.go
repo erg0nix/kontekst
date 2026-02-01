@@ -16,7 +16,6 @@ func TestLoadSkillFile(t *testing.T) {
 	skillContent := `+++
 name = "myskill"
 description = "Test skill"
-allowed_tools = ["read_file", "list_files"]
 +++
 
 Do something with: $ARGUMENTS
@@ -36,9 +35,6 @@ Do something with: $ARGUMENTS
 	}
 	if skill.Description != "Test skill" {
 		t.Errorf("expected description 'Test skill', got %q", skill.Description)
-	}
-	if len(skill.AllowedTools) != 2 {
-		t.Errorf("expected 2 allowed tools, got %d", len(skill.AllowedTools))
 	}
 	if skill.Content != "Do something with: $ARGUMENTS" {
 		t.Errorf("unexpected content: %q", skill.Content)
