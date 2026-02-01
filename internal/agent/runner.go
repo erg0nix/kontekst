@@ -11,18 +11,20 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
+type RunConfig struct {
+	Prompt            string
+	SessionID         core.SessionID
+	AgentName         string
+	AgentSystemPrompt string
+	Sampling          *core.SamplingConfig
+	Model             string
+	WorkingDir        string
+	Skill             *skills.Skill
+	SkillContent      string
+}
+
 type Runner interface {
-	StartRun(
-		prompt string,
-		sessionID core.SessionID,
-		agentName string,
-		agentSystemPrompt string,
-		sampling *core.SamplingConfig,
-		model string,
-		workingDir string,
-		skill *skills.Skill,
-		skillContent string,
-	) (chan<- AgentCommand, <-chan AgentEvent, error)
+	StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error)
 }
 
 type AgentRunner struct {
@@ -33,17 +35,8 @@ type AgentRunner struct {
 	Runs     sessions.RunService
 }
 
-func (runner *AgentRunner) StartRun(
-	prompt string,
-	sessionID core.SessionID,
-	agentName string,
-	agentSystemPrompt string,
-	sampling *core.SamplingConfig,
-	model string,
-	workingDir string,
-	skill *skills.Skill,
-	skillContent string,
-) (chan<- AgentCommand, <-chan AgentEvent, error) {
+func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error) {
+	sessionID := cfg.SessionID
 	if sessionID == "" {
 		newSessionID, _, err := runner.Sessions.Create()
 		if err != nil {
@@ -62,16 +55,17 @@ func (runner *AgentRunner) StartRun(
 		return nil, nil, err
 	}
 
-	if agentSystemPrompt != "" {
-		ctxWindow.SetAgentSystemPrompt(agentSystemPrompt)
+	if cfg.AgentSystemPrompt != "" {
+		ctxWindow.SetAgentSystemPrompt(cfg.AgentSystemPrompt)
 	}
 
-	if skill != nil && skillContent != "" {
-		ctxWindow.SetActiveSkill(skill)
-		prompt = fmt.Sprintf("[Skill: %s]\nBase path: %s\n\n%s\n\n---\n\n%s", skill.Name, skill.Path, skillContent, prompt)
+	prompt := cfg.Prompt
+	if cfg.Skill != nil && cfg.SkillContent != "" {
+		ctxWindow.SetActiveSkill(&core.SkillMetadata{Name: cfg.Skill.Name, Path: cfg.Skill.Path})
+		prompt = fmt.Sprintf("%s\n\n---\n\n%s", cfg.Skill.FormatContent(cfg.SkillContent), prompt)
 	}
 
-	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, agentName, sampling, model, workingDir)
+	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, cfg.AgentName, cfg.Sampling, cfg.Model, cfg.WorkingDir)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)
@@ -80,7 +74,7 @@ func (runner *AgentRunner) StartRun(
 		for event := range eventChannel {
 			if event.Type == EvtRunStarted {
 				event.SessionID = sessionID
-				event.AgentName = agentName
+				event.AgentName = cfg.AgentName
 			}
 
 			switch event.Type {

@@ -56,6 +56,11 @@ type SamplingConfig struct {
 	MaxTokens     *int
 }
 
+type SkillMetadata struct {
+	Name string
+	Path string
+}
+
 type RunID string
 
 type SessionID string
