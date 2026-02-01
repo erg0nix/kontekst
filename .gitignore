@@ -79,3 +79,6 @@ bin/
 
 # Git worktrees
 .worktrees/
+
+# Planning documents
+docs/plans/
