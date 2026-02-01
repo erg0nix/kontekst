@@ -125,6 +125,85 @@ func TestSkillToolExecuteNotFound(t *testing.T) {
 	}
 }
 
+func TestSkillToolIntegrationWithActiveSkill(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	skillDir := filepath.Join(tmpDir, "review")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	skillContent := `+++
+name = "review"
+description = "Review pull request"
++++
+
+Review PR #$0
+
+Steps:
+1. Check the diff
+2. Look for issues
+`
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	registry := skills.NewRegistry(tmpDir)
+	if err := registry.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &SkillTool{Registry: registry}
+
+	var injectedMsg core.Message
+	var activeSkill *core.SkillMetadata
+
+	callbacks := &SkillCallbacks{
+		ContextInjector: func(msg core.Message) error {
+			injectedMsg = msg
+			return nil
+		},
+		SetActiveSkill: func(skill *core.SkillMetadata) {
+			activeSkill = skill
+		},
+	}
+
+	ctx := WithSkillCallbacks(context.Background(), callbacks)
+
+	result, err := tool.Execute(map[string]any{
+		"name":      "review",
+		"arguments": "123",
+	}, ctx)
+
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	if !strings.Contains(result, "review") {
+		t.Errorf("result should mention skill name, got: %s", result)
+	}
+
+	if activeSkill == nil {
+		t.Fatal("SetActiveSkill callback was not called")
+	}
+	if activeSkill.Name != "review" {
+		t.Errorf("active skill name should be 'review', got: %s", activeSkill.Name)
+	}
+	if activeSkill.Path != skillDir {
+		t.Errorf("active skill path mismatch, want: %s, got: %s", skillDir, activeSkill.Path)
+	}
+
+	if !strings.Contains(injectedMsg.Content, "[Skill: review]") {
+		t.Errorf("injected content should contain skill header, got: %s", injectedMsg.Content)
+	}
+	if !strings.Contains(injectedMsg.Content, "Base path:") {
+		t.Errorf("injected content should contain base path, got: %s", injectedMsg.Content)
+	}
+	if !strings.Contains(injectedMsg.Content, "Review PR #123") {
+		t.Errorf("injected content should contain rendered argument, got: %s", injectedMsg.Content)
+	}
+}
+
 func TestSkillToolExecuteDisabledModelInvocation(t *testing.T) {
 	tmpDir := t.TempDir()
 

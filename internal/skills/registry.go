@@ -72,19 +72,6 @@ func (r *Registry) Get(name string) (*Skill, bool) {
 	return skill, ok
 }
 
-func (r *Registry) UserInvocableSkills() []*Skill {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var result []*Skill
-	for _, skill := range r.skills {
-		if skill.UserInvocable {
-			result = append(result, skill)
-		}
-	}
-	return result
-}
-
 func (r *Registry) ModelInvocableSkills() []*Skill {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -109,15 +96,4 @@ func (r *Registry) Summaries() string {
 		sb.WriteString(fmt.Sprintf("- %s: %s\n", s.Name, s.Description))
 	}
 	return sb.String()
-}
-
-func (r *Registry) All() []*Skill {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	result := make([]*Skill, 0, len(r.skills))
-	for _, skill := range r.skills {
-		result = append(result, skill)
-	}
-	return result
 }

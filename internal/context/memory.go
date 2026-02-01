@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/skills"
 )
 
 type InMemoryContext struct {
@@ -14,7 +13,7 @@ type InMemoryContext struct {
 	SystemTemplate    string
 	UserTemplate      string
 	AgentSystemPrompt string
-	activeSkill       *skills.Skill
+	activeSkill       *core.SkillMetadata
 }
 
 func (contextWindow *InMemoryContext) AddMessage(msg core.Message) error {
@@ -43,11 +42,11 @@ func (contextWindow *InMemoryContext) SetAgentSystemPrompt(prompt string) {
 	contextWindow.AgentSystemPrompt = prompt
 }
 
-func (contextWindow *InMemoryContext) SetActiveSkill(skill *skills.Skill) {
+func (contextWindow *InMemoryContext) SetActiveSkill(skill *core.SkillMetadata) {
 	contextWindow.activeSkill = skill
 }
 
-func (contextWindow *InMemoryContext) ActiveSkill() *skills.Skill {
+func (contextWindow *InMemoryContext) ActiveSkill() *core.SkillMetadata {
 	return contextWindow.activeSkill
 }
 

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/skills"
 	"github.com/erg0nix/kontekst/internal/tools"
 	"github.com/erg0nix/kontekst/internal/tools/builtin"
 )
@@ -15,7 +14,7 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 		ContextInjector: func(msg core.Message) error {
 			return agent.context.AddMessage(msg)
 		},
-		SetActiveSkill: func(skill *skills.Skill) {
+		SetActiveSkill: func(skill *core.SkillMetadata) {
 			agent.context.SetActiveSkill(skill)
 		},
 	}

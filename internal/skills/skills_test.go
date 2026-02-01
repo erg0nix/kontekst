@@ -3,6 +3,7 @@ package skills
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -93,6 +94,78 @@ Test content
 	skills := registry.ModelInvocableSkills()
 	if len(skills) != 1 {
 		t.Errorf("expected 1 model-invocable skill, got %d", len(skills))
+	}
+}
+
+func TestRegistrySummaries(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	skill1Content := `+++
+name = "commit"
+description = "Create a commit"
++++
+
+Commit skill content
+`
+	skill2Content := `+++
+name = "review"
+description = "Review code changes"
++++
+
+Review skill content
+`
+	skill3Content := `+++
+name = "hidden"
+description = "Hidden skill"
+disable_model_invocation = true
++++
+
+Hidden skill content
+`
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "commit.md"), []byte(skill1Content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "review.md"), []byte(skill2Content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "hidden.md"), []byte(skill3Content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	registry := NewRegistry(tmpDir)
+	if err := registry.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	summaries := registry.Summaries()
+
+	if summaries == "" {
+		t.Fatal("Summaries returned empty string")
+	}
+
+	if !strings.Contains(summaries, "- commit: Create a commit") {
+		t.Errorf("Summaries missing commit skill: %q", summaries)
+	}
+	if !strings.Contains(summaries, "- review: Review code changes") {
+		t.Errorf("Summaries missing review skill: %q", summaries)
+	}
+	if strings.Contains(summaries, "hidden") {
+		t.Errorf("Summaries should not include hidden skill: %q", summaries)
+	}
+}
+
+func TestRegistrySummariesEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	registry := NewRegistry(tmpDir)
+	if err := registry.Load(); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	summaries := registry.Summaries()
+	if summaries != "" {
+		t.Errorf("Expected empty summaries for empty registry, got %q", summaries)
 	}
 }
 

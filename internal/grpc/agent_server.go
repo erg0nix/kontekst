@@ -81,20 +81,20 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 					continue
 				}
 				skill = loadedSkill
-				skillContent = fmt.Sprintf("[Skill: %s]\nBase path: %s\n\n%s", loadedSkill.Name, loadedSkill.Path, rendered)
+				skillContent = rendered
 			}
 
-			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(
-				startCommand.Prompt,
-				core.SessionID(startCommand.SessionId),
-				agentName,
-				agentSystemPrompt,
-				agentSampling,
-				agentModel,
-				startCommand.WorkingDir,
-				skill,
-				skillContent,
-			)
+			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(agent.RunConfig{
+				Prompt:            startCommand.Prompt,
+				SessionID:         core.SessionID(startCommand.SessionId),
+				AgentName:         agentName,
+				AgentSystemPrompt: agentSystemPrompt,
+				Sampling:          agentSampling,
+				Model:             agentModel,
+				WorkingDir:        startCommand.WorkingDir,
+				Skill:             skill,
+				SkillContent:      skillContent,
+			})
 			if err != nil {
 				_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})
 				continue

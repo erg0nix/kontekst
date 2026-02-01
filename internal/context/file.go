@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/skills"
 )
 
 type FileContextService struct {
@@ -40,7 +39,7 @@ type FileContext struct {
 	UserTemplate      string
 	MaxTokens         int
 	AgentSystemPrompt string
-	activeSkill       *skills.Skill
+	activeSkill       *core.SkillMetadata
 }
 
 func NewFileContext(path string, systemTemplate string, userTemplate string, maxTokens int) (*FileContext, error) {
@@ -93,14 +92,14 @@ func (fileContext *FileContext) SetAgentSystemPrompt(prompt string) {
 	fileContext.AgentSystemPrompt = prompt
 }
 
-func (fileContext *FileContext) SetActiveSkill(skill *skills.Skill) {
+func (fileContext *FileContext) SetActiveSkill(skill *core.SkillMetadata) {
 	fileContext.mu.Lock()
 	defer fileContext.mu.Unlock()
 
 	fileContext.activeSkill = skill
 }
 
-func (fileContext *FileContext) ActiveSkill() *skills.Skill {
+func (fileContext *FileContext) ActiveSkill() *core.SkillMetadata {
 	fileContext.mu.Lock()
 	defer fileContext.mu.Unlock()
 

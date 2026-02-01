@@ -14,7 +14,7 @@ type skillContextKey struct{}
 
 type SkillCallbacks struct {
 	ContextInjector func(msg core.Message) error
-	SetActiveSkill  func(skill *skills.Skill)
+	SetActiveSkill  func(skill *core.SkillMetadata)
 }
 
 func WithSkillCallbacks(ctx context.Context, callbacks *SkillCallbacks) context.Context {
@@ -95,13 +95,12 @@ func (tool *SkillTool) Execute(args map[string]any, ctx context.Context) (string
 	}
 
 	if callbacks.SetActiveSkill != nil {
-		callbacks.SetActiveSkill(skill)
+		callbacks.SetActiveSkill(&core.SkillMetadata{Name: skill.Name, Path: skill.Path})
 	}
 
 	msg := core.Message{
-		Role: core.RoleUser,
-		Content: fmt.Sprintf("[Skill: %s]\nBase path: %s\n\n%s",
-			skill.Name, skill.Path, rendered),
+		Role:    core.RoleUser,
+		Content: skill.FormatContent(rendered),
 	}
 	if err := callbacks.ContextInjector(msg); err != nil {
 		return "", fmt.Errorf("failed to inject skill content: %w", err)
