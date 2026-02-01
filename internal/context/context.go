@@ -1,6 +1,9 @@
 package context
 
-import "github.com/erg0nix/kontekst/internal/core"
+import (
+	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/skills"
+)
 
 type ContextWindow interface {
 	AddMessage(msg core.Message) error
@@ -8,6 +11,8 @@ type ContextWindow interface {
 	RenderUserMessage(prompt string) (string, error)
 	AddToolResult(result core.ToolResult) error
 	SetAgentSystemPrompt(prompt string)
+	SetActiveSkill(skill *skills.Skill)
+	ActiveSkill() *skills.Skill
 }
 
 type ContextService interface {
