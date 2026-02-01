@@ -1,9 +1,11 @@
 package context
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/skills"
 )
 
 type InMemoryContext struct {
@@ -12,6 +14,7 @@ type InMemoryContext struct {
 	SystemTemplate    string
 	UserTemplate      string
 	AgentSystemPrompt string
+	activeSkill       *skills.Skill
 }
 
 func (contextWindow *InMemoryContext) AddMessage(msg core.Message) error {
@@ -25,6 +28,9 @@ func (contextWindow *InMemoryContext) BuildContext(_ func(string) (int, error)) 
 	if contextWindow.AgentSystemPrompt != "" {
 		systemContent = systemContent + "\n\n---\n\n" + contextWindow.AgentSystemPrompt
 	}
+	if contextWindow.activeSkill != nil {
+		systemContent = systemContent + fmt.Sprintf("\n\n<active-skill name=%q path=%q />", contextWindow.activeSkill.Name, contextWindow.activeSkill.Path)
+	}
 
 	systemMessage := core.Message{Role: core.RoleSystem, Content: systemContent}
 	out := []core.Message{systemMessage}
@@ -35,6 +41,14 @@ func (contextWindow *InMemoryContext) BuildContext(_ func(string) (int, error)) 
 
 func (contextWindow *InMemoryContext) SetAgentSystemPrompt(prompt string) {
 	contextWindow.AgentSystemPrompt = prompt
+}
+
+func (contextWindow *InMemoryContext) SetActiveSkill(skill *skills.Skill) {
+	contextWindow.activeSkill = skill
+}
+
+func (contextWindow *InMemoryContext) ActiveSkill() *skills.Skill {
+	return contextWindow.activeSkill
 }
 
 func (contextWindow *InMemoryContext) RenderUserMessage(prompt string) (string, error) {

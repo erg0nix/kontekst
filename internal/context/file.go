@@ -3,12 +3,14 @@ package context
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/skills"
 )
 
 type FileContextService struct {
@@ -38,6 +40,7 @@ type FileContext struct {
 	UserTemplate      string
 	MaxTokens         int
 	AgentSystemPrompt string
+	activeSkill       *skills.Skill
 }
 
 func NewFileContext(path string, systemTemplate string, userTemplate string, maxTokens int) (*FileContext, error) {
@@ -72,6 +75,9 @@ func (fileContext *FileContext) BuildContext(_ func(string) (int, error)) ([]cor
 	if fileContext.AgentSystemPrompt != "" {
 		systemContent = systemContent + "\n\n---\n\n" + fileContext.AgentSystemPrompt
 	}
+	if fileContext.activeSkill != nil {
+		systemContent = systemContent + fmt.Sprintf("\n\n<active-skill name=%q path=%q />", fileContext.activeSkill.Name, fileContext.activeSkill.Path)
+	}
 
 	systemMessage := core.Message{Role: core.RoleSystem, Content: systemContent}
 	out := []core.Message{systemMessage}
@@ -85,6 +91,20 @@ func (fileContext *FileContext) SetAgentSystemPrompt(prompt string) {
 	defer fileContext.mu.Unlock()
 
 	fileContext.AgentSystemPrompt = prompt
+}
+
+func (fileContext *FileContext) SetActiveSkill(skill *skills.Skill) {
+	fileContext.mu.Lock()
+	defer fileContext.mu.Unlock()
+
+	fileContext.activeSkill = skill
+}
+
+func (fileContext *FileContext) ActiveSkill() *skills.Skill {
+	fileContext.mu.Lock()
+	defer fileContext.mu.Unlock()
+
+	return fileContext.activeSkill
 }
 
 func (fileContext *FileContext) RenderUserMessage(prompt string) (string, error) {

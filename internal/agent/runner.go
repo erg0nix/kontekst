@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"fmt"
+
 	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/providers"
@@ -65,7 +67,8 @@ func (runner *AgentRunner) StartRun(
 	}
 
 	if skill != nil && skillContent != "" {
-		_ = ctxWindow.AddMessage(core.Message{Role: core.RoleUser, Content: skillContent})
+		ctxWindow.SetActiveSkill(skill)
+		prompt = fmt.Sprintf("[Skill: %s]\nBase path: %s\n\n%s\n\n---\n\n%s", skill.Name, skill.Path, skillContent, prompt)
 	}
 
 	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, agentName, sampling, model, workingDir)
