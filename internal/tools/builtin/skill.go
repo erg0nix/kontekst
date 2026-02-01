@@ -84,13 +84,9 @@ func (tool *SkillTool) Execute(args map[string]any, ctx context.Context) (string
 		return "", fmt.Errorf("skill '%s' can only be invoked by user with /%s", name, name)
 	}
 
-	rendered, shellCmds, err := skill.Render(arguments)
+	rendered, err := skill.Render(arguments)
 	if err != nil {
 		return "", fmt.Errorf("failed to render skill: %w", err)
-	}
-
-	if len(shellCmds) > 0 {
-		return "", fmt.Errorf("skill '%s' has shell preprocessing (!`cmd`), invoke with /%s instead", name, name)
 	}
 
 	callbacks := GetSkillCallbacks(ctx)

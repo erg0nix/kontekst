@@ -51,41 +51,14 @@ func TestSkillRender(t *testing.T) {
 		Content: "File: $0\nAll args: $ARGUMENTS",
 	}
 
-	rendered, shellCmds, err := skill.Render("file.go extra args")
+	rendered, err := skill.Render("file.go extra args")
 	if err != nil {
 		t.Fatalf("Render failed: %v", err)
-	}
-
-	if len(shellCmds) != 0 {
-		t.Errorf("expected no shell commands, got %d", len(shellCmds))
 	}
 
 	expected := "File: file.go\nAll args: file.go extra args"
 	if rendered != expected {
 		t.Errorf("expected %q, got %q", expected, rendered)
-	}
-}
-
-func TestSkillRenderShellCommands(t *testing.T) {
-	skill := &Skill{
-		Name:    "test",
-		Content: "Status: !`git status`\nBranch: !`git branch`",
-	}
-
-	_, shellCmds, err := skill.Render("")
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
-
-	if len(shellCmds) != 2 {
-		t.Fatalf("expected 2 shell commands, got %d", len(shellCmds))
-	}
-
-	if shellCmds[0].Command != "git status" {
-		t.Errorf("expected 'git status', got %q", shellCmds[0].Command)
-	}
-	if shellCmds[1].Command != "git branch" {
-		t.Errorf("expected 'git branch', got %q", shellCmds[1].Command)
 	}
 }
 
