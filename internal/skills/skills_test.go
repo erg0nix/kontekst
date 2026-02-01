@@ -98,9 +98,9 @@ Test content
 
 func TestParseFrontmatter(t *testing.T) {
 	tests := []struct {
-		input       string
-		wantFM      string
-		wantBody    string
+		input    string
+		wantFM   string
+		wantBody string
 	}{
 		{
 			input:    "no frontmatter",
