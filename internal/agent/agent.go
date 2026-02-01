@@ -8,16 +8,33 @@ import (
 )
 
 type Agent struct {
-	provider  providers.ProviderRouter
-	tools     tools.ToolExecutor
-	context   ctx.ContextWindow
-	agentName string
-	sampling  *core.SamplingConfig
-	model     string
+	provider   providers.ProviderRouter
+	tools      tools.ToolExecutor
+	context    ctx.ContextWindow
+	agentName  string
+	sampling   *core.SamplingConfig
+	model      string
+	workingDir string
 }
 
-func New(provider providers.ProviderRouter, toolExecutor tools.ToolExecutor, contextWindow ctx.ContextWindow, agentName string, sampling *core.SamplingConfig, model string) *Agent {
-	return &Agent{provider: provider, tools: toolExecutor, context: contextWindow, agentName: agentName, sampling: sampling, model: model}
+func New(
+	provider providers.ProviderRouter,
+	toolExecutor tools.ToolExecutor,
+	contextWindow ctx.ContextWindow,
+	agentName string,
+	sampling *core.SamplingConfig,
+	model string,
+	workingDir string,
+) *Agent {
+	return &Agent{
+		provider:   provider,
+		tools:      toolExecutor,
+		context:    contextWindow,
+		agentName:  agentName,
+		sampling:   sampling,
+		model:      model,
+		workingDir: workingDir,
+	}
 }
 
 func (agent *Agent) Run(prompt string) (chan<- AgentCommand, <-chan AgentEvent) {

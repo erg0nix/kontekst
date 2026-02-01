@@ -9,13 +9,29 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+type FileToolsConfig struct {
+	MaxSizeBytes int64 `toml:"max_size_bytes"`
+}
+
+type WebToolsConfig struct {
+	TimeoutSeconds   int   `toml:"timeout_seconds"`
+	MaxResponseBytes int64 `toml:"max_response_bytes"`
+}
+
+type ToolsConfig struct {
+	WorkingDir string          `toml:"working_dir"`
+	File       FileToolsConfig `toml:"file"`
+	Web        WebToolsConfig  `toml:"web"`
+}
+
 type Config struct {
-	Bind        string `toml:"bind"`
-	Endpoint    string `toml:"endpoint"`
-	ModelDir    string `toml:"model_dir"`
-	ContextSize int    `toml:"context_size"`
-	GPULayers   int    `toml:"gpu_layers"`
-	DataDir     string `toml:"data_dir"`
+	Bind        string      `toml:"bind"`
+	Endpoint    string      `toml:"endpoint"`
+	ModelDir    string      `toml:"model_dir"`
+	ContextSize int         `toml:"context_size"`
+	GPULayers   int         `toml:"gpu_layers"`
+	DataDir     string      `toml:"data_dir"`
+	Tools       ToolsConfig `toml:"tools"`
 }
 
 func Default() Config {
@@ -26,6 +42,16 @@ func Default() Config {
 		ContextSize: 4096,
 		GPULayers:   0,
 		DataDir:     defaultDataDir(),
+		Tools: ToolsConfig{
+			WorkingDir: "",
+			File: FileToolsConfig{
+				MaxSizeBytes: 10 * 1024 * 1024,
+			},
+			Web: WebToolsConfig{
+				TimeoutSeconds:   30,
+				MaxResponseBytes: 5 * 1024 * 1024,
+			},
+		},
 	}
 }
 

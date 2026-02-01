@@ -60,7 +60,15 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				agentModel = loadedAgent.Model
 			}
 
-			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(startCommand.Prompt, core.SessionID(startCommand.SessionId), agentName, agentSystemPrompt, agentSampling, agentModel)
+			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(
+				startCommand.Prompt,
+				core.SessionID(startCommand.SessionId),
+				agentName,
+				agentSystemPrompt,
+				agentSampling,
+				agentModel,
+				startCommand.WorkingDir,
+			)
 			if err != nil {
 				_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})
 				continue

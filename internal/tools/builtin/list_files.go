@@ -27,7 +27,7 @@ func (tool *ListFiles) Parameters() map[string]any {
 }
 func (tool *ListFiles) RequiresApproval() bool { return true }
 
-func (tool *ListFiles) Execute(args map[string]any, _ context.Context) (string, error) {
+func (tool *ListFiles) Execute(args map[string]any, ctx context.Context) (string, error) {
 	pattern, ok := getStringArg("pattern", args)
 
 	if !ok {
@@ -38,7 +38,8 @@ func (tool *ListFiles) Execute(args map[string]any, _ context.Context) (string, 
 		return "", errors.New("absolute or parent paths are not allowed")
 	}
 
-	fullPattern := filepath.Join(tool.BaseDir, pattern)
+	baseDir := resolveBaseDir(ctx, tool.BaseDir)
+	fullPattern := filepath.Join(baseDir, pattern)
 	matches, err := filepath.Glob(fullPattern)
 
 	if err != nil {
@@ -58,7 +59,7 @@ func (tool *ListFiles) Execute(args map[string]any, _ context.Context) (string, 
 			continue
 		}
 
-		relativePath, _ := filepath.Rel(tool.BaseDir, m)
+		relativePath, _ := filepath.Rel(baseDir, m)
 		out = append(out, relativePath)
 	}
 

@@ -42,7 +42,8 @@ message RunCommand {
 message StartRunCommand {
   string prompt = 1;
   string session_id = 2;
-  string agent_name = 3; // Agent to use for this run (empty = use default)
+  string agent_name = 3;
+  string working_dir = 4;
 }
 message ApproveToolCommand { string call_id = 1; }
 message DenyToolCommand { string call_id = 1; string reason = 2; }
