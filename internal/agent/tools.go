@@ -5,10 +5,21 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/skills"
 	"github.com/erg0nix/kontekst/internal/tools"
+	"github.com/erg0nix/kontekst/internal/tools/builtin"
 )
 
 func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pendingCall, eventChannel chan<- AgentEvent) error {
+	skillCallbacks := &builtin.SkillCallbacks{
+		ContextInjector: func(msg core.Message) error {
+			return agent.context.AddMessage(msg)
+		},
+		SetActiveSkill: func(skill *skills.Skill) {
+			agent.activeSkill = skill
+		},
+	}
+
 	for _, call := range calls {
 		if call.Approved != nil && !*call.Approved {
 			reason := call.Reason
@@ -26,6 +37,7 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 		if agent.workingDir != "" {
 			ctx = tools.WithWorkingDir(ctx, agent.workingDir)
 		}
+		ctx = builtin.WithSkillCallbacks(ctx, skillCallbacks)
 		eventChannel <- AgentEvent{Type: EvtToolStarted, RunID: runID, CallID: call.ID}
 		output, err := agent.tools.Execute(call.Name, call.Args, ctx)
 		cancel()

@@ -2,16 +2,19 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/core"
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
+	"github.com/erg0nix/kontekst/internal/skills"
 )
 
 type AgentHandler struct {
 	Runner   agent.Runner
 	Registry *agent.Registry
+	Skills   *skills.Registry
 	pb.UnimplementedAgentServiceServer
 }
 
@@ -60,6 +63,31 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				agentModel = loadedAgent.Model
 			}
 
+			var skill *skills.Skill
+			var skillContent string
+			if startCommand.Skill != nil && startCommand.Skill.Name != "" {
+				if h.Skills == nil {
+					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "skills not available"}}})
+					continue
+				}
+				loadedSkill, found := h.Skills.Get(startCommand.Skill.Name)
+				if !found {
+					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("skill not found: %s", startCommand.Skill.Name)}}})
+					continue
+				}
+				rendered, shellCmds, err := loadedSkill.Render(startCommand.Skill.Arguments)
+				if err != nil {
+					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("failed to render skill: %v", err)}}})
+					continue
+				}
+				if len(shellCmds) > 0 {
+					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "skill has shell preprocessing which is not yet supported"}}})
+					continue
+				}
+				skill = loadedSkill
+				skillContent = fmt.Sprintf("[Skill: %s]\nBase path: %s\n\n%s", loadedSkill.Name, loadedSkill.Path, rendered)
+			}
+
 			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(
 				startCommand.Prompt,
 				core.SessionID(startCommand.SessionId),
@@ -68,6 +96,8 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				agentSampling,
 				agentModel,
 				startCommand.WorkingDir,
+				skill,
+				skillContent,
 			)
 			if err != nil {
 				_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})

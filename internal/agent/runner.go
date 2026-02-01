@@ -5,6 +5,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/providers"
 	"github.com/erg0nix/kontekst/internal/sessions"
+	"github.com/erg0nix/kontekst/internal/skills"
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
@@ -17,6 +18,8 @@ type Runner interface {
 		sampling *core.SamplingConfig,
 		model string,
 		workingDir string,
+		skill *skills.Skill,
+		skillContent string,
 	) (chan<- AgentCommand, <-chan AgentEvent, error)
 }
 
@@ -36,6 +39,8 @@ func (runner *AgentRunner) StartRun(
 	sampling *core.SamplingConfig,
 	model string,
 	workingDir string,
+	skill *skills.Skill,
+	skillContent string,
 ) (chan<- AgentCommand, <-chan AgentEvent, error) {
 	if sessionID == "" {
 		newSessionID, _, err := runner.Sessions.Create()
@@ -59,7 +64,12 @@ func (runner *AgentRunner) StartRun(
 		ctxWindow.SetAgentSystemPrompt(agentSystemPrompt)
 	}
 
+	if skill != nil && skillContent != "" {
+		_ = ctxWindow.AddMessage(core.Message{Role: core.RoleUser, Content: skillContent})
+	}
+
 	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, agentName, sampling, model, workingDir)
+	agentEngine.SetActiveSkill(skill)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)

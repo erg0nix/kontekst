@@ -255,6 +255,8 @@ type RunCommand struct {
 	//	*RunCommand_ApproveAll
 	//	*RunCommand_DenyAll
 	//	*RunCommand_Cancel
+	//	*RunCommand_ApproveShell
+	//	*RunCommand_DenyShell
 	Command       isRunCommand_Command `protobuf_oneof:"command"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -351,6 +353,24 @@ func (x *RunCommand) GetCancel() *CancelRunCommand {
 	return nil
 }
 
+func (x *RunCommand) GetApproveShell() *ApproveShellPreprocessingCommand {
+	if x != nil {
+		if x, ok := x.Command.(*RunCommand_ApproveShell); ok {
+			return x.ApproveShell
+		}
+	}
+	return nil
+}
+
+func (x *RunCommand) GetDenyShell() *DenyShellPreprocessingCommand {
+	if x != nil {
+		if x, ok := x.Command.(*RunCommand_DenyShell); ok {
+			return x.DenyShell
+		}
+	}
+	return nil
+}
+
 type isRunCommand_Command interface {
 	isRunCommand_Command()
 }
@@ -379,6 +399,14 @@ type RunCommand_Cancel struct {
 	Cancel *CancelRunCommand `protobuf:"bytes,6,opt,name=cancel,proto3,oneof"`
 }
 
+type RunCommand_ApproveShell struct {
+	ApproveShell *ApproveShellPreprocessingCommand `protobuf:"bytes,7,opt,name=approve_shell,json=approveShell,proto3,oneof"`
+}
+
+type RunCommand_DenyShell struct {
+	DenyShell *DenyShellPreprocessingCommand `protobuf:"bytes,8,opt,name=deny_shell,json=denyShell,proto3,oneof"`
+}
+
 func (*RunCommand_Start) isRunCommand_Command() {}
 
 func (*RunCommand_ApproveTool) isRunCommand_Command() {}
@@ -391,12 +419,17 @@ func (*RunCommand_DenyAll) isRunCommand_Command() {}
 
 func (*RunCommand_Cancel) isRunCommand_Command() {}
 
+func (*RunCommand_ApproveShell) isRunCommand_Command() {}
+
+func (*RunCommand_DenyShell) isRunCommand_Command() {}
+
 type StartRunCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Prompt        string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	AgentName     string                 `protobuf:"bytes,3,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	WorkingDir    string                 `protobuf:"bytes,4,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
+	Skill         *SkillInvocation       `protobuf:"bytes,5,opt,name=skill,proto3" json:"skill,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -459,6 +492,65 @@ func (x *StartRunCommand) GetWorkingDir() string {
 	return ""
 }
 
+func (x *StartRunCommand) GetSkill() *SkillInvocation {
+	if x != nil {
+		return x.Skill
+	}
+	return nil
+}
+
+type SkillInvocation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Arguments     string                 `protobuf:"bytes,2,opt,name=arguments,proto3" json:"arguments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SkillInvocation) Reset() {
+	*x = SkillInvocation{}
+	mi := &file_proto_kontekst_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SkillInvocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SkillInvocation) ProtoMessage() {}
+
+func (x *SkillInvocation) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kontekst_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SkillInvocation.ProtoReflect.Descriptor instead.
+func (*SkillInvocation) Descriptor() ([]byte, []int) {
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SkillInvocation) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SkillInvocation) GetArguments() string {
+	if x != nil {
+		return x.Arguments
+	}
+	return ""
+}
+
 type ApproveToolCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CallId        string                 `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
@@ -468,7 +560,7 @@ type ApproveToolCommand struct {
 
 func (x *ApproveToolCommand) Reset() {
 	*x = ApproveToolCommand{}
-	mi := &file_proto_kontekst_proto_msgTypes[6]
+	mi := &file_proto_kontekst_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -480,7 +572,7 @@ func (x *ApproveToolCommand) String() string {
 func (*ApproveToolCommand) ProtoMessage() {}
 
 func (x *ApproveToolCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[6]
+	mi := &file_proto_kontekst_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -493,7 +585,7 @@ func (x *ApproveToolCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveToolCommand.ProtoReflect.Descriptor instead.
 func (*ApproveToolCommand) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{6}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ApproveToolCommand) GetCallId() string {
@@ -513,7 +605,7 @@ type DenyToolCommand struct {
 
 func (x *DenyToolCommand) Reset() {
 	*x = DenyToolCommand{}
-	mi := &file_proto_kontekst_proto_msgTypes[7]
+	mi := &file_proto_kontekst_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -525,7 +617,7 @@ func (x *DenyToolCommand) String() string {
 func (*DenyToolCommand) ProtoMessage() {}
 
 func (x *DenyToolCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[7]
+	mi := &file_proto_kontekst_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -538,7 +630,7 @@ func (x *DenyToolCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DenyToolCommand.ProtoReflect.Descriptor instead.
 func (*DenyToolCommand) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{7}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DenyToolCommand) GetCallId() string {
@@ -564,7 +656,7 @@ type ApproveAllToolsCommand struct {
 
 func (x *ApproveAllToolsCommand) Reset() {
 	*x = ApproveAllToolsCommand{}
-	mi := &file_proto_kontekst_proto_msgTypes[8]
+	mi := &file_proto_kontekst_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -576,7 +668,7 @@ func (x *ApproveAllToolsCommand) String() string {
 func (*ApproveAllToolsCommand) ProtoMessage() {}
 
 func (x *ApproveAllToolsCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[8]
+	mi := &file_proto_kontekst_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -589,7 +681,7 @@ func (x *ApproveAllToolsCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveAllToolsCommand.ProtoReflect.Descriptor instead.
 func (*ApproveAllToolsCommand) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{8}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ApproveAllToolsCommand) GetBatchId() string {
@@ -609,7 +701,7 @@ type DenyAllToolsCommand struct {
 
 func (x *DenyAllToolsCommand) Reset() {
 	*x = DenyAllToolsCommand{}
-	mi := &file_proto_kontekst_proto_msgTypes[9]
+	mi := &file_proto_kontekst_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -621,7 +713,7 @@ func (x *DenyAllToolsCommand) String() string {
 func (*DenyAllToolsCommand) ProtoMessage() {}
 
 func (x *DenyAllToolsCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[9]
+	mi := &file_proto_kontekst_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -634,7 +726,7 @@ func (x *DenyAllToolsCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DenyAllToolsCommand.ProtoReflect.Descriptor instead.
 func (*DenyAllToolsCommand) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{9}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DenyAllToolsCommand) GetBatchId() string {
@@ -659,7 +751,7 @@ type CancelRunCommand struct {
 
 func (x *CancelRunCommand) Reset() {
 	*x = CancelRunCommand{}
-	mi := &file_proto_kontekst_proto_msgTypes[10]
+	mi := &file_proto_kontekst_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -671,7 +763,7 @@ func (x *CancelRunCommand) String() string {
 func (*CancelRunCommand) ProtoMessage() {}
 
 func (x *CancelRunCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[10]
+	mi := &file_proto_kontekst_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -684,7 +776,103 @@ func (x *CancelRunCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelRunCommand.ProtoReflect.Descriptor instead.
 func (*CancelRunCommand) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{10}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{11}
+}
+
+type ApproveShellPreprocessingCommand struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SkillName     string                 `protobuf:"bytes,1,opt,name=skill_name,json=skillName,proto3" json:"skill_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveShellPreprocessingCommand) Reset() {
+	*x = ApproveShellPreprocessingCommand{}
+	mi := &file_proto_kontekst_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveShellPreprocessingCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveShellPreprocessingCommand) ProtoMessage() {}
+
+func (x *ApproveShellPreprocessingCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kontekst_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveShellPreprocessingCommand.ProtoReflect.Descriptor instead.
+func (*ApproveShellPreprocessingCommand) Descriptor() ([]byte, []int) {
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ApproveShellPreprocessingCommand) GetSkillName() string {
+	if x != nil {
+		return x.SkillName
+	}
+	return ""
+}
+
+type DenyShellPreprocessingCommand struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SkillName     string                 `protobuf:"bytes,1,opt,name=skill_name,json=skillName,proto3" json:"skill_name,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DenyShellPreprocessingCommand) Reset() {
+	*x = DenyShellPreprocessingCommand{}
+	mi := &file_proto_kontekst_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DenyShellPreprocessingCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DenyShellPreprocessingCommand) ProtoMessage() {}
+
+func (x *DenyShellPreprocessingCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kontekst_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DenyShellPreprocessingCommand.ProtoReflect.Descriptor instead.
+func (*DenyShellPreprocessingCommand) Descriptor() ([]byte, []int) {
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *DenyShellPreprocessingCommand) GetSkillName() string {
+	if x != nil {
+		return x.SkillName
+	}
+	return ""
+}
+
+func (x *DenyShellPreprocessingCommand) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
 }
 
 type RunEvent struct {
@@ -702,6 +890,7 @@ type RunEvent struct {
 	//	*RunEvent_Completed
 	//	*RunEvent_Cancelled
 	//	*RunEvent_Failed
+	//	*RunEvent_ShellProposed
 	Event         isRunEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -709,7 +898,7 @@ type RunEvent struct {
 
 func (x *RunEvent) Reset() {
 	*x = RunEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[11]
+	mi := &file_proto_kontekst_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -721,7 +910,7 @@ func (x *RunEvent) String() string {
 func (*RunEvent) ProtoMessage() {}
 
 func (x *RunEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[11]
+	mi := &file_proto_kontekst_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -734,7 +923,7 @@ func (x *RunEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunEvent.ProtoReflect.Descriptor instead.
 func (*RunEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{11}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RunEvent) GetEvent() isRunEvent_Event {
@@ -843,6 +1032,15 @@ func (x *RunEvent) GetFailed() *RunFailedEvent {
 	return nil
 }
 
+func (x *RunEvent) GetShellProposed() *ShellPreprocessingProposedEvent {
+	if x != nil {
+		if x, ok := x.Event.(*RunEvent_ShellProposed); ok {
+			return x.ShellProposed
+		}
+	}
+	return nil
+}
+
 type isRunEvent_Event interface {
 	isRunEvent_Event()
 }
@@ -891,6 +1089,10 @@ type RunEvent_Failed struct {
 	Failed *RunFailedEvent `protobuf:"bytes,11,opt,name=failed,proto3,oneof"`
 }
 
+type RunEvent_ShellProposed struct {
+	ShellProposed *ShellPreprocessingProposedEvent `protobuf:"bytes,12,opt,name=shell_proposed,json=shellProposed,proto3,oneof"`
+}
+
 func (*RunEvent_Started) isRunEvent_Event() {}
 
 func (*RunEvent_Token) isRunEvent_Event() {}
@@ -913,6 +1115,8 @@ func (*RunEvent_Cancelled) isRunEvent_Event() {}
 
 func (*RunEvent_Failed) isRunEvent_Event() {}
 
+func (*RunEvent_ShellProposed) isRunEvent_Event() {}
+
 type RunStartedEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
@@ -924,7 +1128,7 @@ type RunStartedEvent struct {
 
 func (x *RunStartedEvent) Reset() {
 	*x = RunStartedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[12]
+	mi := &file_proto_kontekst_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +1140,7 @@ func (x *RunStartedEvent) String() string {
 func (*RunStartedEvent) ProtoMessage() {}
 
 func (x *RunStartedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[12]
+	mi := &file_proto_kontekst_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -949,7 +1153,7 @@ func (x *RunStartedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunStartedEvent.ProtoReflect.Descriptor instead.
 func (*RunStartedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{12}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RunStartedEvent) GetRunId() string {
@@ -982,7 +1186,7 @@ type TokenDeltaEvent struct {
 
 func (x *TokenDeltaEvent) Reset() {
 	*x = TokenDeltaEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[13]
+	mi := &file_proto_kontekst_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +1198,7 @@ func (x *TokenDeltaEvent) String() string {
 func (*TokenDeltaEvent) ProtoMessage() {}
 
 func (x *TokenDeltaEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[13]
+	mi := &file_proto_kontekst_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1007,7 +1211,7 @@ func (x *TokenDeltaEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenDeltaEvent.ProtoReflect.Descriptor instead.
 func (*TokenDeltaEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{13}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *TokenDeltaEvent) GetText() string {
@@ -1026,7 +1230,7 @@ type ReasoningDeltaEvent struct {
 
 func (x *ReasoningDeltaEvent) Reset() {
 	*x = ReasoningDeltaEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[14]
+	mi := &file_proto_kontekst_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1038,7 +1242,7 @@ func (x *ReasoningDeltaEvent) String() string {
 func (*ReasoningDeltaEvent) ProtoMessage() {}
 
 func (x *ReasoningDeltaEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[14]
+	mi := &file_proto_kontekst_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1051,7 +1255,7 @@ func (x *ReasoningDeltaEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReasoningDeltaEvent.ProtoReflect.Descriptor instead.
 func (*ReasoningDeltaEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{14}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ReasoningDeltaEvent) GetText() string {
@@ -1071,7 +1275,7 @@ type ToolBatchProposedEvent struct {
 
 func (x *ToolBatchProposedEvent) Reset() {
 	*x = ToolBatchProposedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[15]
+	mi := &file_proto_kontekst_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1083,7 +1287,7 @@ func (x *ToolBatchProposedEvent) String() string {
 func (*ToolBatchProposedEvent) ProtoMessage() {}
 
 func (x *ToolBatchProposedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[15]
+	mi := &file_proto_kontekst_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1096,7 +1300,7 @@ func (x *ToolBatchProposedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolBatchProposedEvent.ProtoReflect.Descriptor instead.
 func (*ToolBatchProposedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{15}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ToolBatchProposedEvent) GetBatchId() string {
@@ -1125,7 +1329,7 @@ type ProposedToolCall struct {
 
 func (x *ProposedToolCall) Reset() {
 	*x = ProposedToolCall{}
-	mi := &file_proto_kontekst_proto_msgTypes[16]
+	mi := &file_proto_kontekst_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1137,7 +1341,7 @@ func (x *ProposedToolCall) String() string {
 func (*ProposedToolCall) ProtoMessage() {}
 
 func (x *ProposedToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[16]
+	mi := &file_proto_kontekst_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1150,7 +1354,7 @@ func (x *ProposedToolCall) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProposedToolCall.ProtoReflect.Descriptor instead.
 func (*ProposedToolCall) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{16}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ProposedToolCall) GetCallId() string {
@@ -1190,7 +1394,7 @@ type ToolExecutionStartedEvent struct {
 
 func (x *ToolExecutionStartedEvent) Reset() {
 	*x = ToolExecutionStartedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[17]
+	mi := &file_proto_kontekst_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1202,7 +1406,7 @@ func (x *ToolExecutionStartedEvent) String() string {
 func (*ToolExecutionStartedEvent) ProtoMessage() {}
 
 func (x *ToolExecutionStartedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[17]
+	mi := &file_proto_kontekst_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1215,7 +1419,7 @@ func (x *ToolExecutionStartedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolExecutionStartedEvent.ProtoReflect.Descriptor instead.
 func (*ToolExecutionStartedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{17}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ToolExecutionStartedEvent) GetCallId() string {
@@ -1235,7 +1439,7 @@ type ToolExecutionCompletedEvent struct {
 
 func (x *ToolExecutionCompletedEvent) Reset() {
 	*x = ToolExecutionCompletedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[18]
+	mi := &file_proto_kontekst_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1247,7 +1451,7 @@ func (x *ToolExecutionCompletedEvent) String() string {
 func (*ToolExecutionCompletedEvent) ProtoMessage() {}
 
 func (x *ToolExecutionCompletedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[18]
+	mi := &file_proto_kontekst_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1260,7 +1464,7 @@ func (x *ToolExecutionCompletedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolExecutionCompletedEvent.ProtoReflect.Descriptor instead.
 func (*ToolExecutionCompletedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{18}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ToolExecutionCompletedEvent) GetCallId() string {
@@ -1287,7 +1491,7 @@ type ToolExecutionFailedEvent struct {
 
 func (x *ToolExecutionFailedEvent) Reset() {
 	*x = ToolExecutionFailedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[19]
+	mi := &file_proto_kontekst_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1299,7 +1503,7 @@ func (x *ToolExecutionFailedEvent) String() string {
 func (*ToolExecutionFailedEvent) ProtoMessage() {}
 
 func (x *ToolExecutionFailedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[19]
+	mi := &file_proto_kontekst_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1312,7 +1516,7 @@ func (x *ToolExecutionFailedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolExecutionFailedEvent.ProtoReflect.Descriptor instead.
 func (*ToolExecutionFailedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{19}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ToolExecutionFailedEvent) GetCallId() string {
@@ -1338,7 +1542,7 @@ type ToolBatchCompletedEvent struct {
 
 func (x *ToolBatchCompletedEvent) Reset() {
 	*x = ToolBatchCompletedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[20]
+	mi := &file_proto_kontekst_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1350,7 +1554,7 @@ func (x *ToolBatchCompletedEvent) String() string {
 func (*ToolBatchCompletedEvent) ProtoMessage() {}
 
 func (x *ToolBatchCompletedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[20]
+	mi := &file_proto_kontekst_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1363,7 +1567,7 @@ func (x *ToolBatchCompletedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolBatchCompletedEvent.ProtoReflect.Descriptor instead.
 func (*ToolBatchCompletedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{20}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ToolBatchCompletedEvent) GetBatchId() string {
@@ -1383,7 +1587,7 @@ type RunCompletedEvent struct {
 
 func (x *RunCompletedEvent) Reset() {
 	*x = RunCompletedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[21]
+	mi := &file_proto_kontekst_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1395,7 +1599,7 @@ func (x *RunCompletedEvent) String() string {
 func (*RunCompletedEvent) ProtoMessage() {}
 
 func (x *RunCompletedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[21]
+	mi := &file_proto_kontekst_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1408,7 +1612,7 @@ func (x *RunCompletedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunCompletedEvent.ProtoReflect.Descriptor instead.
 func (*RunCompletedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{21}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RunCompletedEvent) GetRunId() string {
@@ -1434,7 +1638,7 @@ type RunCancelledEvent struct {
 
 func (x *RunCancelledEvent) Reset() {
 	*x = RunCancelledEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[22]
+	mi := &file_proto_kontekst_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1446,7 +1650,7 @@ func (x *RunCancelledEvent) String() string {
 func (*RunCancelledEvent) ProtoMessage() {}
 
 func (x *RunCancelledEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[22]
+	mi := &file_proto_kontekst_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1459,7 +1663,7 @@ func (x *RunCancelledEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunCancelledEvent.ProtoReflect.Descriptor instead.
 func (*RunCancelledEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{22}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RunCancelledEvent) GetRunId() string {
@@ -1479,7 +1683,7 @@ type RunFailedEvent struct {
 
 func (x *RunFailedEvent) Reset() {
 	*x = RunFailedEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[23]
+	mi := &file_proto_kontekst_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1491,7 +1695,7 @@ func (x *RunFailedEvent) String() string {
 func (*RunFailedEvent) ProtoMessage() {}
 
 func (x *RunFailedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[23]
+	mi := &file_proto_kontekst_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1504,7 +1708,7 @@ func (x *RunFailedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunFailedEvent.ProtoReflect.Descriptor instead.
 func (*RunFailedEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{23}
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RunFailedEvent) GetRunId() string {
@@ -1519,6 +1723,58 @@ func (x *RunFailedEvent) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+type ShellPreprocessingProposedEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SkillName     string                 `protobuf:"bytes,1,opt,name=skill_name,json=skillName,proto3" json:"skill_name,omitempty"`
+	Commands      []string               `protobuf:"bytes,2,rep,name=commands,proto3" json:"commands,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShellPreprocessingProposedEvent) Reset() {
+	*x = ShellPreprocessingProposedEvent{}
+	mi := &file_proto_kontekst_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShellPreprocessingProposedEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShellPreprocessingProposedEvent) ProtoMessage() {}
+
+func (x *ShellPreprocessingProposedEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_kontekst_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShellPreprocessingProposedEvent.ProtoReflect.Descriptor instead.
+func (*ShellPreprocessingProposedEvent) Descriptor() ([]byte, []int) {
+	return file_proto_kontekst_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ShellPreprocessingProposedEvent) GetSkillName() string {
+	if x != nil {
+		return x.SkillName
+	}
+	return ""
+}
+
+func (x *ShellPreprocessingProposedEvent) GetCommands() []string {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
 }
 
 var File_proto_kontekst_proto protoreflect.FileDescriptor
@@ -1540,7 +1796,7 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\bdata_dir\x18\v \x01(\tR\adataDir\"\x11\n" +
 	"\x0fShutdownRequest\",\n" +
 	"\x10ShutdownResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\xfe\x02\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x9b\x04\n" +
 	"\n" +
 	"RunCommand\x121\n" +
 	"\x05start\x18\x01 \x01(\v2\x19.kontekst.StartRunCommandH\x00R\x05start\x12A\n" +
@@ -1549,8 +1805,11 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\vapprove_all\x18\x04 \x01(\v2 .kontekst.ApproveAllToolsCommandH\x00R\n" +
 	"approveAll\x12:\n" +
 	"\bdeny_all\x18\x05 \x01(\v2\x1d.kontekst.DenyAllToolsCommandH\x00R\adenyAll\x124\n" +
-	"\x06cancel\x18\x06 \x01(\v2\x1a.kontekst.CancelRunCommandH\x00R\x06cancelB\t\n" +
-	"\acommand\"\x88\x01\n" +
+	"\x06cancel\x18\x06 \x01(\v2\x1a.kontekst.CancelRunCommandH\x00R\x06cancel\x12Q\n" +
+	"\rapprove_shell\x18\a \x01(\v2*.kontekst.ApproveShellPreprocessingCommandH\x00R\fapproveShell\x12H\n" +
+	"\n" +
+	"deny_shell\x18\b \x01(\v2'.kontekst.DenyShellPreprocessingCommandH\x00R\tdenyShellB\t\n" +
+	"\acommand\"\xb9\x01\n" +
 	"\x0fStartRunCommand\x12\x16\n" +
 	"\x06prompt\x18\x01 \x01(\tR\x06prompt\x12\x1d\n" +
 	"\n" +
@@ -1558,7 +1817,11 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\n" +
 	"agent_name\x18\x03 \x01(\tR\tagentName\x12\x1f\n" +
 	"\vworking_dir\x18\x04 \x01(\tR\n" +
-	"workingDir\"-\n" +
+	"workingDir\x12/\n" +
+	"\x05skill\x18\x05 \x01(\v2\x19.kontekst.SkillInvocationR\x05skill\"C\n" +
+	"\x0fSkillInvocation\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
+	"\targuments\x18\x02 \x01(\tR\targuments\"-\n" +
 	"\x12ApproveToolCommand\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\"B\n" +
 	"\x0fDenyToolCommand\x12\x17\n" +
@@ -1569,7 +1832,14 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\x13DenyAllToolsCommand\x12\x19\n" +
 	"\bbatch_id\x18\x01 \x01(\tR\abatchId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"\x12\n" +
-	"\x10CancelRunCommand\"\xe4\x05\n" +
+	"\x10CancelRunCommand\"A\n" +
+	" ApproveShellPreprocessingCommand\x12\x1d\n" +
+	"\n" +
+	"skill_name\x18\x01 \x01(\tR\tskillName\"V\n" +
+	"\x1dDenyShellPreprocessingCommand\x12\x1d\n" +
+	"\n" +
+	"skill_name\x18\x01 \x01(\tR\tskillName\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"\xb8\x06\n" +
 	"\bRunEvent\x125\n" +
 	"\astarted\x18\x01 \x01(\v2\x19.kontekst.RunStartedEventH\x00R\astarted\x121\n" +
 	"\x05token\x18\x02 \x01(\v2\x19.kontekst.TokenDeltaEventH\x00R\x05token\x12=\n" +
@@ -1583,7 +1853,8 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\tcompleted\x18\t \x01(\v2\x1b.kontekst.RunCompletedEventH\x00R\tcompleted\x12;\n" +
 	"\tcancelled\x18\n" +
 	" \x01(\v2\x1b.kontekst.RunCancelledEventH\x00R\tcancelled\x122\n" +
-	"\x06failed\x18\v \x01(\v2\x18.kontekst.RunFailedEventH\x00R\x06failedB\a\n" +
+	"\x06failed\x18\v \x01(\v2\x18.kontekst.RunFailedEventH\x00R\x06failed\x12R\n" +
+	"\x0eshell_proposed\x18\f \x01(\v2).kontekst.ShellPreprocessingProposedEventH\x00R\rshellProposedB\a\n" +
 	"\x05event\"f\n" +
 	"\x0fRunStartedEvent\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1d\n" +
@@ -1620,7 +1891,11 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\"=\n" +
 	"\x0eRunFailedEvent\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2C\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\\\n" +
+	"\x1fShellPreprocessingProposedEvent\x12\x1d\n" +
+	"\n" +
+	"skill_name\x18\x01 \x01(\tR\tskillName\x12\x1a\n" +
+	"\bcommands\x18\x02 \x03(\tR\bcommands2C\n" +
 	"\fAgentService\x123\n" +
 	"\x03Run\x12\x14.kontekst.RunCommand\x1a\x12.kontekst.RunEvent(\x010\x012\x98\x01\n" +
 	"\rDaemonService\x12D\n" +
@@ -1639,63 +1914,71 @@ func file_proto_kontekst_proto_rawDescGZIP() []byte {
 	return file_proto_kontekst_proto_rawDescData
 }
 
-var file_proto_kontekst_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_proto_kontekst_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_proto_kontekst_proto_goTypes = []any{
-	(*GetStatusRequest)(nil),            // 0: kontekst.GetStatusRequest
-	(*GetStatusResponse)(nil),           // 1: kontekst.GetStatusResponse
-	(*ShutdownRequest)(nil),             // 2: kontekst.ShutdownRequest
-	(*ShutdownResponse)(nil),            // 3: kontekst.ShutdownResponse
-	(*RunCommand)(nil),                  // 4: kontekst.RunCommand
-	(*StartRunCommand)(nil),             // 5: kontekst.StartRunCommand
-	(*ApproveToolCommand)(nil),          // 6: kontekst.ApproveToolCommand
-	(*DenyToolCommand)(nil),             // 7: kontekst.DenyToolCommand
-	(*ApproveAllToolsCommand)(nil),      // 8: kontekst.ApproveAllToolsCommand
-	(*DenyAllToolsCommand)(nil),         // 9: kontekst.DenyAllToolsCommand
-	(*CancelRunCommand)(nil),            // 10: kontekst.CancelRunCommand
-	(*RunEvent)(nil),                    // 11: kontekst.RunEvent
-	(*RunStartedEvent)(nil),             // 12: kontekst.RunStartedEvent
-	(*TokenDeltaEvent)(nil),             // 13: kontekst.TokenDeltaEvent
-	(*ReasoningDeltaEvent)(nil),         // 14: kontekst.ReasoningDeltaEvent
-	(*ToolBatchProposedEvent)(nil),      // 15: kontekst.ToolBatchProposedEvent
-	(*ProposedToolCall)(nil),            // 16: kontekst.ProposedToolCall
-	(*ToolExecutionStartedEvent)(nil),   // 17: kontekst.ToolExecutionStartedEvent
-	(*ToolExecutionCompletedEvent)(nil), // 18: kontekst.ToolExecutionCompletedEvent
-	(*ToolExecutionFailedEvent)(nil),    // 19: kontekst.ToolExecutionFailedEvent
-	(*ToolBatchCompletedEvent)(nil),     // 20: kontekst.ToolBatchCompletedEvent
-	(*RunCompletedEvent)(nil),           // 21: kontekst.RunCompletedEvent
-	(*RunCancelledEvent)(nil),           // 22: kontekst.RunCancelledEvent
-	(*RunFailedEvent)(nil),              // 23: kontekst.RunFailedEvent
+	(*GetStatusRequest)(nil),                 // 0: kontekst.GetStatusRequest
+	(*GetStatusResponse)(nil),                // 1: kontekst.GetStatusResponse
+	(*ShutdownRequest)(nil),                  // 2: kontekst.ShutdownRequest
+	(*ShutdownResponse)(nil),                 // 3: kontekst.ShutdownResponse
+	(*RunCommand)(nil),                       // 4: kontekst.RunCommand
+	(*StartRunCommand)(nil),                  // 5: kontekst.StartRunCommand
+	(*SkillInvocation)(nil),                  // 6: kontekst.SkillInvocation
+	(*ApproveToolCommand)(nil),               // 7: kontekst.ApproveToolCommand
+	(*DenyToolCommand)(nil),                  // 8: kontekst.DenyToolCommand
+	(*ApproveAllToolsCommand)(nil),           // 9: kontekst.ApproveAllToolsCommand
+	(*DenyAllToolsCommand)(nil),              // 10: kontekst.DenyAllToolsCommand
+	(*CancelRunCommand)(nil),                 // 11: kontekst.CancelRunCommand
+	(*ApproveShellPreprocessingCommand)(nil), // 12: kontekst.ApproveShellPreprocessingCommand
+	(*DenyShellPreprocessingCommand)(nil),    // 13: kontekst.DenyShellPreprocessingCommand
+	(*RunEvent)(nil),                         // 14: kontekst.RunEvent
+	(*RunStartedEvent)(nil),                  // 15: kontekst.RunStartedEvent
+	(*TokenDeltaEvent)(nil),                  // 16: kontekst.TokenDeltaEvent
+	(*ReasoningDeltaEvent)(nil),              // 17: kontekst.ReasoningDeltaEvent
+	(*ToolBatchProposedEvent)(nil),           // 18: kontekst.ToolBatchProposedEvent
+	(*ProposedToolCall)(nil),                 // 19: kontekst.ProposedToolCall
+	(*ToolExecutionStartedEvent)(nil),        // 20: kontekst.ToolExecutionStartedEvent
+	(*ToolExecutionCompletedEvent)(nil),      // 21: kontekst.ToolExecutionCompletedEvent
+	(*ToolExecutionFailedEvent)(nil),         // 22: kontekst.ToolExecutionFailedEvent
+	(*ToolBatchCompletedEvent)(nil),          // 23: kontekst.ToolBatchCompletedEvent
+	(*RunCompletedEvent)(nil),                // 24: kontekst.RunCompletedEvent
+	(*RunCancelledEvent)(nil),                // 25: kontekst.RunCancelledEvent
+	(*RunFailedEvent)(nil),                   // 26: kontekst.RunFailedEvent
+	(*ShellPreprocessingProposedEvent)(nil),  // 27: kontekst.ShellPreprocessingProposedEvent
 }
 var file_proto_kontekst_proto_depIdxs = []int32{
 	5,  // 0: kontekst.RunCommand.start:type_name -> kontekst.StartRunCommand
-	6,  // 1: kontekst.RunCommand.approve_tool:type_name -> kontekst.ApproveToolCommand
-	7,  // 2: kontekst.RunCommand.deny_tool:type_name -> kontekst.DenyToolCommand
-	8,  // 3: kontekst.RunCommand.approve_all:type_name -> kontekst.ApproveAllToolsCommand
-	9,  // 4: kontekst.RunCommand.deny_all:type_name -> kontekst.DenyAllToolsCommand
-	10, // 5: kontekst.RunCommand.cancel:type_name -> kontekst.CancelRunCommand
-	12, // 6: kontekst.RunEvent.started:type_name -> kontekst.RunStartedEvent
-	13, // 7: kontekst.RunEvent.token:type_name -> kontekst.TokenDeltaEvent
-	14, // 8: kontekst.RunEvent.reasoning:type_name -> kontekst.ReasoningDeltaEvent
-	15, // 9: kontekst.RunEvent.batch_proposed:type_name -> kontekst.ToolBatchProposedEvent
-	17, // 10: kontekst.RunEvent.tool_started:type_name -> kontekst.ToolExecutionStartedEvent
-	18, // 11: kontekst.RunEvent.tool_completed:type_name -> kontekst.ToolExecutionCompletedEvent
-	19, // 12: kontekst.RunEvent.tool_failed:type_name -> kontekst.ToolExecutionFailedEvent
-	20, // 13: kontekst.RunEvent.batch_completed:type_name -> kontekst.ToolBatchCompletedEvent
-	21, // 14: kontekst.RunEvent.completed:type_name -> kontekst.RunCompletedEvent
-	22, // 15: kontekst.RunEvent.cancelled:type_name -> kontekst.RunCancelledEvent
-	23, // 16: kontekst.RunEvent.failed:type_name -> kontekst.RunFailedEvent
-	16, // 17: kontekst.ToolBatchProposedEvent.calls:type_name -> kontekst.ProposedToolCall
-	4,  // 18: kontekst.AgentService.Run:input_type -> kontekst.RunCommand
-	0,  // 19: kontekst.DaemonService.GetStatus:input_type -> kontekst.GetStatusRequest
-	2,  // 20: kontekst.DaemonService.Shutdown:input_type -> kontekst.ShutdownRequest
-	11, // 21: kontekst.AgentService.Run:output_type -> kontekst.RunEvent
-	1,  // 22: kontekst.DaemonService.GetStatus:output_type -> kontekst.GetStatusResponse
-	3,  // 23: kontekst.DaemonService.Shutdown:output_type -> kontekst.ShutdownResponse
-	21, // [21:24] is the sub-list for method output_type
-	18, // [18:21] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	7,  // 1: kontekst.RunCommand.approve_tool:type_name -> kontekst.ApproveToolCommand
+	8,  // 2: kontekst.RunCommand.deny_tool:type_name -> kontekst.DenyToolCommand
+	9,  // 3: kontekst.RunCommand.approve_all:type_name -> kontekst.ApproveAllToolsCommand
+	10, // 4: kontekst.RunCommand.deny_all:type_name -> kontekst.DenyAllToolsCommand
+	11, // 5: kontekst.RunCommand.cancel:type_name -> kontekst.CancelRunCommand
+	12, // 6: kontekst.RunCommand.approve_shell:type_name -> kontekst.ApproveShellPreprocessingCommand
+	13, // 7: kontekst.RunCommand.deny_shell:type_name -> kontekst.DenyShellPreprocessingCommand
+	6,  // 8: kontekst.StartRunCommand.skill:type_name -> kontekst.SkillInvocation
+	15, // 9: kontekst.RunEvent.started:type_name -> kontekst.RunStartedEvent
+	16, // 10: kontekst.RunEvent.token:type_name -> kontekst.TokenDeltaEvent
+	17, // 11: kontekst.RunEvent.reasoning:type_name -> kontekst.ReasoningDeltaEvent
+	18, // 12: kontekst.RunEvent.batch_proposed:type_name -> kontekst.ToolBatchProposedEvent
+	20, // 13: kontekst.RunEvent.tool_started:type_name -> kontekst.ToolExecutionStartedEvent
+	21, // 14: kontekst.RunEvent.tool_completed:type_name -> kontekst.ToolExecutionCompletedEvent
+	22, // 15: kontekst.RunEvent.tool_failed:type_name -> kontekst.ToolExecutionFailedEvent
+	23, // 16: kontekst.RunEvent.batch_completed:type_name -> kontekst.ToolBatchCompletedEvent
+	24, // 17: kontekst.RunEvent.completed:type_name -> kontekst.RunCompletedEvent
+	25, // 18: kontekst.RunEvent.cancelled:type_name -> kontekst.RunCancelledEvent
+	26, // 19: kontekst.RunEvent.failed:type_name -> kontekst.RunFailedEvent
+	27, // 20: kontekst.RunEvent.shell_proposed:type_name -> kontekst.ShellPreprocessingProposedEvent
+	19, // 21: kontekst.ToolBatchProposedEvent.calls:type_name -> kontekst.ProposedToolCall
+	4,  // 22: kontekst.AgentService.Run:input_type -> kontekst.RunCommand
+	0,  // 23: kontekst.DaemonService.GetStatus:input_type -> kontekst.GetStatusRequest
+	2,  // 24: kontekst.DaemonService.Shutdown:input_type -> kontekst.ShutdownRequest
+	14, // 25: kontekst.AgentService.Run:output_type -> kontekst.RunEvent
+	1,  // 26: kontekst.DaemonService.GetStatus:output_type -> kontekst.GetStatusResponse
+	3,  // 27: kontekst.DaemonService.Shutdown:output_type -> kontekst.ShutdownResponse
+	25, // [25:28] is the sub-list for method output_type
+	22, // [22:25] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_proto_kontekst_proto_init() }
@@ -1710,8 +1993,10 @@ func file_proto_kontekst_proto_init() {
 		(*RunCommand_ApproveAll)(nil),
 		(*RunCommand_DenyAll)(nil),
 		(*RunCommand_Cancel)(nil),
+		(*RunCommand_ApproveShell)(nil),
+		(*RunCommand_DenyShell)(nil),
 	}
-	file_proto_kontekst_proto_msgTypes[11].OneofWrappers = []any{
+	file_proto_kontekst_proto_msgTypes[14].OneofWrappers = []any{
 		(*RunEvent_Started)(nil),
 		(*RunEvent_Token)(nil),
 		(*RunEvent_Reasoning)(nil),
@@ -1723,6 +2008,7 @@ func file_proto_kontekst_proto_init() {
 		(*RunEvent_Completed)(nil),
 		(*RunEvent_Cancelled)(nil),
 		(*RunEvent_Failed)(nil),
+		(*RunEvent_ShellProposed)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1730,7 +2016,7 @@ func file_proto_kontekst_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_kontekst_proto_rawDesc), len(file_proto_kontekst_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   24,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

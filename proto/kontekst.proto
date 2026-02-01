@@ -36,6 +36,8 @@ message RunCommand {
     ApproveAllToolsCommand approve_all = 4;
     DenyAllToolsCommand deny_all = 5;
     CancelRunCommand cancel = 6;
+    ApproveShellPreprocessingCommand approve_shell = 7;
+    DenyShellPreprocessingCommand deny_shell = 8;
   }
 }
 
@@ -44,12 +46,20 @@ message StartRunCommand {
   string session_id = 2;
   string agent_name = 3;
   string working_dir = 4;
+  SkillInvocation skill = 5;
+}
+
+message SkillInvocation {
+  string name = 1;
+  string arguments = 2;
 }
 message ApproveToolCommand { string call_id = 1; }
 message DenyToolCommand { string call_id = 1; string reason = 2; }
 message ApproveAllToolsCommand { string batch_id = 1; }
 message DenyAllToolsCommand { string batch_id = 1; string reason = 2; }
 message CancelRunCommand {}
+message ApproveShellPreprocessingCommand { string skill_name = 1; }
+message DenyShellPreprocessingCommand { string skill_name = 1; string reason = 2; }
 
 message RunEvent {
   oneof event {
@@ -64,6 +74,7 @@ message RunEvent {
     RunCompletedEvent completed = 9;
     RunCancelledEvent cancelled = 10;
     RunFailedEvent failed = 11;
+    ShellPreprocessingProposedEvent shell_proposed = 12;
   }
 }
 
@@ -88,3 +99,4 @@ message ToolBatchCompletedEvent { string batch_id = 1; }
 message RunCompletedEvent { string run_id = 1; string content = 2; }
 message RunCancelledEvent { string run_id = 1; }
 message RunFailedEvent { string run_id = 1; string error = 2; }
+message ShellPreprocessingProposedEvent { string skill_name = 1; repeated string commands = 2; }

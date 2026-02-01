@@ -15,6 +15,7 @@ import (
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
 	"github.com/erg0nix/kontekst/internal/providers"
 	"github.com/erg0nix/kontekst/internal/sessions"
+	"github.com/erg0nix/kontekst/internal/skills"
 	"github.com/erg0nix/kontekst/internal/tools"
 	"github.com/erg0nix/kontekst/internal/tools/builtin"
 
@@ -72,8 +73,15 @@ func main() {
 		}
 	}
 
+	skillsDir := filepath.Join(daemonConfig.DataDir, "skills")
+	skillsRegistry := skills.NewRegistry(skillsDir)
+	if err := skillsRegistry.Load(); err != nil {
+		log.Printf("failed to load skills: %v", err)
+	}
+
 	toolRegistry := tools.NewRegistry()
 	builtin.RegisterAll(toolRegistry, daemonConfig.DataDir, daemonConfig.Tools)
+	builtin.RegisterSkill(toolRegistry, skillsRegistry)
 
 	contextService := &context.FileContextService{
 		BaseDir:        daemonConfig.DataDir,
@@ -101,7 +109,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	agentRegistry := agent.NewRegistry(daemonConfig.DataDir)
-	pb.RegisterAgentServiceServer(grpcServer, &grpcsvc.AgentHandler{Runner: runner, Registry: agentRegistry})
+	pb.RegisterAgentServiceServer(grpcServer, &grpcsvc.AgentHandler{Runner: runner, Registry: agentRegistry, Skills: skillsRegistry})
 	pb.RegisterDaemonServiceServer(grpcServer, &grpcsvc.DaemonHandler{
 		Config:    daemonConfig,
 		Provider:  llamaProvider,

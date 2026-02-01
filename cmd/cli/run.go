@@ -28,7 +28,15 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	serverAddr := resolveServer(serverOverride, config)
 
 	prompt := strings.TrimSpace(strings.Join(args, " "))
-	if prompt == "" {
+
+	var skillInvocation *pb.SkillInvocation
+	if strings.HasPrefix(prompt, "/") {
+		skillName, skillArgs := parseSkillInvocation(prompt)
+		skillInvocation = &pb.SkillInvocation{Name: skillName, Arguments: skillArgs}
+		prompt = ""
+	}
+
+	if prompt == "" && skillInvocation == nil {
 		return fmt.Errorf("prompt is required")
 	}
 
@@ -68,6 +76,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		SessionId:  sessionID,
 		AgentName:  agentName,
 		WorkingDir: workingDir,
+		Skill:      skillInvocation,
 	}
 	if err := stream.Send(&pb.RunCommand{Command: &pb.RunCommand_Start{Start: startCmd}}); err != nil {
 		return err
@@ -130,4 +139,14 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func parseSkillInvocation(input string) (name, args string) {
+	input = strings.TrimPrefix(input, "/")
+	parts := strings.SplitN(input, " ", 2)
+	name = parts[0]
+	if len(parts) > 1 {
+		args = parts[1]
+	}
+	return
 }

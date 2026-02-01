@@ -6,17 +6,35 @@ import (
 	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/providers"
+	"github.com/erg0nix/kontekst/internal/skills"
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
 type Agent struct {
-	provider   providers.ProviderRouter
-	tools      tools.ToolExecutor
-	context    ctx.ContextWindow
-	agentName  string
-	sampling   *core.SamplingConfig
-	model      string
-	workingDir string
+	provider    providers.ProviderRouter
+	tools       tools.ToolExecutor
+	context     ctx.ContextWindow
+	agentName   string
+	sampling    *core.SamplingConfig
+	model       string
+	workingDir  string
+	activeSkill *skills.Skill
+}
+
+func (agent *Agent) SetActiveSkill(skill *skills.Skill) {
+	agent.activeSkill = skill
+}
+
+func (agent *Agent) isToolAutoApproved(toolName string) bool {
+	if agent.activeSkill == nil {
+		return false
+	}
+	for _, allowed := range agent.activeSkill.AllowedTools {
+		if allowed == toolName {
+			return true
+		}
+	}
+	return false
 }
 
 func New(
@@ -52,8 +70,10 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 	runID := core.NewRunID()
 	eventChannel <- AgentEvent{Type: EvtRunStarted, RunID: runID}
 
-	userMessage, _ := agent.context.RenderUserMessage(prompt)
-	_ = agent.context.AddMessage(core.Message{Role: core.RoleUser, Content: userMessage})
+	if prompt != "" {
+		userMessage, _ := agent.context.RenderUserMessage(prompt)
+		_ = agent.context.AddMessage(core.Message{Role: core.RoleUser, Content: userMessage})
+	}
 
 	for {
 		contextMessages, _ := agent.context.BuildContext(agent.provider.CountTokens)
@@ -72,6 +92,14 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 
 		batchID := newID("batch")
 		pendingToolCalls := buildPending(chatResponse.ToolCalls)
+
+		for _, call := range pendingToolCalls.calls {
+			if agent.isToolAutoApproved(call.Name) {
+				approved := true
+				call.Approved = &approved
+			}
+		}
+
 		assistantMessage := core.Message{
 			Role:      core.RoleAssistant,
 			Content:   chatResponse.Content,
@@ -82,13 +110,18 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 
 		previewCtx := tools.WithWorkingDir(context.Background(), agent.workingDir)
 		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)
-		eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: proposedCalls}
 
-		toolDecisions, err := collectApprovals(commandChannel, pendingToolCalls, batchID)
-
-		if err != nil {
-			eventChannel <- AgentEvent{Type: EvtRunCancelled, RunID: runID}
-			return
+		var toolDecisions []*pendingCall
+		if allDecided(pendingToolCalls) {
+			toolDecisions = collectDecisions(pendingToolCalls)
+		} else {
+			eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: proposedCalls}
+			var err error
+			toolDecisions, err = collectApprovals(commandChannel, pendingToolCalls, batchID)
+			if err != nil {
+				eventChannel <- AgentEvent{Type: EvtRunCancelled, RunID: runID}
+				return
+			}
 		}
 
 		if err := agent.executeTools(runID, batchID, toolDecisions, eventChannel); err != nil {

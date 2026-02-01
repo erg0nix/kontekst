@@ -59,6 +59,20 @@ func (b *pendingBatch) asProposed(preview previewFunc, ctx context.Context) []Pr
 	return out
 }
 
+func (b *pendingBatch) asProposedUnapproved() []ProposedToolCall {
+	var out []ProposedToolCall
+
+	for _, call := range b.calls {
+		if call.Approved != nil {
+			continue
+		}
+		argsJSON, _ := jsonMarshal(call.Args)
+		out = append(out, ProposedToolCall{CallID: call.ID, Name: call.Name, ArgumentsJSON: argsJSON})
+	}
+
+	return out
+}
+
 func (b *pendingBatch) asToolCalls() []core.ToolCall {
 	var out []core.ToolCall
 
