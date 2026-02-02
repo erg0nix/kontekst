@@ -217,7 +217,7 @@ func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core
 	choice, _ := choices[0].(map[string]any)
 	message, _ := choice["message"].(map[string]any)
 	content, _ := message["content"].(string)
-	reasoning, _ := message["reasoning"].(string)
+	reasoning, _ := message["reasoning_content"].(string)
 	toolCalls := parseToolCalls(message)
 
 	if tokenCb != nil && content != "" {
@@ -317,6 +317,7 @@ func (p *LlamaServerProvider) spawnProcess() error {
 		"--ctx-size", intToString(p.cfg.ContextSize),
 		"--n-gpu-layers", intToString(p.cfg.GPULayers),
 		"--models-dir", p.cfg.ModelDir,
+		"--reasoning-format", "deepseek",
 	}
 
 	cmd := exec.Command(bin, args...)

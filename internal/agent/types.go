@@ -15,6 +15,7 @@ const (
 	EvtRunStarted         AgentEventType   = "run_started"
 	EvtTokenDelta         AgentEventType   = "token_delta"
 	EvtReasoningDelta     AgentEventType   = "reasoning_delta"
+	EvtTurnCompleted      AgentEventType   = "turn_completed"
 	EvtToolBatch          AgentEventType   = "tool_batch_proposed"
 	EvtToolStarted        AgentEventType   = "tool_execution_started"
 	EvtToolCompleted      AgentEventType   = "tool_execution_completed"

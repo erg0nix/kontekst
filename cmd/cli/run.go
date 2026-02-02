@@ -97,6 +97,13 @@ func runCmd(cmd *cobra.Command, args []string) error {
 			if e.Started.SessionId != "" {
 				_ = saveActiveSession(config.DataDir, e.Started.SessionId)
 			}
+		case *pb.RunEvent_TurnCompleted:
+			if e.TurnCompleted.Reasoning != "" {
+				fmt.Printf("[Reasoning: %s]\n\n", e.TurnCompleted.Reasoning)
+			}
+			if e.TurnCompleted.Content != "" {
+				fmt.Println(e.TurnCompleted.Content)
+			}
 		case *pb.RunEvent_BatchProposed:
 			if autoApprove {
 				_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveAll{ApproveAll: &pb.ApproveAllToolsCommand{BatchId: e.BatchProposed.BatchId}}})
@@ -128,7 +135,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		case *pb.RunEvent_ToolFailed:
 			fmt.Printf("tool %s failed: %s\n", e.ToolFailed.CallId, e.ToolFailed.Error)
 		case *pb.RunEvent_Completed:
-			fmt.Println(e.Completed.Content)
+			fmt.Println("\nrun completed")
 			return nil
 		case *pb.RunEvent_Cancelled:
 			fmt.Println("cancelled")

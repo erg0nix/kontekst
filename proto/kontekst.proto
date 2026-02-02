@@ -62,14 +62,15 @@ message RunEvent {
     RunStartedEvent started = 1;
     TokenDeltaEvent token = 2;
     ReasoningDeltaEvent reasoning = 3;
-    ToolBatchProposedEvent batch_proposed = 4;
-    ToolExecutionStartedEvent tool_started = 5;
-    ToolExecutionCompletedEvent tool_completed = 6;
-    ToolExecutionFailedEvent tool_failed = 7;
-    ToolBatchCompletedEvent batch_completed = 8;
-    RunCompletedEvent completed = 9;
-    RunCancelledEvent cancelled = 10;
-    RunFailedEvent failed = 11;
+    TurnCompletedEvent turn_completed = 4;
+    ToolBatchProposedEvent batch_proposed = 5;
+    ToolExecutionStartedEvent tool_started = 6;
+    ToolExecutionCompletedEvent tool_completed = 7;
+    ToolExecutionFailedEvent tool_failed = 8;
+    ToolBatchCompletedEvent batch_completed = 9;
+    RunCompletedEvent completed = 10;
+    RunCancelledEvent cancelled = 11;
+    RunFailedEvent failed = 12;
   }
 }
 
@@ -80,6 +81,7 @@ message RunStartedEvent {
 }
 message TokenDeltaEvent { string text = 1; }
 message ReasoningDeltaEvent { string text = 1; }
+message TurnCompletedEvent { string content = 1; string reasoning = 2; }
 message ToolBatchProposedEvent { string batch_id = 1; repeated ProposedToolCall calls = 2; }
 message ProposedToolCall {
   string call_id = 1;
@@ -91,6 +93,6 @@ message ToolExecutionStartedEvent { string call_id = 1; }
 message ToolExecutionCompletedEvent { string call_id = 1; string output = 2; }
 message ToolExecutionFailedEvent { string call_id = 1; string error = 2; }
 message ToolBatchCompletedEvent { string batch_id = 1; }
-message RunCompletedEvent { string run_id = 1; string content = 2; }
+message RunCompletedEvent { string run_id = 1; string content = 2; string reasoning = 3; }
 message RunCancelledEvent { string run_id = 1; }
 message RunFailedEvent { string run_id = 1; string error = 2; }

@@ -66,6 +66,8 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			return
 		}
 
+		eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse}
+
 		if len(chatResponse.ToolCalls) == 0 {
 			_ = agent.context.AddMessage(core.Message{Role: core.RoleAssistant, Content: chatResponse.Content, AgentName: agent.agentName})
 			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}

@@ -163,6 +163,8 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 		}
 
 		return &pb.RunEvent{Event: &pb.RunEvent_BatchProposed{BatchProposed: &pb.ToolBatchProposedEvent{BatchId: event.BatchID, Calls: proposedCalls}}}
+	case agent.EvtTurnCompleted:
+		return &pb.RunEvent{Event: &pb.RunEvent_TurnCompleted{TurnCompleted: &pb.TurnCompletedEvent{Content: event.Response.Content, Reasoning: event.Response.Reasoning}}}
 	case agent.EvtToolStarted:
 		return &pb.RunEvent{Event: &pb.RunEvent_ToolStarted{ToolStarted: &pb.ToolExecutionStartedEvent{CallId: event.CallID}}}
 	case agent.EvtToolCompleted:
@@ -172,7 +174,7 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 	case agent.EvtToolBatchCompleted:
 		return &pb.RunEvent{Event: &pb.RunEvent_BatchCompleted{BatchCompleted: &pb.ToolBatchCompletedEvent{BatchId: event.BatchID}}}
 	case agent.EvtRunCompleted:
-		return &pb.RunEvent{Event: &pb.RunEvent_Completed{Completed: &pb.RunCompletedEvent{RunId: string(event.RunID), Content: event.Response.Content}}}
+		return &pb.RunEvent{Event: &pb.RunEvent_Completed{Completed: &pb.RunCompletedEvent{RunId: string(event.RunID), Content: event.Response.Content, Reasoning: event.Response.Reasoning}}}
 	case agent.EvtRunCancelled:
 		return &pb.RunEvent{Event: &pb.RunEvent_Cancelled{Cancelled: &pb.RunCancelledEvent{RunId: string(event.RunID)}}}
 	case agent.EvtRunFailed:
