@@ -83,12 +83,7 @@ func main() {
 	builtin.RegisterAll(toolRegistry, daemonConfig.DataDir, daemonConfig.Tools)
 	builtin.RegisterSkill(toolRegistry, skillsRegistry)
 
-	contextService := &context.FileContextService{
-		BaseDir:        daemonConfig.DataDir,
-		SystemTemplate: "You are a helpful assistant.",
-		UserTemplate:   "{{ user_message }}",
-		MaxTokens:      daemonConfig.ContextSize,
-	}
+	contextService := context.NewFileContextService(&daemonConfig)
 	sessionService := &sessions.FileSessionService{BaseDir: daemonConfig.DataDir}
 	runService := &sessions.FileRunService{Path: filepath.Join(daemonConfig.DataDir, "runs.jsonl")}
 

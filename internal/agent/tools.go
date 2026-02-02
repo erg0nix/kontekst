@@ -28,7 +28,9 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 			}
 
 			result := core.ToolResult{CallID: call.ID, Name: call.Name, Output: "denied: " + reason, IsError: true}
-			_ = agent.context.AddToolResult(result)
+			tokens, _ := agent.provider.CountTokens(result.Output)
+			msg := core.Message{Role: core.RoleTool, Content: result.Output, ToolResult: &result, Tokens: tokens}
+			_ = agent.context.AddMessage(msg)
 			continue
 		}
 
@@ -43,13 +45,17 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 
 		if err != nil {
 			result := core.ToolResult{CallID: call.ID, Name: call.Name, Output: err.Error(), IsError: true}
-			_ = agent.context.AddToolResult(result)
+			tokens, _ := agent.provider.CountTokens(result.Output)
+			msg := core.Message{Role: core.RoleTool, Content: result.Output, ToolResult: &result, Tokens: tokens}
+			_ = agent.context.AddMessage(msg)
 			eventChannel <- AgentEvent{Type: EvtToolFailed, RunID: runID, CallID: call.ID, Error: err.Error()}
 			continue
 		}
 
 		result := core.ToolResult{CallID: call.ID, Name: call.Name, Output: output, IsError: false}
-		_ = agent.context.AddToolResult(result)
+		tokens, _ := agent.provider.CountTokens(output)
+		msg := core.Message{Role: core.RoleTool, Content: output, ToolResult: &result, Tokens: tokens}
+		_ = agent.context.AddMessage(msg)
 		eventChannel <- AgentEvent{Type: EvtToolCompleted, RunID: runID, CallID: call.ID, Output: output}
 	}
 

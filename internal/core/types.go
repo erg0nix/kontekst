@@ -21,6 +21,7 @@ type Message struct {
 	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
 	ToolResult *ToolResult `json:"tool_result,omitempty"`
 	AgentName  string      `json:"agent_name,omitempty"`
+	Tokens     int         `json:"tokens,omitempty"`
 }
 
 type ToolCall struct {
@@ -42,10 +43,17 @@ type ToolDef struct {
 	Parameters  map[string]any
 }
 
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type ChatResponse struct {
 	Content   string
 	Reasoning string
 	ToolCalls []ToolCall
+	Usage     *Usage
 }
 
 type SamplingConfig struct {
