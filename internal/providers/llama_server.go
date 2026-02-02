@@ -107,8 +107,13 @@ func (p *LlamaServerProvider) CountTokens(text string) (int, error) {
 	return estimateTokens(text), nil
 }
 
-func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core.ToolDef,
-	tokenCb func(string) bool, reasoningCb func(string) bool, sampling *core.SamplingConfig, model string, useToolRole bool) (core.ChatResponse, error) {
+func (p *LlamaServerProvider) GenerateChat(
+	messages []core.Message,
+	tools []core.ToolDef,
+	sampling *core.SamplingConfig,
+	model string,
+	useToolRole bool,
+) (core.ChatResponse, error) {
 	if err := p.ensureRunning(); err != nil {
 		return core.ChatResponse{}, err
 	}
@@ -226,18 +231,6 @@ func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core
 	content, _ := message["content"].(string)
 	reasoning, _ := message["reasoning_content"].(string)
 	toolCalls := parseToolCalls(message)
-
-	if tokenCb != nil && content != "" {
-		if !tokenCb(content) {
-			return core.ChatResponse{}, errors.New("cancelled")
-		}
-	}
-
-	if reasoningCb != nil && reasoning != "" {
-		if !reasoningCb(reasoning) {
-			return core.ChatResponse{}, errors.New("cancelled")
-		}
-	}
 
 	return core.ChatResponse{Content: content, Reasoning: reasoning, ToolCalls: toolCalls}, nil
 }

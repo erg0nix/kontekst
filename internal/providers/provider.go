@@ -7,8 +7,13 @@ import (
 )
 
 type Provider interface {
-	GenerateChat(messages []core.Message, tools []core.ToolDef,
-		tokenCb func(string) bool, reasoningCb func(string) bool, sampling *core.SamplingConfig, model string, useToolRole bool) (core.ChatResponse, error)
+	GenerateChat(
+		messages []core.Message,
+		tools []core.ToolDef,
+		sampling *core.SamplingConfig,
+		model string,
+		useToolRole bool,
+	) (core.ChatResponse, error)
 	CountTokens(text string) (int, error)
 	ConcurrencyLimit() int
 }
@@ -23,8 +28,13 @@ type SingleProviderRouter struct {
 	limiter  *semaphore
 }
 
-func (r *SingleProviderRouter) GenerateChat(messages []core.Message, tools []core.ToolDef,
-	tokenCb func(string) bool, reasoningCb func(string) bool, sampling *core.SamplingConfig, model string, useToolRole bool) (core.ChatResponse, error) {
+func (r *SingleProviderRouter) GenerateChat(
+	messages []core.Message,
+	tools []core.ToolDef,
+	sampling *core.SamplingConfig,
+	model string,
+	useToolRole bool,
+) (core.ChatResponse, error) {
 	if r.Provider == nil {
 		return core.ChatResponse{}, nil
 	}
@@ -34,7 +44,7 @@ func (r *SingleProviderRouter) GenerateChat(messages []core.Message, tools []cor
 		defer concurrencyLimiter.release()
 	}
 
-	return r.Provider.GenerateChat(messages, tools, tokenCb, reasoningCb, sampling, model, useToolRole)
+	return r.Provider.GenerateChat(messages, tools, sampling, model, useToolRole)
 }
 
 func (r *SingleProviderRouter) CountTokens(text string) (int, error) {
