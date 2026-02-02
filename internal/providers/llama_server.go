@@ -108,7 +108,7 @@ func (p *LlamaServerProvider) CountTokens(text string) (int, error) {
 }
 
 func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core.ToolDef,
-	tokenCb func(string) bool, reasoningCb func(string) bool, sampling *core.SamplingConfig, model string) (core.ChatResponse, error) {
+	tokenCb func(string) bool, reasoningCb func(string) bool, sampling *core.SamplingConfig, model string, useToolRole bool) (core.ChatResponse, error) {
 	if err := p.ensureRunning(); err != nil {
 		return core.ChatResponse{}, err
 	}
@@ -126,11 +126,18 @@ func (p *LlamaServerProvider) GenerateChat(messages []core.Message, tools []core
 		}
 
 		if message.ToolResult != nil {
-			entry["role"] = "tool"
-			entry["content"] = message.ToolResult.Output
+			if useToolRole {
+				entry["role"] = "tool"
+				entry["content"] = message.ToolResult.Output
 
-			if message.ToolResult.CallID != "" {
-				entry["tool_call_id"] = message.ToolResult.CallID
+				if message.ToolResult.CallID != "" {
+					entry["tool_call_id"] = message.ToolResult.CallID
+				}
+			} else {
+				entry["role"] = "user"
+				toolName := message.ToolResult.Name
+				toolOutput := message.ToolResult.Output
+				entry["content"] = "Tool: " + toolName + "\n\nResult:\n" + toolOutput
 			}
 		}
 

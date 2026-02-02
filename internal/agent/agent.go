@@ -17,6 +17,7 @@ type Agent struct {
 	sampling   *core.SamplingConfig
 	model      string
 	workingDir string
+	toolRole   bool
 }
 
 func New(
@@ -27,6 +28,7 @@ func New(
 	sampling *core.SamplingConfig,
 	model string,
 	workingDir string,
+	toolRole bool,
 ) *Agent {
 	return &Agent{
 		provider:   provider,
@@ -36,6 +38,7 @@ func New(
 		sampling:   sampling,
 		model:      model,
 		workingDir: workingDir,
+		toolRole:   toolRole,
 	}
 }
 
@@ -59,7 +62,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 
 	for {
 		contextMessages, _ := agent.context.BuildContext(agent.provider.CountTokens)
-		chatResponse, err := agent.provider.GenerateChat(contextMessages, agent.tools.ToolDefinitions(), nil, nil, agent.sampling, agent.model)
+		chatResponse, err := agent.provider.GenerateChat(contextMessages, agent.tools.ToolDefinitions(), nil, nil, agent.sampling, agent.model, agent.toolRole)
 
 		if err != nil {
 			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}

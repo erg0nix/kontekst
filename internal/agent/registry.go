@@ -106,6 +106,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 				cfg.Model = tomlCfg.Model
 			}
 			cfg.Sampling = tomlCfg.Sampling
+			cfg.ToolRole = tomlCfg.ToolRole
 		}
 	}
 

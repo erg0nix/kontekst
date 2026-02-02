@@ -21,6 +21,7 @@ type RunConfig struct {
 	WorkingDir        string
 	Skill             *skills.Skill
 	SkillContent      string
+	ToolRole          bool
 }
 
 type Runner interface {
@@ -65,7 +66,7 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 		prompt = fmt.Sprintf("%s\n\n---\n\n%s", cfg.Skill.FormatContent(cfg.SkillContent), prompt)
 	}
 
-	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, cfg.AgentName, cfg.Sampling, cfg.Model, cfg.WorkingDir)
+	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, cfg.AgentName, cfg.Sampling, cfg.Model, cfg.WorkingDir, cfg.ToolRole)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)

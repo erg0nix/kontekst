@@ -50,6 +50,7 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			agentName := startCommand.AgentName
 			agentSystemPrompt := ""
 			agentModel := ""
+			agentToolRole := false
 			var agentSampling *core.SamplingConfig
 
 			if agentName != "" && h.Registry != nil {
@@ -61,6 +62,7 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				agentSystemPrompt = loadedAgent.SystemPrompt
 				agentSampling = loadedAgent.Sampling
 				agentModel = loadedAgent.Model
+				agentToolRole = loadedAgent.ToolRole
 			}
 
 			var skill *skills.Skill
@@ -94,6 +96,7 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				WorkingDir:        startCommand.WorkingDir,
 				Skill:             skill,
 				SkillContent:      skillContent,
+				ToolRole:          agentToolRole,
 			})
 			if err != nil {
 				_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})
