@@ -33,8 +33,8 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		if agent.workingDir != "" {
-			ctx = tools.WithWorkingDir(ctx, agent.workingDir)
+		if agent.config.WorkingDir != "" {
+			ctx = tools.WithWorkingDir(ctx, agent.config.WorkingDir)
 		}
 		ctx = builtin.WithSkillCallbacks(ctx, skillCallbacks)
 		eventChannel <- AgentEvent{Type: EvtToolStarted, RunID: runID, CallID: call.ID}

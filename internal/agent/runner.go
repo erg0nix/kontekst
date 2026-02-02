@@ -66,7 +66,7 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 		prompt = fmt.Sprintf("%s\n\n---\n\n%s", cfg.Skill.FormatContent(cfg.SkillContent), prompt)
 	}
 
-	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, cfg.AgentName, cfg.Sampling, cfg.Model, cfg.WorkingDir, cfg.ToolRole)
+	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, cfg)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)

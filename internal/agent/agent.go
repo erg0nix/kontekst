@@ -10,35 +10,23 @@ import (
 )
 
 type Agent struct {
-	provider   providers.ProviderRouter
-	tools      tools.ToolExecutor
-	context    ctx.ContextWindow
-	agentName  string
-	sampling   *core.SamplingConfig
-	model      string
-	workingDir string
-	toolRole   bool
+	provider providers.ProviderRouter
+	tools    tools.ToolExecutor
+	context  ctx.ContextWindow
+	config   RunConfig
 }
 
 func New(
 	provider providers.ProviderRouter,
 	toolExecutor tools.ToolExecutor,
 	contextWindow ctx.ContextWindow,
-	agentName string,
-	sampling *core.SamplingConfig,
-	model string,
-	workingDir string,
-	toolRole bool,
+	cfg RunConfig,
 ) *Agent {
 	return &Agent{
-		provider:   provider,
-		tools:      toolExecutor,
-		context:    contextWindow,
-		agentName:  agentName,
-		sampling:   sampling,
-		model:      model,
-		workingDir: workingDir,
-		toolRole:   toolRole,
+		provider: provider,
+		tools:    toolExecutor,
+		context:  contextWindow,
+		config:   cfg,
 	}
 }
 
@@ -65,9 +53,9 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 		chatResponse, err := agent.provider.GenerateChat(
 			contextMessages,
 			agent.tools.ToolDefinitions(),
-			agent.sampling,
-			agent.model,
-			agent.toolRole,
+			agent.config.Sampling,
+			agent.config.Model,
+			agent.config.ToolRole,
 		)
 
 		if err != nil {
@@ -78,7 +66,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 		eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse}
 
 		if len(chatResponse.ToolCalls) == 0 {
-			_ = agent.context.AddMessage(core.Message{Role: core.RoleAssistant, Content: chatResponse.Content, AgentName: agent.agentName})
+			_ = agent.context.AddMessage(core.Message{Role: core.RoleAssistant, Content: chatResponse.Content, AgentName: agent.config.AgentName})
 			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
 			return
 		}
@@ -90,11 +78,11 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			Role:      core.RoleAssistant,
 			Content:   chatResponse.Content,
 			ToolCalls: pendingToolCalls.asToolCalls(),
-			AgentName: agent.agentName,
+			AgentName: agent.config.AgentName,
 		}
 		_ = agent.context.AddMessage(assistantMessage)
 
-		previewCtx := tools.WithWorkingDir(context.Background(), agent.workingDir)
+		previewCtx := tools.WithWorkingDir(context.Background(), agent.config.WorkingDir)
 		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)
 
 		eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: proposedCalls}
