@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/erg0nix/kontekst/internal/core"
@@ -101,10 +102,11 @@ func (sf *SessionFile) LoadTail(tokenBudget int) ([]core.Message, error) {
 			}
 
 			if tokensUsed+msg.Tokens > tokenBudget && len(messages) > 0 {
+				slices.Reverse(messages)
 				return messages, nil
 			}
 
-			messages = append([]core.Message{msg}, messages...)
+			messages = append(messages, msg)
 			tokensUsed += msg.Tokens
 		}
 
@@ -115,10 +117,12 @@ func (sf *SessionFile) LoadTail(tokenBudget int) ([]core.Message, error) {
 		var msg core.Message
 		if err := json.Unmarshal(carryover, &msg); err == nil {
 			if tokensUsed+msg.Tokens <= tokenBudget || len(messages) == 0 {
-				messages = append([]core.Message{msg}, messages...)
+				messages = append(messages, msg)
 			}
 		}
 	}
+
+	slices.Reverse(messages)
 
 	return messages, nil
 }

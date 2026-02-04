@@ -68,8 +68,10 @@ func newContextWindow(sessionFile *SessionFile, cfg *config.Config) *contextWind
 	}
 }
 
-const defaultUserTemplate = "{{ user_message }}"
-const historyRatio = 0.30
+const (
+	defaultUserTemplate = "{{ user_message }}"
+	historyRatio        = 0.30
+)
 
 func (cw *contextWindow) SystemContent() string {
 	cw.mu.Lock()
