@@ -2,8 +2,6 @@ package agent
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -29,7 +27,7 @@ func buildPending(calls []core.ToolCall) *pendingBatch {
 		callID := call.ID
 
 		if callID == "" {
-			callID = newID("call")
+			callID = string(core.NewToolCallID())
 		}
 
 		out.calls[callID] = &pendingCall{ID: callID, Name: call.Name, Args: call.Arguments}
@@ -144,12 +142,4 @@ func jsonMarshal(v map[string]any) (string, error) {
 	}
 
 	return string(data), nil
-}
-
-func newID(prefix string) string {
-	buffer := make([]byte, 6)
-	_, _ = rand.Read(buffer)
-	seed := hex.EncodeToString(buffer)
-
-	return prefix + "_" + seed
 }

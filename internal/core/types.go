@@ -1,11 +1,5 @@
 package core
 
-import (
-	"crypto/rand"
-	"encoding/hex"
-	"time"
-)
-
 type Role string
 
 const (
@@ -67,25 +61,4 @@ type SamplingConfig struct {
 type SkillMetadata struct {
 	Name string
 	Path string
-}
-
-type RunID string
-
-type SessionID string
-
-func NewRunID() RunID {
-	return RunID(newID("run"))
-}
-
-func NewSessionID() SessionID {
-	return SessionID(newID("sess"))
-}
-
-func newID(prefix string) string {
-	buffer := make([]byte, 6)
-	_, _ = rand.Read(buffer)
-	seed := hex.EncodeToString(buffer)
-	timestamp := time.Now().UTC().Format("20060102T150405.000000000")
-
-	return prefix + "_" + timestamp + "_" + seed
 }

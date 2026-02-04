@@ -87,7 +87,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			return
 		}
 
-		batchID := newID("batch")
+		batchID := string(core.NewToolCallBatchID())
 		pendingToolCalls := buildPending(chatResponse.ToolCalls)
 
 		assistantMessage := core.Message{
