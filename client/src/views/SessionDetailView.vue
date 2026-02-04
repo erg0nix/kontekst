@@ -1,30 +1,42 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
-import { getSession, getRunsForSession } from '../mock/data'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { Codemirror } from 'vue-codemirror'
+import { json } from '@codemirror/lang-json'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { EditorView } from '@codemirror/view'
+import { useTheme } from '../composables/useTheme'
+import { getSession, getRunsForSession, deleteSession } from '../mock/data'
 
 const route = useRoute()
+const router = useRouter()
 const sessionId = computed(() => route.params.id as string)
 const session = computed(() => getSession(sessionId.value))
 const runs = computed(() => getRunsForSession(sessionId.value))
+const { theme } = useTheme()
+
+const jsonlContent = computed(() => {
+  if (!session.value) return ''
+  return session.value.messages
+    .map((msg) => JSON.stringify(msg))
+    .join('\n')
+})
+
+const cmExtensions = computed(() => {
+  const exts = [json(), EditorView.lineWrapping, EditorView.editable.of(false)]
+  if (theme.value === 'dark') exts.push(oneDark)
+  return exts
+})
+
+function handleDelete() {
+  if (confirm(`Delete session ${sessionId.value}?`)) {
+    deleteSession(sessionId.value)
+    router.push('/sessions')
+  }
+}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString()
-}
-
-function getRoleColor(role: string): string {
-  switch (role) {
-    case 'system':
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-    case 'user':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-    case 'assistant':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-    case 'tool':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-  }
 }
 </script>
 
@@ -41,12 +53,20 @@ function getRoleColor(role: string): string {
     <div v-if="session">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">Session Details</h1>
-        <RouterLink
-          :to="`/agents/${session.agentName}`"
-          class="text-blue-500 hover:underline"
-        >
-          Agent: {{ session.agentName }}
-        </RouterLink>
+        <div class="flex items-center gap-4">
+          <RouterLink
+            :to="`/agents/${session.agentName}`"
+            class="text-blue-500 hover:underline"
+          >
+            Agent: {{ session.agentName }}
+          </RouterLink>
+          <button
+            @click="handleDelete"
+            class="rounded border border-red-500 px-3 py-1 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -107,30 +127,13 @@ function getRoleColor(role: string): string {
       </div>
 
       <div>
-        <h2 class="mb-4 text-xl font-bold">Messages</h2>
-        <div class="space-y-4">
-          <div
-            v-for="(message, index) in session.messages"
-            :key="index"
-            class="rounded border border-black dark:border-white"
-          >
-            <div
-              class="flex items-center justify-between border-b border-black px-4 py-2 dark:border-white"
-            >
-              <span
-                class="rounded px-2 py-0.5 text-xs"
-                :class="getRoleColor(message.role)"
-              >
-                {{ message.role }}
-              </span>
-              <span class="text-sm text-gray-500">
-                {{ message.tokens }} tokens
-              </span>
-            </div>
-            <div class="p-4">
-              <pre class="whitespace-pre-wrap text-sm">{{ message.content }}</pre>
-            </div>
-          </div>
+        <h2 class="mb-4 text-xl font-bold">History (JSONL)</h2>
+        <div class="overflow-hidden rounded border border-black dark:border-white">
+          <Codemirror
+            :model-value="jsonlContent"
+            :extensions="cmExtensions"
+            :style="{ fontSize: '13px' }"
+          />
         </div>
       </div>
     </div>

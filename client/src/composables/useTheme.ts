@@ -4,13 +4,6 @@ type Theme = 'light' | 'dark'
 
 const theme = ref<Theme>('light')
 
-function getSystemTheme(): Theme {
-  if (typeof window === 'undefined') return 'light'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light'
-}
-
 function applyTheme(t: Theme) {
   if (typeof document === 'undefined') return
   if (t === 'dark') {
@@ -25,8 +18,6 @@ export function useTheme() {
     const stored = localStorage.getItem('theme') as Theme | null
     if (stored) {
       theme.value = stored
-    } else {
-      theme.value = getSystemTheme()
     }
     applyTheme(theme.value)
   })

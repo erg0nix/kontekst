@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import type {
   DaemonStatus,
   AgentSummary,
@@ -19,7 +20,7 @@ export const mockDaemonStatus: DaemonStatus = {
   dataDir: '~/.kontekst',
 }
 
-export const mockAgentSummaries: AgentSummary[] = [
+export const mockAgentSummaries = ref<AgentSummary[]>([
   {
     name: 'default',
     displayName: 'Default Agent',
@@ -38,7 +39,7 @@ export const mockAgentSummaries: AgentSummary[] = [
     hasPrompt: true,
     hasConfig: false,
   },
-]
+])
 
 export const mockAgentConfigs: Record<string, AgentConfig> = {
   default: {
@@ -112,7 +113,7 @@ export const mockRunRecords: RunRecord[] = [
   },
 ]
 
-export const mockSessions: Session[] = [
+export const mockSessions = ref<Session[]>([
   {
     id: 'session-abc',
     agentName: 'default',
@@ -177,9 +178,9 @@ export const mockSessions: Session[] = [
       },
     ],
   },
-]
+])
 
-export const mockSkills: Skill[] = [
+export const mockSkills = ref<Skill[]>([
   {
     name: 'commit',
     description: 'Generate a git commit message based on staged changes',
@@ -215,18 +216,31 @@ export const mockSkills: Skill[] = [
     disableModelInvocation: true,
     userInvocable: false,
   },
-]
+])
 
 export function getAgentConfig(name: string): AgentConfig | undefined {
   return mockAgentConfigs[name]
 }
 
+export function deleteAgent(name: string) {
+  mockAgentSummaries.value = mockAgentSummaries.value.filter((a) => a.name !== name)
+  delete mockAgentConfigs[name]
+}
+
 export function getSession(id: string): Session | undefined {
-  return mockSessions.find((s) => s.id === id)
+  return mockSessions.value.find((s) => s.id === id)
+}
+
+export function deleteSession(id: string) {
+  mockSessions.value = mockSessions.value.filter((s) => s.id !== id)
 }
 
 export function getSkill(name: string): Skill | undefined {
-  return mockSkills.find((s) => s.name === name)
+  return mockSkills.value.find((s) => s.name === name)
+}
+
+export function deleteSkill(name: string) {
+  mockSkills.value = mockSkills.value.filter((s) => s.name !== name)
 }
 
 export function getRunsForSession(sessionId: string): RunRecord[] {

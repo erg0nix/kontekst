@@ -6,7 +6,9 @@ import {
   mockSkills,
 } from '../../mock/data'
 
-const navItems = [
+import { computed } from 'vue'
+
+const navItems = computed(() => [
   {
     name: 'Dashboard',
     path: '/',
@@ -17,21 +19,21 @@ const navItems = [
     name: 'Agents',
     path: '/agents',
     icon: 'agents',
-    count: mockAgentSummaries.length,
+    count: mockAgentSummaries.value.length,
   },
   {
     name: 'Sessions',
     path: '/sessions',
     icon: 'sessions',
-    count: mockSessions.length,
+    count: mockSessions.value.length,
   },
   {
     name: 'Skills',
     path: '/skills',
     icon: 'skills',
-    count: mockSkills.length,
+    count: mockSkills.value.length,
   },
-]
+])
 </script>
 
 <template>
