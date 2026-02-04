@@ -231,8 +231,9 @@ func (p *LlamaServerProvider) GenerateChat(
 	content, _ := message["content"].(string)
 	reasoning, _ := message["reasoning_content"].(string)
 	toolCalls := parseToolCalls(message)
+	usage := parseUsage(responsePayload)
 
-	return core.ChatResponse{Content: content, Reasoning: reasoning, ToolCalls: toolCalls}, nil
+	return core.ChatResponse{Content: content, Reasoning: reasoning, ToolCalls: toolCalls, Usage: usage}, nil
 }
 
 func (p *LlamaServerProvider) ConcurrencyLimit() int {
@@ -425,4 +426,30 @@ func parseToolCalls(message map[string]any) []core.ToolCall {
 	}
 
 	return toolCalls
+}
+
+func parseUsage(response map[string]any) *core.Usage {
+	usageMap, ok := response["usage"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	return &core.Usage{
+		PromptTokens:     intFromAny(usageMap["prompt_tokens"]),
+		CompletionTokens: intFromAny(usageMap["completion_tokens"]),
+		TotalTokens:      intFromAny(usageMap["total_tokens"]),
+	}
+}
+
+func intFromAny(v any) int {
+	switch n := v.(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case int64:
+		return int(n)
+	default:
+		return 0
+	}
 }

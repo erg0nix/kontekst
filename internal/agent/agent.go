@@ -43,13 +43,19 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 	runID := core.NewRunID()
 	eventChannel <- AgentEvent{Type: EvtRunStarted, RunID: runID}
 
+	systemContent := agent.context.SystemContent()
+	systemTokens, _ := agent.provider.CountTokens(systemContent)
+	_ = agent.context.StartRun(systemContent, systemTokens)
+	defer agent.context.CompleteRun()
+
 	if prompt != "" {
 		userMessage, _ := agent.context.RenderUserMessage(prompt)
-		_ = agent.context.AddMessage(core.Message{Role: core.RoleUser, Content: userMessage})
+		tokens, _ := agent.provider.CountTokens(userMessage)
+		_ = agent.context.AddMessage(core.Message{Role: core.RoleUser, Content: userMessage, Tokens: tokens})
 	}
 
 	for {
-		contextMessages, _ := agent.context.BuildContext(agent.provider.CountTokens)
+		contextMessages, _ := agent.context.BuildContext()
 		chatResponse, err := agent.provider.GenerateChat(
 			contextMessages,
 			agent.tools.ToolDefinitions(),
@@ -65,8 +71,18 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 
 		eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse}
 
+		completionTokens := 0
+		if chatResponse.Usage != nil {
+			completionTokens = chatResponse.Usage.CompletionTokens
+		}
+
 		if len(chatResponse.ToolCalls) == 0 {
-			_ = agent.context.AddMessage(core.Message{Role: core.RoleAssistant, Content: chatResponse.Content, AgentName: agent.config.AgentName})
+			_ = agent.context.AddMessage(core.Message{
+				Role:      core.RoleAssistant,
+				Content:   chatResponse.Content,
+				AgentName: agent.config.AgentName,
+				Tokens:    completionTokens,
+			})
 			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
 			return
 		}
@@ -79,6 +95,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			Content:   chatResponse.Content,
 			ToolCalls: pendingToolCalls.asToolCalls(),
 			AgentName: agent.config.AgentName,
+			Tokens:    completionTokens,
 		}
 		_ = agent.context.AddMessage(assistantMessage)
 
