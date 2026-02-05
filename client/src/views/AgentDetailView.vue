@@ -99,8 +99,8 @@ function handleDelete() {
         </button>
       </div>
 
-      <div class="mb-6 rounded border border-black dark:border-white">
-        <div class="border-b border-black bg-gray-50 px-4 py-2 font-medium dark:border-white dark:bg-gray-900">
+      <div class="mb-6 rounded border border-gray-300 dark:border-gray-600">
+        <div class="border-b border-gray-300 bg-gray-50 px-4 py-2 font-medium dark:border-gray-600 dark:bg-gray-900">
           Configuration
         </div>
         <table class="w-full text-sm">
@@ -208,14 +208,14 @@ function handleDelete() {
         </button>
         <button
           @click="handleConfigCancel"
-          class="rounded border border-black px-3 py-1 text-sm hover:bg-gray-100 dark:border-white dark:hover:bg-gray-800"
+          class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
         >
           Cancel
         </button>
       </div>
 
-      <div class="rounded border border-black dark:border-white">
-        <div class="border-b border-black bg-gray-50 px-4 py-2 font-medium dark:border-white dark:bg-gray-900">
+      <div class="rounded border border-gray-300 dark:border-gray-600">
+        <div class="border-b border-gray-300 bg-gray-50 px-4 py-2 font-medium dark:border-gray-600 dark:bg-gray-900">
           System Prompt
         </div>
         <Codemirror
@@ -233,7 +233,7 @@ function handleDelete() {
         </button>
         <button
           @click="handlePromptCancel"
-          class="rounded border border-black px-3 py-1 text-sm hover:bg-gray-100 dark:border-white dark:hover:bg-gray-800"
+          class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
         >
           Cancel
         </button>

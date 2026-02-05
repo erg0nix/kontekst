@@ -9,9 +9,9 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="rounded border border-black dark:border-white">
+  <div class="rounded border border-gray-300 dark:border-gray-600">
     <table class="w-full text-sm">
-      <thead class="border-b border-black bg-gray-50 dark:border-white dark:bg-gray-900">
+      <thead class="border-b border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-900">
         <tr>
           <th
             v-for="col in columns"

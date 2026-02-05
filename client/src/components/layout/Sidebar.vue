@@ -38,7 +38,7 @@ const navItems = computed(() => [
 
 <template>
   <aside
-    class="fixed top-14 left-0 bottom-0 w-48 border-r border-black bg-white dark:border-white dark:bg-black"
+    class="fixed top-14 left-0 bottom-0 w-48 border-r border-gray-300 bg-white dark:border-gray-600 dark:bg-black"
   >
     <nav class="p-2">
       <RouterLink

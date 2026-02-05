@@ -22,7 +22,7 @@ const recentRuns = mockRunRecords.slice(0, 5)
     <h1 class="mb-6 text-2xl font-bold">Dashboard</h1>
 
     <div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <div class="rounded border border-black p-4 dark:border-white">
+      <div class="rounded border border-gray-300 p-4 dark:border-gray-600">
         <div class="text-sm text-gray-500 dark:text-gray-400">Agents</div>
         <div class="text-3xl font-bold">{{ mockAgentSummaries.length }}</div>
         <RouterLink
@@ -33,7 +33,7 @@ const recentRuns = mockRunRecords.slice(0, 5)
         </RouterLink>
       </div>
 
-      <div class="rounded border border-black p-4 dark:border-white">
+      <div class="rounded border border-gray-300 p-4 dark:border-gray-600">
         <div class="text-sm text-gray-500 dark:text-gray-400">Sessions</div>
         <div class="text-3xl font-bold">{{ mockSessions.length }}</div>
         <RouterLink
@@ -44,7 +44,7 @@ const recentRuns = mockRunRecords.slice(0, 5)
         </RouterLink>
       </div>
 
-      <div class="rounded border border-black p-4 dark:border-white">
+      <div class="rounded border border-gray-300 p-4 dark:border-gray-600">
         <div class="text-sm text-gray-500 dark:text-gray-400">Skills</div>
         <div class="text-3xl font-bold">{{ mockSkills.length }}</div>
         <RouterLink
@@ -55,7 +55,7 @@ const recentRuns = mockRunRecords.slice(0, 5)
         </RouterLink>
       </div>
 
-      <div class="rounded border border-black p-4 dark:border-white">
+      <div class="rounded border border-gray-300 p-4 dark:border-gray-600">
         <div class="text-sm text-gray-500 dark:text-gray-400">Uptime</div>
         <div class="text-3xl font-bold">
           {{ formatUptime(mockDaemonStatus.uptimeSeconds) }}
@@ -68,7 +68,7 @@ const recentRuns = mockRunRecords.slice(0, 5)
 
     <div class="mb-8">
       <h2 class="mb-4 text-xl font-bold">System Status</h2>
-      <div class="rounded border border-black dark:border-white">
+      <div class="rounded border border-gray-300 dark:border-gray-600">
         <table class="w-full text-sm">
           <tbody>
             <tr class="border-b border-gray-200 dark:border-gray-700">
@@ -98,9 +98,9 @@ const recentRuns = mockRunRecords.slice(0, 5)
 
     <div>
       <h2 class="mb-4 text-xl font-bold">Recent Runs</h2>
-      <div class="rounded border border-black dark:border-white">
+      <div class="rounded border border-gray-300 dark:border-gray-600">
         <table class="w-full text-sm">
-          <thead class="border-b border-black bg-gray-50 dark:border-white dark:bg-gray-900">
+          <thead class="border-b border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-900">
             <tr>
               <th class="px-4 py-2 text-left font-medium">Run ID</th>
               <th class="px-4 py-2 text-left font-medium">Session</th>

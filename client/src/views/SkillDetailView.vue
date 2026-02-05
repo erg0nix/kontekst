@@ -78,8 +78,8 @@ function handleDelete() {
 
       <p class="mb-6 text-gray-600 dark:text-gray-400">{{ skill.description }}</p>
 
-      <div class="mb-6 rounded border border-black dark:border-white">
-        <div class="border-b border-black bg-gray-50 px-4 py-2 font-medium dark:border-white dark:bg-gray-900">
+      <div class="mb-6 rounded border border-gray-300 dark:border-gray-600">
+        <div class="border-b border-gray-300 bg-gray-50 px-4 py-2 font-medium dark:border-gray-600 dark:bg-gray-900">
           Details
         </div>
         <table class="w-full text-sm">
@@ -102,8 +102,8 @@ function handleDelete() {
         </table>
       </div>
 
-      <div class="rounded border border-black dark:border-white">
-        <div class="border-b border-black bg-gray-50 px-4 py-2 font-medium dark:border-white dark:bg-gray-900">
+      <div class="rounded border border-gray-300 dark:border-gray-600">
+        <div class="border-b border-gray-300 bg-gray-50 px-4 py-2 font-medium dark:border-gray-600 dark:bg-gray-900">
           Content
         </div>
         <Codemirror
@@ -121,7 +121,7 @@ function handleDelete() {
         </button>
         <button
           @click="handleCancel"
-          class="rounded border border-black px-3 py-1 text-sm hover:bg-gray-100 dark:border-white dark:hover:bg-gray-800"
+          class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
         >
           Cancel
         </button>

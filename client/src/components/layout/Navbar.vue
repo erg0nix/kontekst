@@ -13,7 +13,7 @@ function toggleDaemon() {
 
 <template>
   <nav
-    class="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-black bg-white px-4 dark:border-white dark:bg-black"
+    class="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-gray-300 bg-white px-4 dark:border-gray-600 dark:bg-black"
   >
     <div class="flex items-center gap-2">
       <span class="text-xl font-bold text-black dark:text-white">Kontekst</span>

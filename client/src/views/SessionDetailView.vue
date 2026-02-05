@@ -70,15 +70,15 @@ function formatDate(dateStr: string): string {
       </div>
 
       <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div class="rounded border border-black p-4 dark:border-white">
+        <div class="rounded border border-gray-300 p-4 dark:border-gray-600">
           <div class="text-sm text-gray-500 dark:text-gray-400">Created</div>
           <div class="font-mono">{{ formatDate(session.createdAt) }}</div>
         </div>
-        <div class="rounded border border-black p-4 dark:border-white">
+        <div class="rounded border border-gray-300 p-4 dark:border-gray-600">
           <div class="text-sm text-gray-500 dark:text-gray-400">Last Active</div>
           <div class="font-mono">{{ formatDate(session.lastActiveAt) }}</div>
         </div>
-        <div class="rounded border border-black p-4 dark:border-white">
+        <div class="rounded border border-gray-300 p-4 dark:border-gray-600">
           <div class="text-sm text-gray-500 dark:text-gray-400">Messages</div>
           <div class="text-2xl font-bold">{{ session.messages.length }}</div>
         </div>
@@ -86,9 +86,9 @@ function formatDate(dateStr: string): string {
 
       <div v-if="runs.length > 0" class="mb-6">
         <h2 class="mb-4 text-xl font-bold">Runs</h2>
-        <div class="rounded border border-black dark:border-white">
+        <div class="rounded border border-gray-300 dark:border-gray-600">
           <table class="w-full text-sm">
-            <thead class="border-b border-black bg-gray-50 dark:border-white dark:bg-gray-900">
+            <thead class="border-b border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-900">
               <tr>
                 <th class="px-4 py-2 text-left font-medium">Run ID</th>
                 <th class="px-4 py-2 text-left font-medium">Status</th>
@@ -128,7 +128,7 @@ function formatDate(dateStr: string): string {
 
       <div>
         <h2 class="mb-4 text-xl font-bold">History (JSONL)</h2>
-        <div class="overflow-hidden rounded border border-black dark:border-white">
+        <div class="overflow-hidden rounded border border-gray-300 dark:border-gray-600">
           <Codemirror
             :model-value="jsonlContent"
             :extensions="cmExtensions"
