@@ -14,6 +14,8 @@ type ToolCallID string
 
 type ToolCallBatchID string
 
+type RequestID string
+
 func NewRunID() RunID {
 	return RunID("run_" + timestamp() + "_" + randomSeed())
 }
@@ -28,6 +30,10 @@ func NewToolCallID() ToolCallID {
 
 func NewToolCallBatchID() ToolCallBatchID {
 	return ToolCallBatchID("batch_" + randomSeed())
+}
+
+func NewRequestID() RequestID {
+	return RequestID("req_" + timestamp() + "_" + randomSeed())
 }
 
 func timestamp() string {

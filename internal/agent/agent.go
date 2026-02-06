@@ -113,5 +113,10 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
 			return
 		}
+
+		if hasAnyDenied(toolDecisions) {
+			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID}
+			return
+		}
 	}
 }

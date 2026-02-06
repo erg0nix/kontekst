@@ -134,6 +134,15 @@ func allDecided(batch *pendingBatch) bool {
 	return true
 }
 
+func hasAnyDenied(calls []*pendingCall) bool {
+	for _, call := range calls {
+		if call.Approved != nil && !*call.Approved {
+			return true
+		}
+	}
+	return false
+}
+
 func jsonMarshal(v map[string]any) (string, error) {
 	data, err := json.Marshal(v)
 
