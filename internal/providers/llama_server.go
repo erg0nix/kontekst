@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/config"
+	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
@@ -41,7 +42,6 @@ func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugC
 		client: &http.Client{Timeout: timeout},
 	}
 
-	// Initialize logger if any logging or error dumping is enabled
 	if debugCfg.LogRequests || debugCfg.LogResponses || debugCfg.DumpOnError {
 		provider.logger = NewRequestLogger(
 			debugCfg.LogDirectory,
@@ -50,7 +50,6 @@ func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugC
 		)
 	}
 
-	// Initialize validator if role validation is enabled
 	if debugCfg.ValidateRoles {
 		provider.validator = NewRoleValidator()
 	}
@@ -139,7 +138,8 @@ func (p *LlamaServerProvider) GenerateChat(
 
 	requestID := core.NewRequestID()
 
-	// Validate role alternation before sending to provider
+	messages = context.NormalizeMessages(messages, useToolRole)
+
 	if p.validator != nil {
 		if err := p.validator.Validate(messages, useToolRole); err != nil {
 			if p.logger != nil {
@@ -229,7 +229,6 @@ func (p *LlamaServerProvider) GenerateChat(
 
 	body, _ := json.Marshal(payload)
 
-	// Log the request if enabled
 	if p.logger != nil {
 		p.logger.LogRequest(requestID, messages, tools, sampling, payload)
 	}
@@ -249,7 +248,6 @@ func (p *LlamaServerProvider) GenerateChat(
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(httpResp.Body)
 
-		// Log error with full context
 		if p.logger != nil {
 			p.logger.LogError(requestID, httpResp.StatusCode, bodyBytes, messages, payload)
 		}
@@ -286,7 +284,6 @@ func (p *LlamaServerProvider) GenerateChat(
 		Usage:     parseUsage(responsePayload),
 	}
 
-	// Log the response if enabled
 	if p.logger != nil {
 		p.logger.LogResponse(requestID, response, duration)
 	}

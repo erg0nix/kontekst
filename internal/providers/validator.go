@@ -28,7 +28,6 @@ func (v *RoleValidator) Validate(messages []core.Message, useToolRole bool) erro
 		return nil
 	}
 
-	// First message should be system
 	if messages[0].Role != core.RoleSystem {
 		return &ValidationError{
 			Index:   0,
@@ -43,12 +42,10 @@ func (v *RoleValidator) Validate(messages []core.Message, useToolRole bool) erro
 		msg := messages[i]
 		actualRole := msg.Role
 
-		// When not using native tool role, tool results become user messages
 		if !useToolRole && msg.ToolResult != nil {
 			actualRole = core.RoleUser
 		}
 
-		// Check for consecutive same-role messages (except tool role which can repeat)
 		if actualRole == prevRole && actualRole != core.RoleTool {
 			return &ValidationError{
 				Index:        i,
@@ -58,7 +55,6 @@ func (v *RoleValidator) Validate(messages []core.Message, useToolRole bool) erro
 			}
 		}
 
-		// Validate tool result expectations
 		if msg.Role == core.RoleTool || msg.ToolResult != nil {
 			if !expectingToolResult {
 				return &ValidationError{
@@ -68,11 +64,9 @@ func (v *RoleValidator) Validate(messages []core.Message, useToolRole bool) erro
 			}
 		}
 
-		// Track if we're expecting tool results
 		if msg.Role == core.RoleAssistant && len(msg.ToolCalls) > 0 {
 			expectingToolResult = true
 		} else if msg.Role == core.RoleTool || msg.ToolResult != nil {
-			// Keep expecting tool results (for multiple tool calls)
 			expectingToolResult = true
 		} else {
 			expectingToolResult = false
