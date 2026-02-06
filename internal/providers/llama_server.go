@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -19,24 +20,42 @@ import (
 )
 
 type LlamaServerProvider struct {
-	cfg    config.LlamaServerConfig
-	client *http.Client
-	mu     sync.Mutex
-	cmd    *exec.Cmd
-	start  time.Time
+	cfg       config.LlamaServerConfig
+	client    *http.Client
+	mu        sync.Mutex
+	cmd       *exec.Cmd
+	start     time.Time
+	logger    *RequestLogger
+	validator *RoleValidator
 }
 
-func NewLlamaServerProvider(cfg config.LlamaServerConfig) *LlamaServerProvider {
+func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugConfig) *LlamaServerProvider {
 	timeout := cfg.HTTPTimeout
 
 	if timeout == 0 {
 		timeout = 300 * time.Second
 	}
 
-	return &LlamaServerProvider{
+	provider := &LlamaServerProvider{
 		cfg:    cfg,
 		client: &http.Client{Timeout: timeout},
 	}
+
+	// Initialize logger if any logging or error dumping is enabled
+	if debugCfg.LogRequests || debugCfg.LogResponses || debugCfg.DumpOnError {
+		provider.logger = NewRequestLogger(
+			debugCfg.LogDirectory,
+			debugCfg.LogRequests,
+			debugCfg.LogResponses,
+		)
+	}
+
+	// Initialize validator if role validation is enabled
+	if debugCfg.ValidateRoles {
+		provider.validator = NewRoleValidator()
+	}
+
+	return provider
 }
 
 type LlamaServerStatus struct {
@@ -118,6 +137,18 @@ func (p *LlamaServerProvider) GenerateChat(
 		return core.ChatResponse{}, err
 	}
 
+	requestID := core.NewRequestID()
+
+	// Validate role alternation before sending to provider
+	if p.validator != nil {
+		if err := p.validator.Validate(messages, useToolRole); err != nil {
+			if p.logger != nil {
+				p.logger.LogError(requestID, 0, []byte(err.Error()), messages, nil)
+			}
+			return core.ChatResponse{}, fmt.Errorf("role validation failed (request_id=%s): %w", requestID, err)
+		}
+	}
+
 	endpoint := p.cfg.Endpoint
 	endpointURL := endpoint + "/v1/chat/completions"
 
@@ -197,21 +228,38 @@ func (p *LlamaServerProvider) GenerateChat(
 	}
 
 	body, _ := json.Marshal(payload)
+
+	// Log the request if enabled
+	if p.logger != nil {
+		p.logger.LogRequest(requestID, messages, tools, sampling, payload)
+	}
+
+	startTime := time.Now()
 	httpResp, err := p.client.Post(endpointURL, "application/json", bytes.NewReader(body))
+	duration := time.Since(startTime)
 
 	if err != nil {
-		return core.ChatResponse{}, err
+		if p.logger != nil {
+			p.logger.LogError(requestID, 0, []byte(err.Error()), messages, payload)
+		}
+		return core.ChatResponse{}, fmt.Errorf("provider request failed (request_id=%s): %w", requestID, err)
 	}
 	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(httpResp.Body)
 
-		if len(bodyBytes) > 0 {
-			return core.ChatResponse{}, errors.New(httpResp.Status + ": " + strings.TrimSpace(string(bodyBytes)))
+		// Log error with full context
+		if p.logger != nil {
+			p.logger.LogError(requestID, httpResp.StatusCode, bodyBytes, messages, payload)
 		}
 
-		return core.ChatResponse{}, errors.New(httpResp.Status)
+		if len(bodyBytes) > 0 {
+			return core.ChatResponse{}, fmt.Errorf("provider error (request_id=%s): %s: %s",
+				requestID, httpResp.Status, strings.TrimSpace(string(bodyBytes)))
+		}
+
+		return core.ChatResponse{}, fmt.Errorf("provider error (request_id=%s): %s", requestID, httpResp.Status)
 	}
 
 	var responsePayload map[string]any
@@ -230,10 +278,20 @@ func (p *LlamaServerProvider) GenerateChat(
 	message, _ := choice["message"].(map[string]any)
 	content, _ := message["content"].(string)
 	reasoning, _ := message["reasoning_content"].(string)
-	toolCalls := parseToolCalls(message)
-	usage := parseUsage(responsePayload)
 
-	return core.ChatResponse{Content: content, Reasoning: reasoning, ToolCalls: toolCalls, Usage: usage}, nil
+	response := core.ChatResponse{
+		Content:   content,
+		Reasoning: reasoning,
+		ToolCalls: parseToolCalls(message),
+		Usage:     parseUsage(responsePayload),
+	}
+
+	// Log the response if enabled
+	if p.logger != nil {
+		p.logger.LogResponse(requestID, response, duration)
+	}
+
+	return response, nil
 }
 
 func (p *LlamaServerProvider) ConcurrencyLimit() int {

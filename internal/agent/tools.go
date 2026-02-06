@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/core"
@@ -19,19 +21,35 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 		},
 	}
 
+	// Accumulate consecutive denials to avoid role alternation issues
+	deniedResults := []string{}
+
 	for _, call := range calls {
 		if call.Approved != nil && !*call.Approved {
 			reason := call.Reason
-
 			if reason == "" {
 				reason = "denied"
 			}
-
-			result := core.ToolResult{CallID: call.ID, Name: call.Name, Output: "denied: " + reason, IsError: true}
-			tokens, _ := agent.provider.CountTokens(result.Output)
-			msg := core.Message{Role: core.RoleTool, Content: result.Output, ToolResult: &result, Tokens: tokens}
-			_ = agent.context.AddMessage(msg)
+			deniedResults = append(deniedResults, fmt.Sprintf("Tool %s (call_id=%s): denied: %s", call.Name, call.ID, reason))
 			continue
+		}
+
+		// Flush any accumulated denials before executing approved tool
+		if len(deniedResults) > 0 {
+			mergedOutput := strings.Join(deniedResults, "\n")
+			tokens, _ := agent.provider.CountTokens(mergedOutput)
+			msg := core.Message{
+				Role:    core.RoleTool,
+				Content: mergedOutput,
+				ToolResult: &core.ToolResult{
+					Name:    "multiple_tools_denied",
+					Output:  mergedOutput,
+					IsError: true,
+				},
+				Tokens: tokens,
+			}
+			_ = agent.context.AddMessage(msg)
+			deniedResults = nil
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -57,6 +75,23 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 		msg := core.Message{Role: core.RoleTool, Content: output, ToolResult: &result, Tokens: tokens}
 		_ = agent.context.AddMessage(msg)
 		eventChannel <- AgentEvent{Type: EvtToolCompleted, RunID: runID, CallID: call.ID, Output: output}
+	}
+
+	// Flush any remaining denials at the end
+	if len(deniedResults) > 0 {
+		mergedOutput := strings.Join(deniedResults, "\n")
+		tokens, _ := agent.provider.CountTokens(mergedOutput)
+		msg := core.Message{
+			Role:    core.RoleTool,
+			Content: mergedOutput,
+			ToolResult: &core.ToolResult{
+				Name:    "multiple_tools_denied",
+				Output:  mergedOutput,
+				IsError: true,
+			},
+			Tokens: tokens,
+		}
+		_ = agent.context.AddMessage(msg)
 	}
 
 	eventChannel <- AgentEvent{Type: EvtToolBatchCompleted, RunID: runID, BatchID: batchID}

@@ -53,20 +53,26 @@ func main() {
 	setIfNotEmpty(&daemonConfig.ModelDir, *modelDirFlag)
 	setIfNotEmpty(&daemonConfig.DataDir, *dataDirFlag)
 
+	// Load debug config from environment variables (overrides config file)
+	daemonConfig.Debug = config.LoadDebugConfigFromEnv(daemonConfig.Debug)
+
 	if err := agentcfg.EnsureDefault(daemonConfig.DataDir); err != nil {
 		log.Printf("failed to ensure default agent: %v", err)
 	}
 
-	llamaProvider := providers.NewLlamaServerProvider(config.LlamaServerConfig{
-		Endpoint:     daemonConfig.Endpoint,
-		AutoStart:    true,
-		InheritStdio: true,
-		ModelDir:     daemonConfig.ModelDir,
-		ContextSize:  daemonConfig.ContextSize,
-		GPULayers:    daemonConfig.GPULayers,
-		StartupWait:  15 * time.Second,
-		HTTPTimeout:  300 * time.Second,
-	})
+	llamaProvider := providers.NewLlamaServerProvider(
+		config.LlamaServerConfig{
+			Endpoint:     daemonConfig.Endpoint,
+			AutoStart:    true,
+			InheritStdio: true,
+			ModelDir:     daemonConfig.ModelDir,
+			ContextSize:  daemonConfig.ContextSize,
+			GPULayers:    daemonConfig.GPULayers,
+			StartupWait:  15 * time.Second,
+			HTTPTimeout:  300 * time.Second,
+		},
+		daemonConfig.Debug,
+	)
 	if daemonConfig.ModelDir != "" {
 		if err := llamaProvider.Start(); err != nil {
 			log.Printf("failed to start llama-server: %v", err)

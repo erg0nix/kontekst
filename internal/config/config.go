@@ -24,6 +24,14 @@ type ToolsConfig struct {
 	Web        WebToolsConfig  `toml:"web"`
 }
 
+type DebugConfig struct {
+	LogRequests   bool   `toml:"log_requests"`
+	LogResponses  bool   `toml:"log_responses"`
+	LogDirectory  string `toml:"log_directory"`
+	ValidateRoles bool   `toml:"validate_roles"`
+	DumpOnError   bool   `toml:"dump_on_error"`
+}
+
 type Config struct {
 	Bind        string      `toml:"bind"`
 	Endpoint    string      `toml:"endpoint"`
@@ -32,16 +40,18 @@ type Config struct {
 	GPULayers   int         `toml:"gpu_layers"`
 	DataDir     string      `toml:"data_dir"`
 	Tools       ToolsConfig `toml:"tools"`
+	Debug       DebugConfig `toml:"debug"`
 }
 
 func Default() Config {
+	defaultDataDir := defaultDataDir()
 	return Config{
 		Bind:        ":50051",
 		Endpoint:    "http://127.0.0.1:8080",
 		ModelDir:    defaultModelsDir(),
 		ContextSize: 4096,
 		GPULayers:   0,
-		DataDir:     defaultDataDir(),
+		DataDir:     defaultDataDir,
 		Tools: ToolsConfig{
 			WorkingDir: "",
 			File: FileToolsConfig{
@@ -51,6 +61,13 @@ func Default() Config {
 				TimeoutSeconds:   30,
 				MaxResponseBytes: 5 * 1024 * 1024,
 			},
+		},
+		Debug: DebugConfig{
+			LogRequests:   false,
+			LogResponses:  false,
+			LogDirectory:  filepath.Join(defaultDataDir, "debug"),
+			ValidateRoles: true,
+			DumpOnError:   true,
 		},
 	}
 }
