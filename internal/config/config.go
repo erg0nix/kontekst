@@ -29,7 +29,6 @@ type DebugConfig struct {
 	LogResponses  bool   `toml:"log_responses"`
 	LogDirectory  string `toml:"log_directory"`
 	ValidateRoles bool   `toml:"validate_roles"`
-	DumpOnError   bool   `toml:"dump_on_error"`
 }
 
 type Config struct {
@@ -67,7 +66,6 @@ func Default() Config {
 			LogResponses:  false,
 			LogDirectory:  filepath.Join(defaultDataDir, "debug"),
 			ValidateRoles: true,
-			DumpOnError:   true,
 		},
 	}
 }

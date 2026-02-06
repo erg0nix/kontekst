@@ -1,4 +1,4 @@
-package context
+package providers
 
 import (
 	"testing"
@@ -72,8 +72,8 @@ func TestNormalizeMessages(t *testing.T) {
 			expected:    1,
 		},
 		{
-			name: "empty messages",
-			messages: []core.Message{},
+			name:        "empty messages",
+			messages:    []core.Message{},
 			useToolRole: false,
 			expected:    0,
 		},
@@ -94,7 +94,7 @@ func TestNormalizeMessages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := NormalizeMessages(tt.messages, tt.useToolRole)
+			result := normalizeMessages(tt.messages, tt.useToolRole)
 
 			if len(result) != tt.expected {
 				t.Errorf("expected %d messages, got %d", tt.expected, len(result))
@@ -102,8 +102,8 @@ func TestNormalizeMessages(t *testing.T) {
 
 			if tt.checkRoles && len(result) > 1 {
 				for i := 1; i < len(result); i++ {
-					prevRole := getEffectiveRole(result[i-1], tt.useToolRole)
-					currRole := getEffectiveRole(result[i], tt.useToolRole)
+					prevRole := effectiveRole(result[i-1], tt.useToolRole)
+					currRole := effectiveRole(result[i], tt.useToolRole)
 
 					if prevRole == currRole && currRole != core.RoleTool {
 						t.Errorf("found consecutive same roles at index %d: %s -> %s",
@@ -122,7 +122,7 @@ func TestNormalizeMessages_ContentMerging(t *testing.T) {
 		{Role: core.RoleUser, Content: "third", Tokens: 7},
 	}
 
-	result := NormalizeMessages(messages, false)
+	result := normalizeMessages(messages, false)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 message, got %d", len(result))
@@ -160,7 +160,7 @@ func TestNormalizeMessages_ToolCallsMerging(t *testing.T) {
 		},
 	}
 
-	result := NormalizeMessages(messages, false)
+	result := normalizeMessages(messages, false)
 
 	if len(result) != 1 {
 		t.Fatalf("expected 1 message, got %d", len(result))

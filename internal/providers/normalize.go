@@ -1,10 +1,10 @@
-package context
+package providers
 
 import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
-func NormalizeMessages(messages []core.Message, useToolRole bool) []core.Message {
+func normalizeMessages(messages []core.Message, useToolRole bool) []core.Message {
 	if len(messages) <= 1 {
 		return messages
 	}
@@ -26,8 +26,8 @@ func NormalizeMessages(messages []core.Message, useToolRole bool) []core.Message
 }
 
 func shouldMerge(current, previous core.Message, useToolRole bool) bool {
-	currentRole := getEffectiveRole(current, useToolRole)
-	previousRole := getEffectiveRole(previous, useToolRole)
+	currentRole := effectiveRole(current, useToolRole)
+	previousRole := effectiveRole(previous, useToolRole)
 
 	if useToolRole && currentRole == core.RoleTool {
 		return false
@@ -36,7 +36,7 @@ func shouldMerge(current, previous core.Message, useToolRole bool) bool {
 	return currentRole == previousRole
 }
 
-func getEffectiveRole(msg core.Message, useToolRole bool) core.Role {
+func effectiveRole(msg core.Message, useToolRole bool) core.Role {
 	if !useToolRole && msg.ToolResult != nil {
 		return core.RoleUser
 	}

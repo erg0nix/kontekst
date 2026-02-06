@@ -16,18 +16,17 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/config"
-	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
 type LlamaServerProvider struct {
-	cfg       config.LlamaServerConfig
-	client    *http.Client
-	mu        sync.Mutex
-	cmd       *exec.Cmd
-	start     time.Time
-	logger    *RequestLogger
-	validator *RoleValidator
+	cfg           config.LlamaServerConfig
+	client        *http.Client
+	mu            sync.Mutex
+	cmd           *exec.Cmd
+	start         time.Time
+	logger        *RequestLogger
+	validateRoles bool
 }
 
 func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugConfig) *LlamaServerProvider {
@@ -42,7 +41,7 @@ func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugC
 		client: &http.Client{Timeout: timeout},
 	}
 
-	if debugCfg.LogRequests || debugCfg.LogResponses || debugCfg.DumpOnError {
+	if debugCfg.LogRequests || debugCfg.LogResponses {
 		provider.logger = NewRequestLogger(
 			debugCfg.LogDirectory,
 			debugCfg.LogRequests,
@@ -50,9 +49,7 @@ func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugC
 		)
 	}
 
-	if debugCfg.ValidateRoles {
-		provider.validator = NewRoleValidator()
-	}
+	provider.validateRoles = debugCfg.ValidateRoles
 
 	return provider
 }
@@ -138,10 +135,10 @@ func (p *LlamaServerProvider) GenerateChat(
 
 	requestID := core.NewRequestID()
 
-	messages = context.NormalizeMessages(messages, useToolRole)
+	messages = normalizeMessages(messages, useToolRole)
 
-	if p.validator != nil {
-		if err := p.validator.Validate(messages, useToolRole); err != nil {
+	if p.validateRoles {
+		if err := validateRoleAlternation(messages, useToolRole); err != nil {
 			if p.logger != nil {
 				p.logger.LogError(requestID, 0, []byte(err.Error()), messages, nil)
 			}

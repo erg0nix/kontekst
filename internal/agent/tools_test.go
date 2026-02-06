@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"errors"
+	"context"
 	"testing"
 
 	"github.com/erg0nix/kontekst/internal/core"
@@ -44,6 +44,20 @@ func (m *mockContext) RenderUserMessage(prompt string) (string, error) {
 
 func (m *mockContext) SetAgentSystemPrompt(prompt string) {}
 
+type mockToolExecutor struct{}
+
+func (m *mockToolExecutor) Execute(name string, args map[string]any, ctx context.Context) (string, error) {
+	return "mock output", nil
+}
+
+func (m *mockToolExecutor) ToolDefinitions() []core.ToolDef {
+	return nil
+}
+
+func (m *mockToolExecutor) Preview(name string, args map[string]any, ctx context.Context) (string, error) {
+	return "", nil
+}
+
 type mockProvider struct{}
 
 func (m *mockProvider) GenerateChat(messages []core.Message, tools []core.ToolDef, sampling *core.SamplingConfig, model string, useToolRole bool) (core.ChatResponse, error) {
@@ -58,23 +72,22 @@ func (m *mockProvider) ConcurrencyLimit() int {
 	return 1
 }
 
-func TestAddToolResults_SingleTool(t *testing.T) {
+func TestExecuteTools_SingleTool(t *testing.T) {
 	ctx := &mockContext{}
-	agent := &Agent{
+	eventCh := make(chan AgentEvent, 32)
+	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
+		tools:    &mockToolExecutor{},
 	}
 
-	batch := []toolExecution{
-		{
-			call:   &pendingCall{ID: "call1", Name: "test_tool"},
-			output: "result",
-			err:    nil,
-		},
+	approved := true
+	calls := []*pendingCall{
+		{ID: "call1", Name: "test_tool", Args: map[string]any{}, Approved: &approved},
 	}
 
-	if err := agent.addToolResults(batch); err != nil {
-		t.Fatalf("addToolResults failed: %v", err)
+	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+		t.Fatalf("executeTools failed: %v", err)
 	}
 
 	if len(ctx.messages) != 1 {
@@ -85,88 +98,111 @@ func TestAddToolResults_SingleTool(t *testing.T) {
 	if msg.Role != core.RoleTool {
 		t.Errorf("expected role 'tool', got %s", msg.Role)
 	}
-
-	if msg.Content != "result" {
-		t.Errorf("expected content 'result', got %s", msg.Content)
-	}
-
 	if msg.ToolResult == nil {
 		t.Fatal("expected ToolResult to be set")
 	}
-
-	if msg.ToolResult.Name != "test_tool" {
-		t.Errorf("expected tool name 'test_tool', got %s", msg.ToolResult.Name)
+	if msg.ToolResult.CallID != "call1" {
+		t.Errorf("expected call_id 'call1', got %s", msg.ToolResult.CallID)
 	}
 }
 
-func TestAddToolResults_BatchedTools(t *testing.T) {
+func TestExecuteTools_MultipleToolsProduceIndividualMessages(t *testing.T) {
 	ctx := &mockContext{}
-	agent := &Agent{
+	eventCh := make(chan AgentEvent, 32)
+	ag := &Agent{
+		context:  ctx,
+		provider: &mockProvider{},
+		tools:    &mockToolExecutor{},
+	}
+
+	approved := true
+	calls := []*pendingCall{
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &approved},
+		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approved: &approved},
+	}
+
+	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+		t.Fatalf("executeTools failed: %v", err)
+	}
+
+	if len(ctx.messages) != 2 {
+		t.Fatalf("expected 2 messages (one per tool), got %d", len(ctx.messages))
+	}
+
+	for i, msg := range ctx.messages {
+		if msg.Role != core.RoleTool {
+			t.Errorf("message %d: expected role 'tool', got %s", i, msg.Role)
+		}
+		if msg.ToolResult == nil {
+			t.Errorf("message %d: expected ToolResult to be set", i)
+		}
+	}
+
+	if ctx.messages[0].ToolResult.CallID != "call1" {
+		t.Errorf("expected first message call_id 'call1', got %s", ctx.messages[0].ToolResult.CallID)
+	}
+	if ctx.messages[1].ToolResult.CallID != "call2" {
+		t.Errorf("expected second message call_id 'call2', got %s", ctx.messages[1].ToolResult.CallID)
+	}
+}
+
+func TestExecuteTools_DeniedToolRecordsError(t *testing.T) {
+	ctx := &mockContext{}
+	eventCh := make(chan AgentEvent, 32)
+	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
 	}
 
-	batch := []toolExecution{
-		{
-			call:   &pendingCall{ID: "call1", Name: "tool1"},
-			output: "result1",
-			err:    nil,
-		},
-		{
-			call:   &pendingCall{ID: "call2", Name: "tool2"},
-			output: "result2",
-			err:    nil,
-		},
-		{
-			call:   &pendingCall{ID: "call3", Name: "tool3"},
-			output: "",
-			err:    errors.New("tool error"),
-		},
+	denied := false
+	calls := []*pendingCall{
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &denied, Reason: "not allowed"},
 	}
 
-	if err := agent.addToolResults(batch); err != nil {
-		t.Fatalf("addToolResults failed: %v", err)
+	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+		t.Fatalf("executeTools failed: %v", err)
 	}
 
 	if len(ctx.messages) != 1 {
-		t.Fatalf("expected 1 message (batched), got %d", len(ctx.messages))
+		t.Fatalf("expected 1 message, got %d", len(ctx.messages))
 	}
 
 	msg := ctx.messages[0]
-	if msg.Role != core.RoleTool {
-		t.Errorf("expected role 'tool', got %s", msg.Role)
-	}
-
-	if msg.ToolResult == nil {
-		t.Fatal("expected ToolResult to be set")
-	}
-
-	if msg.ToolResult.Name != "batch_tool_results" {
-		t.Errorf("expected tool name 'batch_tool_results', got %s", msg.ToolResult.Name)
-	}
-
-	if msg.ToolResult.CallID != "call1,call2,call3" {
-		t.Errorf("expected call_id 'call1,call2,call3', got %s", msg.ToolResult.CallID)
-	}
-
 	if !msg.ToolResult.IsError {
-		t.Error("expected IsError to be true (batch contains error)")
+		t.Error("expected IsError to be true for denied tool")
+	}
+}
+
+func TestExecuteTools_MixedApprovedAndDenied(t *testing.T) {
+	ctx := &mockContext{}
+	eventCh := make(chan AgentEvent, 32)
+	ag := &Agent{
+		context:  ctx,
+		provider: &mockProvider{},
+		tools:    &mockToolExecutor{},
 	}
 
-	content := msg.Content
-	if content == "" {
-		t.Error("expected non-empty content")
+	approved := true
+	denied := false
+	calls := []*pendingCall{
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &approved},
+		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approved: &denied, Reason: "denied"},
+		{ID: "call3", Name: "tool3", Args: map[string]any{}, Approved: &approved},
 	}
 
-	expectedSeparator := "\n\n---\n\n"
-	separatorCount := 0
-	for i := 0; i < len(content)-len(expectedSeparator); i++ {
-		if content[i:i+len(expectedSeparator)] == expectedSeparator {
-			separatorCount++
-		}
+	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+		t.Fatalf("executeTools failed: %v", err)
 	}
 
-	if separatorCount != 2 {
-		t.Errorf("expected 2 separators between 3 results, got %d", separatorCount)
+	if len(ctx.messages) != 3 {
+		t.Fatalf("expected 3 messages (one per tool), got %d", len(ctx.messages))
+	}
+
+	if ctx.messages[1].ToolResult.IsError != true {
+		t.Error("expected second message to be an error (denied)")
+	}
+
+	if ctx.messages[0].ToolResult.IsError != false {
+		t.Error("expected first message to not be an error")
 	}
 }

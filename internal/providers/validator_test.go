@@ -7,7 +7,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
-func TestRoleValidator_Validate(t *testing.T) {
+func TestValidateRoleAlternation(t *testing.T) {
 	tests := []struct {
 		name        string
 		messages    []core.Message
@@ -117,8 +117,8 @@ func TestRoleValidator_Validate(t *testing.T) {
 			errorSubstr: "consecutive user",
 		},
 		{
-			name: "empty message list",
-			messages: []core.Message{},
+			name:        "empty message list",
+			messages:    []core.Message{},
 			useToolRole: false,
 			expectError: false,
 		},
@@ -145,11 +145,9 @@ func TestRoleValidator_Validate(t *testing.T) {
 		},
 	}
 
-	validator := NewRoleValidator()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.Validate(tt.messages, tt.useToolRole)
+			err := validateRoleAlternation(tt.messages, tt.useToolRole)
 
 			if tt.expectError && err == nil {
 				t.Errorf("expected error but got nil")

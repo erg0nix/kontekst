@@ -109,13 +109,13 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			return
 		}
 
-		if hasAnyDenied(toolDecisions) {
-			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID}
+		if err := agent.executeTools(runID, batchID, toolDecisions, eventChannel); err != nil {
+			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
 			return
 		}
 
-		if err := agent.executeTools(runID, batchID, toolDecisions, eventChannel); err != nil {
-			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
+		if hasAnyDenied(toolDecisions) {
+			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID}
 			return
 		}
 	}

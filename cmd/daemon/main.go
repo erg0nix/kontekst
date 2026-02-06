@@ -53,7 +53,6 @@ func main() {
 	setIfNotEmpty(&daemonConfig.ModelDir, *modelDirFlag)
 	setIfNotEmpty(&daemonConfig.DataDir, *dataDirFlag)
 
-	// Load debug config from environment variables (overrides config file)
 	daemonConfig.Debug = config.LoadDebugConfigFromEnv(daemonConfig.Debug)
 
 	if err := agentcfg.EnsureDefault(daemonConfig.DataDir); err != nil {
