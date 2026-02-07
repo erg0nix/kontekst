@@ -3,6 +3,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,6 +15,7 @@ type RequestLogger struct {
 	logDir       string
 	logRequests  bool
 	logResponses bool
+	logger       *slog.Logger
 }
 
 type LogEntry struct {
@@ -30,11 +32,12 @@ type LogEntry struct {
 	StatusCode int                  `json:"status_code,omitempty"`
 }
 
-func NewRequestLogger(logDir string, logRequests, logResponses bool) *RequestLogger {
+func NewRequestLogger(logDir string, logRequests, logResponses bool, logger *slog.Logger) *RequestLogger {
 	return &RequestLogger{
 		logDir:       logDir,
 		logRequests:  logRequests,
 		logResponses: logResponses,
+		logger:       logger,
 	}
 }
 
@@ -54,7 +57,7 @@ func (l *RequestLogger) LogRequest(requestID core.RequestID, messages []core.Mes
 	}
 
 	l.writeLog(entry)
-	l.printToConsole("REQUEST", requestID, entry)
+	l.logger.Debug("provider request", "request_id", requestID, "message_count", len(messages), "tool_count", len(tools))
 }
 
 func (l *RequestLogger) LogResponse(requestID core.RequestID, response core.ChatResponse, duration time.Duration) {
@@ -85,7 +88,24 @@ func (l *RequestLogger) LogError(requestID core.RequestID, statusCode int, error
 	}
 
 	l.writeLog(entry)
-	l.printErrorToConsole(requestID, statusCode, errorBody, messages)
+
+	msgSummary := make([]string, 0, min(5, len(messages)))
+	start := max(0, len(messages)-5)
+	for i := start; i < len(messages); i++ {
+		msg := messages[i]
+		content := msg.Content
+		if len(content) > 50 {
+			content = content[:50] + "..."
+		}
+		msgSummary = append(msgSummary, fmt.Sprintf("[%s] %s", msg.Role, content))
+	}
+
+	l.logger.Error("provider request failed",
+		"request_id", requestID,
+		"status_code", statusCode,
+		"error", string(errorBody),
+		"recent_messages", msgSummary,
+	)
 }
 
 func (l *RequestLogger) writeLog(entry LogEntry) {
@@ -106,37 +126,4 @@ func (l *RequestLogger) writeLog(entry LogEntry) {
 
 	_, _ = f.Write(data)
 	_, _ = f.WriteString("\n")
-}
-
-func (l *RequestLogger) printToConsole(prefix string, requestID core.RequestID, entry LogEntry) {
-	if l.logRequests {
-		data, _ := json.MarshalIndent(entry, "", "  ")
-		fmt.Fprintf(os.Stderr, "\n[%s %s]\n%s\n\n", prefix, requestID, string(data))
-	}
-}
-
-func (l *RequestLogger) printErrorToConsole(requestID core.RequestID, statusCode int, errorBody []byte, messages []core.Message) {
-	fmt.Fprintf(os.Stderr, "\n[ERROR] Provider request failed (request_id=%s)\n", requestID)
-	fmt.Fprintf(os.Stderr, "Status: %d\n", statusCode)
-	fmt.Fprintf(os.Stderr, "Response: %s\n\n", string(errorBody))
-
-	fmt.Fprintf(os.Stderr, "Message sequence (last %d):\n", min(5, len(messages)))
-	start := max(0, len(messages)-5)
-	for i := start; i < len(messages); i++ {
-		msg := messages[i]
-		fmt.Fprintf(os.Stderr, "  %d. [%s] ", i, msg.Role)
-		if len(msg.Content) > 50 {
-			fmt.Fprintf(os.Stderr, "%s...", msg.Content[:50])
-		} else if msg.Content != "" {
-			fmt.Fprintf(os.Stderr, "%s", msg.Content)
-		}
-		if len(msg.ToolCalls) > 0 {
-			fmt.Fprintf(os.Stderr, " (%d tool calls)", len(msg.ToolCalls))
-		}
-		if msg.ToolResult != nil {
-			fmt.Fprintf(os.Stderr, " tool result: %s", msg.ToolResult.Name)
-		}
-		fmt.Fprintf(os.Stderr, "\n")
-	}
-	fmt.Fprintf(os.Stderr, "\n")
 }

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
@@ -80,13 +81,21 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 
 			switch event.Type {
 			case EvtRunStarted:
-				_ = runner.Runs.StartRun(sessionID, event.RunID)
+				if err := runner.Runs.StartRun(sessionID, event.RunID); err != nil {
+					slog.Warn("failed to record run start", "run_id", event.RunID, "error", err)
+				}
 			case EvtRunCompleted:
-				_ = runner.Runs.CompleteRun(event.RunID)
+				if err := runner.Runs.CompleteRun(event.RunID); err != nil {
+					slog.Warn("failed to record run completion", "run_id", event.RunID, "error", err)
+				}
 			case EvtRunCancelled:
-				_ = runner.Runs.CancelRun(event.RunID)
+				if err := runner.Runs.CancelRun(event.RunID); err != nil {
+					slog.Warn("failed to record run cancellation", "run_id", event.RunID, "error", err)
+				}
 			case EvtRunFailed:
-				_ = runner.Runs.FailRun(event.RunID)
+				if err := runner.Runs.FailRun(event.RunID); err != nil {
+					slog.Warn("failed to record run failure", "run_id", event.RunID, "error", err)
+				}
 			}
 
 			outputChannel <- event

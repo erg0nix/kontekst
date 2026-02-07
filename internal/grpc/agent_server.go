@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/core"
@@ -42,7 +43,9 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 		switch commandPayload := runCommand.Command.(type) {
 		case *pb.RunCommand_Start:
 			if commandChannel != nil {
-				_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "run already started"}}})
+				if err := stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "run already started"}}}); err != nil {
+					slog.Warn("failed to send error event", "error", err)
+				}
 				continue
 			}
 
@@ -56,7 +59,9 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			if agentName != "" && h.Registry != nil {
 				loadedAgent, err := h.Registry.Load(agentName)
 				if err != nil {
-					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})
+					if err := stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}}); err != nil {
+						slog.Warn("failed to send error event", "error", err)
+					}
 					continue
 				}
 				agentSystemPrompt = loadedAgent.SystemPrompt
@@ -69,17 +74,23 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			var skillContent string
 			if startCommand.Skill != nil && startCommand.Skill.Name != "" {
 				if h.Skills == nil {
-					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "skills not available"}}})
+					if err := stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "skills not available"}}}); err != nil {
+						slog.Warn("failed to send error event", "error", err)
+					}
 					continue
 				}
 				loadedSkill, found := h.Skills.Get(startCommand.Skill.Name)
 				if !found {
-					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("skill not found: %s", startCommand.Skill.Name)}}})
+					if err := stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("skill not found: %s", startCommand.Skill.Name)}}}); err != nil {
+						slog.Warn("failed to send error event", "error", err)
+					}
 					continue
 				}
 				rendered, err := loadedSkill.Render(startCommand.Skill.Arguments)
 				if err != nil {
-					_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("failed to render skill: %v", err)}}})
+					if err := stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: fmt.Sprintf("failed to render skill: %v", err)}}}); err != nil {
+						slog.Warn("failed to send error event", "error", err)
+					}
 					continue
 				}
 				skill = loadedSkill
@@ -99,7 +110,9 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				ToolRole:          agentToolRole,
 			})
 			if err != nil {
-				_ = stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}})
+				if err := stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}}); err != nil {
+					slog.Warn("failed to send error event", "error", err)
+				}
 				continue
 			}
 
@@ -140,7 +153,10 @@ func forwardEvents(ctx context.Context, stream pb.AgentService_RunServer, eventC
 			if !ok {
 				return
 			}
-			_ = stream.Send(convertEvent(event))
+			if err := stream.Send(convertEvent(event)); err != nil {
+				slog.Warn("stream broken, stopping event forwarding", "error", err)
+				return
+			}
 		}
 	}
 }
