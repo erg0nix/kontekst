@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"log/slog"
 
 	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
@@ -45,17 +46,25 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 
 	systemContent := agent.context.SystemContent()
 	systemTokens, _ := agent.provider.CountTokens(systemContent)
-	_ = agent.context.StartRun(systemContent, systemTokens)
+	if err := agent.context.StartRun(systemContent, systemTokens); err != nil {
+		slog.Warn("failed to start context run", "error", err)
+	}
 	defer agent.context.CompleteRun()
 
 	if prompt != "" {
 		userMessage, _ := agent.context.RenderUserMessage(prompt)
 		tokens, _ := agent.provider.CountTokens(userMessage)
-		_ = agent.context.AddMessage(core.Message{Role: core.RoleUser, Content: userMessage, Tokens: tokens})
+		if err := agent.context.AddMessage(core.Message{Role: core.RoleUser, Content: userMessage, Tokens: tokens}); err != nil {
+			slog.Warn("failed to add user message", "error", err)
+		}
 	}
 
 	for {
-		contextMessages, _ := agent.context.BuildContext()
+		contextMessages, err := agent.context.BuildContext()
+		if err != nil {
+			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
+			return
+		}
 		chatResponse, err := agent.provider.GenerateChat(
 			contextMessages,
 			agent.tools.ToolDefinitions(),
@@ -77,12 +86,14 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 		}
 
 		if len(chatResponse.ToolCalls) == 0 {
-			_ = agent.context.AddMessage(core.Message{
+			if err := agent.context.AddMessage(core.Message{
 				Role:      core.RoleAssistant,
 				Content:   chatResponse.Content,
 				AgentName: agent.config.AgentName,
 				Tokens:    completionTokens,
-			})
+			}); err != nil {
+				slog.Warn("failed to add assistant message", "error", err)
+			}
 			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
 			return
 		}
@@ -97,7 +108,9 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			AgentName: agent.config.AgentName,
 			Tokens:    completionTokens,
 		}
-		_ = agent.context.AddMessage(assistantMessage)
+		if err := agent.context.AddMessage(assistantMessage); err != nil {
+			slog.Warn("failed to add assistant message with tool calls", "error", err)
+		}
 
 		previewCtx := tools.WithWorkingDir(context.Background(), agent.config.WorkingDir)
 		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)

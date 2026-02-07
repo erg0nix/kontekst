@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,7 +26,7 @@ type LlamaServerProvider struct {
 	mu            sync.Mutex
 	cmd           *exec.Cmd
 	start         time.Time
-	logger        *RequestLogger
+	requestLogger *RequestLogger
 	validateRoles bool
 }
 
@@ -42,10 +43,11 @@ func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugC
 	}
 
 	if debugCfg.LogRequests || debugCfg.LogResponses {
-		provider.logger = NewRequestLogger(
+		provider.requestLogger = NewRequestLogger(
 			debugCfg.LogDirectory,
 			debugCfg.LogRequests,
 			debugCfg.LogResponses,
+			slog.Default(),
 		)
 	}
 
@@ -139,8 +141,8 @@ func (p *LlamaServerProvider) GenerateChat(
 
 	if p.validateRoles {
 		if err := validateRoleAlternation(messages, useToolRole); err != nil {
-			if p.logger != nil {
-				p.logger.LogError(requestID, 0, []byte(err.Error()), messages, nil)
+			if p.requestLogger != nil {
+				p.requestLogger.LogError(requestID, 0, []byte(err.Error()), messages, nil)
 			}
 			return core.ChatResponse{}, fmt.Errorf("role validation failed (request_id=%s): %w", requestID, err)
 		}
@@ -224,10 +226,13 @@ func (p *LlamaServerProvider) GenerateChat(
 		}
 	}
 
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return core.ChatResponse{}, fmt.Errorf("failed to marshal request: %w", err)
+	}
 
-	if p.logger != nil {
-		p.logger.LogRequest(requestID, messages, tools, sampling, payload)
+	if p.requestLogger != nil {
+		p.requestLogger.LogRequest(requestID, messages, tools, sampling, payload)
 	}
 
 	startTime := time.Now()
@@ -235,8 +240,8 @@ func (p *LlamaServerProvider) GenerateChat(
 	duration := time.Since(startTime)
 
 	if err != nil {
-		if p.logger != nil {
-			p.logger.LogError(requestID, 0, []byte(err.Error()), messages, payload)
+		if p.requestLogger != nil {
+			p.requestLogger.LogError(requestID, 0, []byte(err.Error()), messages, payload)
 		}
 		return core.ChatResponse{}, fmt.Errorf("provider request failed (request_id=%s): %w", requestID, err)
 	}
@@ -245,8 +250,8 @@ func (p *LlamaServerProvider) GenerateChat(
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(httpResp.Body)
 
-		if p.logger != nil {
-			p.logger.LogError(requestID, httpResp.StatusCode, bodyBytes, messages, payload)
+		if p.requestLogger != nil {
+			p.requestLogger.LogError(requestID, httpResp.StatusCode, bodyBytes, messages, payload)
 		}
 
 		if len(bodyBytes) > 0 {
@@ -263,26 +268,13 @@ func (p *LlamaServerProvider) GenerateChat(
 		return core.ChatResponse{}, err
 	}
 
-	choices, _ := responsePayload["choices"].([]any)
-
-	if len(choices) == 0 {
-		return core.ChatResponse{}, errors.New("no choices")
+	response, err := parseResponsePayload(responsePayload)
+	if err != nil {
+		return core.ChatResponse{}, fmt.Errorf("provider response parse failed (request_id=%s): %w", requestID, err)
 	}
 
-	choice, _ := choices[0].(map[string]any)
-	message, _ := choice["message"].(map[string]any)
-	content, _ := message["content"].(string)
-	reasoning, _ := message["reasoning_content"].(string)
-
-	response := core.ChatResponse{
-		Content:   content,
-		Reasoning: reasoning,
-		ToolCalls: parseToolCalls(message),
-		Usage:     parseUsage(responsePayload),
-	}
-
-	if p.logger != nil {
-		p.logger.LogResponse(requestID, response, duration)
+	if p.requestLogger != nil {
+		p.requestLogger.LogResponse(requestID, response, duration)
 	}
 
 	return response, nil
@@ -400,7 +392,9 @@ func (p *LlamaServerProvider) stopProcess() {
 		return
 	}
 
-	_ = p.cmd.Process.Kill()
+	if err := p.cmd.Process.Kill(); err != nil {
+		slog.Warn("failed to kill llama-server process", "error", err)
+	}
 	p.cmd = nil
 }
 
@@ -449,6 +443,33 @@ func toToolCalls(calls []core.ToolCall) []map[string]any {
 	return toolCalls
 }
 
+func parseResponsePayload(payload map[string]any) (core.ChatResponse, error) {
+	choices, ok := payload["choices"].([]any)
+	if !ok || len(choices) == 0 {
+		return core.ChatResponse{}, errors.New("no choices in response")
+	}
+
+	choice, ok := choices[0].(map[string]any)
+	if !ok {
+		return core.ChatResponse{}, errors.New("malformed choice in response")
+	}
+
+	message, ok := choice["message"].(map[string]any)
+	if !ok {
+		return core.ChatResponse{}, errors.New("malformed message in response")
+	}
+
+	content, _ := message["content"].(string)
+	reasoning, _ := message["reasoning_content"].(string)
+
+	return core.ChatResponse{
+		Content:   content,
+		Reasoning: reasoning,
+		ToolCalls: parseToolCalls(message),
+		Usage:     parseUsage(payload),
+	}, nil
+}
+
 func parseToolCalls(message map[string]any) []core.ToolCall {
 	rawCalls, ok := message["tool_calls"].([]any)
 
@@ -459,10 +480,23 @@ func parseToolCalls(message map[string]any) []core.ToolCall {
 	var toolCalls []core.ToolCall
 
 	for _, rawCall := range rawCalls {
-		rawEntry, _ := rawCall.(map[string]any)
+		rawEntry, ok := rawCall.(map[string]any)
+		if !ok {
+			continue
+		}
+
 		callID, _ := rawEntry["id"].(string)
-		functionEntry, _ := rawEntry["function"].(map[string]any)
+
+		functionEntry, ok := rawEntry["function"].(map[string]any)
+		if !ok {
+			continue
+		}
+
 		functionName, _ := functionEntry["name"].(string)
+		if functionName == "" {
+			continue
+		}
+
 		arguments := map[string]any{}
 
 		switch v := functionEntry["arguments"].(type) {

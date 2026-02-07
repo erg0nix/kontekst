@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
 	"net"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -23,6 +24,9 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	slog.SetDefault(logger)
+
 	var (
 		configPathFlag = flag.String("config", "", "path to config file (default ~/.kontekst/config.toml)")
 		bindFlag       = flag.String("bind", "", "gRPC bind address")
@@ -39,7 +43,8 @@ func main() {
 
 	daemonConfig, err := config.LoadOrCreate(configPath)
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
 	setIfNotEmpty := func(dst *string, value string) {
@@ -56,7 +61,7 @@ func main() {
 	daemonConfig.Debug = config.LoadDebugConfigFromEnv(daemonConfig.Debug)
 
 	if err := agentcfg.EnsureDefault(daemonConfig.DataDir); err != nil {
-		log.Printf("failed to ensure default agent: %v", err)
+		logger.Warn("failed to ensure default agent", "error", err)
 	}
 
 	llamaProvider := providers.NewLlamaServerProvider(
@@ -74,14 +79,14 @@ func main() {
 	)
 	if daemonConfig.ModelDir != "" {
 		if err := llamaProvider.Start(); err != nil {
-			log.Printf("failed to start llama-server: %v", err)
+			logger.Warn("failed to start llama-server", "error", err)
 		}
 	}
 
 	skillsDir := filepath.Join(daemonConfig.DataDir, "skills")
 	skillsRegistry := skills.NewRegistry(skillsDir)
 	if err := skillsRegistry.Load(); err != nil {
-		log.Printf("failed to load skills: %v", err)
+		logger.Warn("failed to load skills", "error", err)
 	}
 
 	toolRegistry := tools.NewRegistry()
@@ -102,7 +107,8 @@ func main() {
 
 	grpcListener, err := net.Listen("tcp", daemonConfig.Bind)
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("failed to listen", "address", daemonConfig.Bind, "error", err)
+		os.Exit(1)
 	}
 
 	startTime := time.Now()
@@ -117,9 +123,10 @@ func main() {
 		StopFunc:  grpcServer.GracefulStop,
 	})
 
-	log.Printf("kontekst-go daemon listening on %s", daemonConfig.Bind)
+	logger.Info("daemon listening", "address", daemonConfig.Bind)
 
 	if err := grpcServer.Serve(grpcListener); err != nil {
-		log.Fatal(err)
+		logger.Error("grpc server failed", "error", err)
+		os.Exit(1)
 	}
 }
