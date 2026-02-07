@@ -71,6 +71,7 @@ message RunEvent {
     RunCompletedEvent completed = 10;
     RunCancelledEvent cancelled = 11;
     RunFailedEvent failed = 12;
+    ContextSnapshotEvent context_snapshot = 13;
   }
 }
 
@@ -81,7 +82,7 @@ message RunStartedEvent {
 }
 message TokenDeltaEvent { string text = 1; }
 message ReasoningDeltaEvent { string text = 1; }
-message TurnCompletedEvent { string content = 1; string reasoning = 2; }
+message TurnCompletedEvent { string content = 1; string reasoning = 2; ContextSnapshot context = 3; }
 message ToolBatchProposedEvent { string batch_id = 1; repeated ProposedToolCall calls = 2; }
 message ProposedToolCall {
   string call_id = 1;
@@ -96,3 +97,27 @@ message ToolBatchCompletedEvent { string batch_id = 1; }
 message RunCompletedEvent { string run_id = 1; string content = 2; string reasoning = 3; }
 message RunCancelledEvent { string run_id = 1; }
 message RunFailedEvent { string run_id = 1; string error = 2; }
+
+message ContextSnapshot {
+    int32 context_size = 1;
+    int32 system_tokens = 2;
+    int32 history_tokens = 3;
+    int32 memory_tokens = 4;
+    int32 total_tokens = 5;
+    int32 remaining_tokens = 6;
+    int32 history_messages = 7;
+    int32 memory_messages = 8;
+    int32 total_messages = 9;
+    int32 history_budget = 10;
+    repeated MessageStats messages = 11;
+}
+
+message MessageStats {
+    string role = 1;
+    int32 tokens = 2;
+    string source = 3;
+}
+
+message ContextSnapshotEvent {
+    ContextSnapshot context = 1;
+}

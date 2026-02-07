@@ -21,6 +21,7 @@ type ContextWindow interface {
 	SetAgentSystemPrompt(prompt string)
 	SetActiveSkill(skill *core.SkillMetadata)
 	ActiveSkill() *core.SkillMetadata
+	Snapshot() core.ContextSnapshot
 }
 
 type ContextService interface {
@@ -56,6 +57,7 @@ type contextWindow struct {
 	agentSystemPrompt string
 	activeSkill       *core.SkillMetadata
 	systemContent     string
+	systemTokens      int
 	userTemplate      string
 	mu                sync.Mutex
 }
@@ -91,6 +93,7 @@ func (cw *contextWindow) StartRun(systemContent string, systemTokens int) error 
 	defer cw.mu.Unlock()
 
 	cw.systemContent = systemContent
+	cw.systemTokens = systemTokens
 
 	remaining := cw.cfg.ContextSize - systemTokens
 	historyBudget := int(float64(remaining) * historyRatio)
@@ -168,4 +171,47 @@ func (cw *contextWindow) ActiveSkill() *core.SkillMetadata {
 	defer cw.mu.Unlock()
 
 	return cw.activeSkill
+}
+
+func (cw *contextWindow) Snapshot() core.ContextSnapshot {
+	cw.mu.Lock()
+	defer cw.mu.Unlock()
+
+	historyTokens := sumTokens(cw.history)
+	memoryTokens := sumTokens(cw.memory)
+	totalTokens := cw.systemTokens + historyTokens + memoryTokens
+
+	remaining := cw.cfg.ContextSize - cw.systemTokens
+	historyBudget := int(float64(remaining) * historyRatio)
+
+	messages := make([]core.MessageStats, 0, 1+len(cw.history)+len(cw.memory))
+	messages = append(messages, core.MessageStats{Role: core.RoleSystem, Tokens: cw.systemTokens, Source: "system"})
+	for _, msg := range cw.history {
+		messages = append(messages, core.MessageStats{Role: msg.Role, Tokens: msg.Tokens, Source: "history"})
+	}
+	for _, msg := range cw.memory {
+		messages = append(messages, core.MessageStats{Role: msg.Role, Tokens: msg.Tokens, Source: "memory"})
+	}
+
+	return core.ContextSnapshot{
+		ContextSize:     cw.cfg.ContextSize,
+		SystemTokens:    cw.systemTokens,
+		HistoryTokens:   historyTokens,
+		MemoryTokens:    memoryTokens,
+		TotalTokens:     totalTokens,
+		RemainingTokens: cw.cfg.ContextSize - totalTokens,
+		HistoryMessages: len(cw.history),
+		MemoryMessages:  len(cw.memory),
+		TotalMessages:   1 + len(cw.history) + len(cw.memory),
+		HistoryBudget:   historyBudget,
+		Messages:        messages,
+	}
+}
+
+func sumTokens(messages []core.Message) int {
+	total := 0
+	for _, msg := range messages {
+		total += msg.Tokens
+	}
+	return total
 }

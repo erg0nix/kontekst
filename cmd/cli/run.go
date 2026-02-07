@@ -104,6 +104,18 @@ func runCmd(cmd *cobra.Command, args []string) error {
 			if e.TurnCompleted.Content != "" {
 				fmt.Println(e.TurnCompleted.Content)
 			}
+		case *pb.RunEvent_ContextSnapshot:
+			snap := e.ContextSnapshot.Context
+			if snap != nil {
+				pct := int32(0)
+				if snap.ContextSize > 0 {
+					pct = snap.TotalTokens * 100 / snap.ContextSize
+				}
+				fmt.Printf("[context: %d/%d tokens (%d%%) | system:%d history:%d memory:%d | budget remaining:%d]\n",
+					snap.TotalTokens, snap.ContextSize, pct,
+					snap.SystemTokens, snap.HistoryTokens, snap.MemoryTokens,
+					snap.RemainingTokens)
+			}
 		case *pb.RunEvent_BatchProposed:
 			if autoApprove {
 				_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveAll{ApproveAll: &pb.ApproveAllToolsCommand{BatchId: e.BatchProposed.BatchId}}})

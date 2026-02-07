@@ -78,7 +78,9 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			return
 		}
 
-		eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse}
+		snapshot := agent.context.Snapshot()
+		eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
+		eventChannel <- AgentEvent{Type: EvtContextSnapshot, RunID: runID, Snapshot: &snapshot}
 
 		completionTokens := 0
 		if chatResponse.Usage != nil {

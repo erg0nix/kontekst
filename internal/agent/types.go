@@ -24,6 +24,7 @@ const (
 	EvtRunCompleted       AgentEventType   = "run_completed"
 	EvtRunCancelled       AgentEventType   = "run_cancelled"
 	EvtRunFailed          AgentEventType   = "run_failed"
+	EvtContextSnapshot    AgentEventType   = "context_snapshot"
 )
 
 type AgentCommand struct {
@@ -45,6 +46,7 @@ type AgentEvent struct {
 	CallID    string
 	Output    string
 	Response  core.ChatResponse
+	Snapshot  *core.ContextSnapshot
 	Error     string
 }
 
