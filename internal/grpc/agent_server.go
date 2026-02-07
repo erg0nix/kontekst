@@ -183,7 +183,15 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 
 		return &pb.RunEvent{Event: &pb.RunEvent_BatchProposed{BatchProposed: &pb.ToolBatchProposedEvent{BatchId: event.BatchID, Calls: proposedCalls}}}
 	case agent.EvtTurnCompleted:
-		return &pb.RunEvent{Event: &pb.RunEvent_TurnCompleted{TurnCompleted: &pb.TurnCompletedEvent{Content: event.Response.Content, Reasoning: event.Response.Reasoning}}}
+		return &pb.RunEvent{Event: &pb.RunEvent_TurnCompleted{TurnCompleted: &pb.TurnCompletedEvent{
+			Content:   event.Response.Content,
+			Reasoning: event.Response.Reasoning,
+			Context:   convertContextSnapshot(event.Snapshot),
+		}}}
+	case agent.EvtContextSnapshot:
+		return &pb.RunEvent{Event: &pb.RunEvent_ContextSnapshot{ContextSnapshot: &pb.ContextSnapshotEvent{
+			Context: convertContextSnapshot(event.Snapshot),
+		}}}
 	case agent.EvtToolStarted:
 		return &pb.RunEvent{Event: &pb.RunEvent_ToolStarted{ToolStarted: &pb.ToolExecutionStartedEvent{CallId: event.CallID}}}
 	case agent.EvtToolCompleted:
@@ -201,4 +209,30 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 	default:
 		return &pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: "unknown event"}}}
 	}
+}
+
+func convertContextSnapshot(snapshot *core.ContextSnapshot) *pb.ContextSnapshot {
+	if snapshot == nil {
+		return nil
+	}
+	pbSnapshot := &pb.ContextSnapshot{
+		ContextSize:     int32(snapshot.ContextSize),
+		SystemTokens:    int32(snapshot.SystemTokens),
+		HistoryTokens:   int32(snapshot.HistoryTokens),
+		MemoryTokens:    int32(snapshot.MemoryTokens),
+		TotalTokens:     int32(snapshot.TotalTokens),
+		RemainingTokens: int32(snapshot.RemainingTokens),
+		HistoryMessages: int32(snapshot.HistoryMessages),
+		MemoryMessages:  int32(snapshot.MemoryMessages),
+		TotalMessages:   int32(snapshot.TotalMessages),
+		HistoryBudget:   int32(snapshot.HistoryBudget),
+	}
+	for _, msg := range snapshot.Messages {
+		pbSnapshot.Messages = append(pbSnapshot.Messages, &pb.MessageStats{
+			Role:   string(msg.Role),
+			Tokens: int32(msg.Tokens),
+			Source: msg.Source,
+		})
+	}
+	return pbSnapshot
 }

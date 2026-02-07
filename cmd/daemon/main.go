@@ -96,13 +96,15 @@ func main() {
 	contextService := context.NewFileContextService(&daemonConfig)
 	sessionService := &sessions.FileSessionService{BaseDir: daemonConfig.DataDir}
 	runService := &sessions.FileRunService{Path: filepath.Join(daemonConfig.DataDir, "runs.jsonl")}
+	contextLogWriter := sessions.NewContextLogWriter(daemonConfig.DataDir)
 
 	runner := &agent.AgentRunner{
-		Provider: &providers.SingleProviderRouter{Provider: llamaProvider},
-		Tools:    toolRegistry,
-		Context:  contextService,
-		Sessions: sessionService,
-		Runs:     runService,
+		Provider:   &providers.SingleProviderRouter{Provider: llamaProvider},
+		Tools:      toolRegistry,
+		Context:    contextService,
+		Sessions:   sessionService,
+		Runs:       runService,
+		ContextLog: contextLogWriter,
 	}
 
 	grpcListener, err := net.Listen("tcp", daemonConfig.Bind)

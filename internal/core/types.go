@@ -50,6 +50,26 @@ type ChatResponse struct {
 	Usage     *Usage
 }
 
+type ContextSnapshot struct {
+	ContextSize     int            `json:"context_size"`
+	SystemTokens    int            `json:"system_tokens"`
+	HistoryTokens   int            `json:"history_tokens"`
+	MemoryTokens    int            `json:"memory_tokens"`
+	TotalTokens     int            `json:"total_tokens"`
+	RemainingTokens int            `json:"remaining_tokens"`
+	HistoryMessages int            `json:"history_messages"`
+	MemoryMessages  int            `json:"memory_messages"`
+	TotalMessages   int            `json:"total_messages"`
+	HistoryBudget   int            `json:"history_budget"`
+	Messages        []MessageStats `json:"messages,omitempty"`
+}
+
+type MessageStats struct {
+	Role   Role   `json:"role"`
+	Tokens int    `json:"tokens"`
+	Source string `json:"source"`
+}
+
 type SamplingConfig struct {
 	Temperature   *float64
 	TopP          *float64

@@ -30,11 +30,12 @@ type Runner interface {
 }
 
 type AgentRunner struct {
-	Provider providers.ProviderRouter
-	Tools    tools.ToolExecutor
-	Context  context.ContextService
-	Sessions sessions.SessionService
-	Runs     sessions.RunService
+	Provider   providers.ProviderRouter
+	Tools      tools.ToolExecutor
+	Context    context.ContextService
+	Sessions   sessions.SessionService
+	Runs       sessions.RunService
+	ContextLog *sessions.ContextLogWriter
 }
 
 func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error) {
@@ -73,6 +74,7 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 	outputChannel := make(chan AgentEvent, 32)
 
 	go func() {
+		turnCounter := 0
 		for event := range eventChannel {
 			if event.Type == EvtRunStarted {
 				event.SessionID = sessionID
@@ -83,6 +85,13 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 			case EvtRunStarted:
 				if err := runner.Runs.StartRun(sessionID, event.RunID); err != nil {
 					slog.Warn("failed to record run start", "run_id", event.RunID, "error", err)
+				}
+			case EvtContextSnapshot:
+				turnCounter++
+				if runner.ContextLog != nil && event.Snapshot != nil {
+					if err := runner.ContextLog.Write(event.RunID, turnCounter, *event.Snapshot); err != nil {
+						slog.Warn("failed to write context log", "run_id", event.RunID, "error", err)
+					}
 				}
 			case EvtRunCompleted:
 				if err := runner.Runs.CompleteRun(event.RunID); err != nil {

@@ -44,6 +44,10 @@ func (m *mockContext) RenderUserMessage(prompt string) (string, error) {
 
 func (m *mockContext) SetAgentSystemPrompt(prompt string) {}
 
+func (m *mockContext) Snapshot() core.ContextSnapshot {
+	return core.ContextSnapshot{}
+}
+
 type mockToolExecutor struct{}
 
 func (m *mockToolExecutor) Execute(name string, args map[string]any, ctx context.Context) (string, error) {
