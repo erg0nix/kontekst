@@ -218,6 +218,7 @@ func convertContextSnapshot(snapshot *core.ContextSnapshot) *pb.ContextSnapshot 
 	pbSnapshot := &pb.ContextSnapshot{
 		ContextSize:     int32(snapshot.ContextSize),
 		SystemTokens:    int32(snapshot.SystemTokens),
+		ToolTokens:      int32(snapshot.ToolTokens),
 		HistoryTokens:   int32(snapshot.HistoryTokens),
 		MemoryTokens:    int32(snapshot.MemoryTokens),
 		TotalTokens:     int32(snapshot.TotalTokens),

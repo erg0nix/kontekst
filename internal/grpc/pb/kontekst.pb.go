@@ -1694,6 +1694,7 @@ type ContextSnapshot struct {
 	TotalMessages   int32                  `protobuf:"varint,9,opt,name=total_messages,json=totalMessages,proto3" json:"total_messages,omitempty"`
 	HistoryBudget   int32                  `protobuf:"varint,10,opt,name=history_budget,json=historyBudget,proto3" json:"history_budget,omitempty"`
 	Messages        []*MessageStats        `protobuf:"bytes,11,rep,name=messages,proto3" json:"messages,omitempty"`
+	ToolTokens      int32                  `protobuf:"varint,12,opt,name=tool_tokens,json=toolTokens,proto3" json:"tool_tokens,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1803,6 +1804,13 @@ func (x *ContextSnapshot) GetMessages() []*MessageStats {
 		return x.Messages
 	}
 	return nil
+}
+
+func (x *ContextSnapshot) GetToolTokens() int32 {
+	if x != nil {
+		return x.ToolTokens
+	}
+	return 0
 }
 
 type MessageStats struct {
@@ -2019,7 +2027,7 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\"=\n" +
 	"\x0eRunFailedEvent\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"\xc9\x03\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\xea\x03\n" +
 	"\x0fContextSnapshot\x12!\n" +
 	"\fcontext_size\x18\x01 \x01(\x05R\vcontextSize\x12#\n" +
 	"\rsystem_tokens\x18\x02 \x01(\x05R\fsystemTokens\x12%\n" +
@@ -2032,7 +2040,9 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\x0etotal_messages\x18\t \x01(\x05R\rtotalMessages\x12%\n" +
 	"\x0ehistory_budget\x18\n" +
 	" \x01(\x05R\rhistoryBudget\x122\n" +
-	"\bmessages\x18\v \x03(\v2\x16.kontekst.MessageStatsR\bmessages\"R\n" +
+	"\bmessages\x18\v \x03(\v2\x16.kontekst.MessageStatsR\bmessages\x12\x1f\n" +
+	"\vtool_tokens\x18\f \x01(\x05R\n" +
+	"toolTokens\"R\n" +
 	"\fMessageStats\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x16\n" +
 	"\x06tokens\x18\x02 \x01(\x05R\x06tokens\x12\x16\n" +

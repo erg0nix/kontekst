@@ -110,6 +110,7 @@ message ContextSnapshot {
     int32 total_messages = 9;
     int32 history_budget = 10;
     repeated MessageStats messages = 11;
+    int32 tool_tokens = 12;
 }
 
 message MessageStats {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
@@ -15,7 +16,7 @@ func (m *mockContext) SystemContent() string {
 	return ""
 }
 
-func (m *mockContext) StartRun(systemContent string, systemTokens int) error {
+func (m *mockContext) StartRun(params ctx.BudgetParams) error {
 	return nil
 }
 

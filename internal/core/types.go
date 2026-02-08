@@ -53,6 +53,7 @@ type ChatResponse struct {
 type ContextSnapshot struct {
 	ContextSize     int            `json:"context_size"`
 	SystemTokens    int            `json:"system_tokens"`
+	ToolTokens      int            `json:"tool_tokens"`
 	HistoryTokens   int            `json:"history_tokens"`
 	MemoryTokens    int            `json:"memory_tokens"`
 	TotalTokens     int            `json:"total_tokens"`

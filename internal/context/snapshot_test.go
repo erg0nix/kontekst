@@ -23,7 +23,7 @@ func TestContextWindow_Snapshot(t *testing.T) {
 	cw := newContextWindow(sf, cfg)
 
 	systemTokens := 100
-	if err := cw.StartRun("system", systemTokens); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: systemTokens}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -61,8 +61,7 @@ func TestContextWindow_Snapshot(t *testing.T) {
 		t.Errorf("TotalMessages: got %d, want 4", snapshot.TotalMessages)
 	}
 
-	remaining := 4096 - systemTokens
-	expectedBudget := int(float64(remaining) * historyRatio)
+	expectedBudget := 4096 - systemTokens - 15
 	if snapshot.HistoryBudget != expectedBudget {
 		t.Errorf("HistoryBudget: got %d, want %d", snapshot.HistoryBudget, expectedBudget)
 	}
@@ -72,7 +71,7 @@ func TestContextWindow_SnapshotEmpty(t *testing.T) {
 	cw := newTestContextWindow(t, 4096)
 
 	systemTokens := 50
-	if err := cw.StartRun("system", systemTokens); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: systemTokens}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -114,7 +113,7 @@ func TestContextWindow_SnapshotMessageDetails(t *testing.T) {
 	sf := NewSessionFile(sessionPath)
 	cw := newContextWindow(sf, cfg)
 
-	if err := cw.StartRun("system", 50); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 

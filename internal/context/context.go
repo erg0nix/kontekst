@@ -11,9 +11,16 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+type BudgetParams struct {
+	SystemContent    string
+	SystemTokens     int
+	ToolTokens       int
+	UserPromptTokens int
+}
+
 type ContextWindow interface {
 	SystemContent() string
-	StartRun(systemContent string, systemTokens int) error
+	StartRun(params BudgetParams) error
 	CompleteRun() error
 	AddMessage(msg core.Message) error
 	BuildContext() ([]core.Message, error)
@@ -58,6 +65,7 @@ type contextWindow struct {
 	activeSkill       *core.SkillMetadata
 	systemContent     string
 	systemTokens      int
+	toolTokens        int
 	userTemplate      string
 	mu                sync.Mutex
 }
@@ -70,10 +78,7 @@ func newContextWindow(sessionFile *SessionFile, cfg *config.Config) *contextWind
 	}
 }
 
-const (
-	defaultUserTemplate = "{{ user_message }}"
-	historyRatio        = 0.30
-)
+const defaultUserTemplate = "{{ user_message }}"
 
 func (cw *contextWindow) SystemContent() string {
 	cw.mu.Lock()
@@ -88,15 +93,18 @@ func (cw *contextWindow) SystemContent() string {
 	return content
 }
 
-func (cw *contextWindow) StartRun(systemContent string, systemTokens int) error {
+func (cw *contextWindow) StartRun(params BudgetParams) error {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
-	cw.systemContent = systemContent
-	cw.systemTokens = systemTokens
+	cw.systemContent = params.SystemContent
+	cw.systemTokens = params.SystemTokens
+	cw.toolTokens = params.ToolTokens
 
-	remaining := cw.cfg.ContextSize - systemTokens
-	historyBudget := int(float64(remaining) * historyRatio)
+	historyBudget := cw.cfg.ContextSize - params.SystemTokens - params.ToolTokens - params.UserPromptTokens
+	if historyBudget < 0 {
+		historyBudget = 0
+	}
 
 	history, err := cw.sessionFile.LoadTail(historyBudget)
 	if err != nil {
@@ -179,10 +187,12 @@ func (cw *contextWindow) Snapshot() core.ContextSnapshot {
 
 	historyTokens := sumTokens(cw.history)
 	memoryTokens := sumTokens(cw.memory)
-	totalTokens := cw.systemTokens + historyTokens + memoryTokens
+	totalTokens := cw.systemTokens + cw.toolTokens + historyTokens + memoryTokens
 
-	remaining := cw.cfg.ContextSize - cw.systemTokens
-	historyBudget := int(float64(remaining) * historyRatio)
+	historyBudget := cw.cfg.ContextSize - cw.systemTokens - cw.toolTokens - memoryTokens
+	if historyBudget < 0 {
+		historyBudget = 0
+	}
 
 	messages := make([]core.MessageStats, 0, 1+len(cw.history)+len(cw.memory))
 	messages = append(messages, core.MessageStats{Role: core.RoleSystem, Tokens: cw.systemTokens, Source: "system"})
@@ -196,6 +206,7 @@ func (cw *contextWindow) Snapshot() core.ContextSnapshot {
 	return core.ContextSnapshot{
 		ContextSize:     cw.cfg.ContextSize,
 		SystemTokens:    cw.systemTokens,
+		ToolTokens:      cw.toolTokens,
 		HistoryTokens:   historyTokens,
 		MemoryTokens:    memoryTokens,
 		TotalTokens:     totalTokens,

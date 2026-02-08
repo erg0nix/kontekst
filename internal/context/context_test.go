@@ -12,7 +12,7 @@ func TestContextWindow_SystemPromptFirst(t *testing.T) {
 	cw := newTestContextWindow(t, 4096)
 	systemContent := "You are a helpful assistant."
 
-	if err := cw.StartRun(systemContent, 10); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: systemContent, SystemTokens: 10}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -69,7 +69,7 @@ func TestContextWindow_HistoryFromFile(t *testing.T) {
 	sf := NewSessionFile(sessionPath)
 	cw := newContextWindow(sf, cfg)
 
-	if err := cw.StartRun("system", 100); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 100}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func TestContextWindow_AddMessageGoesToMemoryAndFile(t *testing.T) {
 	sf := NewSessionFile(sessionPath)
 	cw := newContextWindow(sf, cfg)
 
-	if err := cw.StartRun("system", 10); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 10}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -141,7 +141,7 @@ func TestContextWindow_BuildContextOrder(t *testing.T) {
 	sf := NewSessionFile(sessionPath)
 	cw := newContextWindow(sf, cfg)
 
-	if err := cw.StartRun("system content", 50); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system content", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -173,7 +173,7 @@ func TestContextWindow_BuildContextOrder(t *testing.T) {
 func TestContextWindow_CompleteRunClearsMemory(t *testing.T) {
 	cw := newTestContextWindow(t, 4096)
 
-	if err := cw.StartRun("system", 10); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 10}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -203,7 +203,7 @@ func TestContextWindow_MultipleRunsAccumulateHistory(t *testing.T) {
 	sf := NewSessionFile(sessionPath)
 	cw := newContextWindow(sf, cfg)
 
-	if err := cw.StartRun("system", 50); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 	if err := cw.AddMessage(core.Message{Role: core.RoleUser, Content: "run1", Tokens: 10}); err != nil {
@@ -213,7 +213,7 @@ func TestContextWindow_MultipleRunsAccumulateHistory(t *testing.T) {
 		t.Fatalf("CompleteRun failed: %v", err)
 	}
 
-	if err := cw.StartRun("system", 50); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -250,7 +250,7 @@ func TestContextWindow_HistoryBudgetCalculation(t *testing.T) {
 	cw := newContextWindow(sf, cfg)
 
 	systemTokens := 100
-	if err := cw.StartRun("system", systemTokens); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: systemTokens}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -262,8 +262,7 @@ func TestContextWindow_HistoryBudgetCalculation(t *testing.T) {
 	historyCount := len(msgs) - 1
 	historyTokens := historyCount * 100
 
-	remaining := 1000 - systemTokens
-	maxHistoryBudget := int(float64(remaining) * historyRatio)
+	maxHistoryBudget := 1000 - systemTokens
 
 	if historyTokens > maxHistoryBudget+100 {
 		t.Errorf("history tokens (%d) exceeds budget (%d)", historyTokens, maxHistoryBudget)
@@ -284,7 +283,7 @@ func TestContextWindow_LargeSystemPromptLeavesRoomForHistory(t *testing.T) {
 	cw := newContextWindow(sf, cfg)
 
 	largeSystemTokens := 800
-	if err := cw.StartRun("large system prompt", largeSystemTokens); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "large system prompt", SystemTokens: largeSystemTokens}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -293,20 +292,21 @@ func TestContextWindow_LargeSystemPromptLeavesRoomForHistory(t *testing.T) {
 		t.Fatalf("BuildContext failed: %v", err)
 	}
 
-	remaining := 1000 - largeSystemTokens
-	maxHistoryBudget := int(float64(remaining) * historyRatio)
+	maxHistoryBudget := 1000 - largeSystemTokens
 
 	if maxHistoryBudget < 50 {
 		if len(msgs) != 1 {
 			t.Errorf("expected only system message when budget too small, got %d", len(msgs))
 		}
+	} else if len(msgs) != 2 {
+		t.Errorf("expected system + history message, got %d", len(msgs))
 	}
 }
 
 func TestContextWindow_EmptySession(t *testing.T) {
 	cw := newTestContextWindow(t, 4096)
 
-	if err := cw.StartRun("system", 10); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 10}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -338,7 +338,7 @@ func TestContextWindow_SessionWithOnlyToolMessages(t *testing.T) {
 	sf := NewSessionFile(sessionPath)
 	cw := newContextWindow(sf, cfg)
 
-	if err := cw.StartRun("system", 50); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -376,7 +376,7 @@ func TestContextWindow_VeryLargeContextSize(t *testing.T) {
 	sf := NewSessionFile(sessionPath)
 	cw := newContextWindow(sf, cfg)
 
-	if err := cw.StartRun("system", 100); err != nil {
+	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 100}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
