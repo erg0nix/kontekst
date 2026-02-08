@@ -115,7 +115,6 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			return
 		}
 
-		batchID := string(core.NewToolCallBatchID())
 		pendingToolCalls := buildPending(chatResponse.ToolCalls)
 
 		assistantMessage := core.Message{
@@ -135,14 +134,14 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 		previewCtx := tools.WithWorkingDir(context.Background(), agent.config.WorkingDir)
 		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)
 
-		eventChannel <- AgentEvent{Type: EvtToolBatch, RunID: runID, BatchID: batchID, Calls: proposedCalls}
-		toolDecisions, err := collectApprovals(commandChannel, pendingToolCalls, batchID)
+		eventChannel <- AgentEvent{Type: EvtToolsProposed, RunID: runID, Calls: proposedCalls}
+		toolDecisions, err := collectApprovals(commandChannel, pendingToolCalls)
 		if err != nil {
 			eventChannel <- AgentEvent{Type: EvtRunCancelled, RunID: runID}
 			return
 		}
 
-		if err := agent.executeTools(runID, batchID, toolDecisions, eventChannel); err != nil {
+		if err := agent.executeTools(runID, toolDecisions, eventChannel); err != nil {
 			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
 			return
 		}

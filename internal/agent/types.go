@@ -7,31 +7,28 @@ type AgentCommandType string
 type AgentEventType string
 
 const (
-	CmdApproveTool        AgentCommandType = "approve_tool"
-	CmdDenyTool           AgentCommandType = "deny_tool"
-	CmdApproveAll         AgentCommandType = "approve_all"
-	CmdDenyAll            AgentCommandType = "deny_all"
-	CmdCancel             AgentCommandType = "cancel"
-	EvtRunStarted         AgentEventType   = "run_started"
-	EvtTokenDelta         AgentEventType   = "token_delta"
-	EvtReasoningDelta     AgentEventType   = "reasoning_delta"
-	EvtTurnCompleted      AgentEventType   = "turn_completed"
-	EvtToolBatch          AgentEventType   = "tool_batch_proposed"
-	EvtToolStarted        AgentEventType   = "tool_execution_started"
-	EvtToolCompleted      AgentEventType   = "tool_execution_completed"
-	EvtToolFailed         AgentEventType   = "tool_execution_failed"
-	EvtToolBatchCompleted AgentEventType   = "tool_batch_completed"
-	EvtRunCompleted       AgentEventType   = "run_completed"
-	EvtRunCancelled       AgentEventType   = "run_cancelled"
-	EvtRunFailed          AgentEventType   = "run_failed"
-	EvtContextSnapshot    AgentEventType   = "context_snapshot"
+	CmdApproveTool     AgentCommandType = "approve_tool"
+	CmdDenyTool        AgentCommandType = "deny_tool"
+	CmdCancel          AgentCommandType = "cancel"
+	EvtRunStarted      AgentEventType   = "run_started"
+	EvtTokenDelta      AgentEventType   = "token_delta"
+	EvtReasoningDelta  AgentEventType   = "reasoning_delta"
+	EvtTurnCompleted   AgentEventType   = "turn_completed"
+	EvtToolsProposed   AgentEventType   = "tools_proposed"
+	EvtToolStarted     AgentEventType   = "tool_execution_started"
+	EvtToolCompleted   AgentEventType   = "tool_execution_completed"
+	EvtToolFailed      AgentEventType   = "tool_execution_failed"
+	EvtToolsCompleted  AgentEventType   = "tools_completed"
+	EvtRunCompleted    AgentEventType   = "run_completed"
+	EvtRunCancelled    AgentEventType   = "run_cancelled"
+	EvtRunFailed       AgentEventType   = "run_failed"
+	EvtContextSnapshot AgentEventType   = "context_snapshot"
 )
 
 type AgentCommand struct {
-	Type    AgentCommandType
-	CallID  string
-	BatchID string
-	Reason  string
+	Type   AgentCommandType
+	CallID string
+	Reason string
 }
 
 type AgentEvent struct {
@@ -41,7 +38,6 @@ type AgentEvent struct {
 	AgentName string
 	Token     string
 	Reasoning string
-	BatchID   string
 	Calls     []ProposedToolCall
 	CallID    string
 	Output    string

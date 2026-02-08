@@ -128,14 +128,6 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			if commandChannel != nil {
 				commandChannel <- agent.AgentCommand{Type: agent.CmdDenyTool, CallID: commandPayload.DenyTool.CallId, Reason: commandPayload.DenyTool.Reason}
 			}
-		case *pb.RunCommand_ApproveAll:
-			if commandChannel != nil {
-				commandChannel <- agent.AgentCommand{Type: agent.CmdApproveAll, BatchID: commandPayload.ApproveAll.BatchId}
-			}
-		case *pb.RunCommand_DenyAll:
-			if commandChannel != nil {
-				commandChannel <- agent.AgentCommand{Type: agent.CmdDenyAll, BatchID: commandPayload.DenyAll.BatchId, Reason: commandPayload.DenyAll.Reason}
-			}
 		case *pb.RunCommand_Cancel:
 			if commandChannel != nil {
 				commandChannel <- agent.AgentCommand{Type: agent.CmdCancel}
@@ -169,7 +161,7 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 		return &pb.RunEvent{Event: &pb.RunEvent_Token{Token: &pb.TokenDeltaEvent{Text: event.Token}}}
 	case agent.EvtReasoningDelta:
 		return &pb.RunEvent{Event: &pb.RunEvent_Reasoning{Reasoning: &pb.ReasoningDeltaEvent{Text: event.Reasoning}}}
-	case agent.EvtToolBatch:
+	case agent.EvtToolsProposed:
 		proposedCalls := make([]*pb.ProposedToolCall, 0, len(event.Calls))
 
 		for _, call := range event.Calls {
@@ -181,7 +173,7 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 			})
 		}
 
-		return &pb.RunEvent{Event: &pb.RunEvent_BatchProposed{BatchProposed: &pb.ToolBatchProposedEvent{BatchId: event.BatchID, Calls: proposedCalls}}}
+		return &pb.RunEvent{Event: &pb.RunEvent_ToolsProposed{ToolsProposed: &pb.ToolsProposedEvent{Calls: proposedCalls}}}
 	case agent.EvtTurnCompleted:
 		return &pb.RunEvent{Event: &pb.RunEvent_TurnCompleted{TurnCompleted: &pb.TurnCompletedEvent{
 			Content:   event.Response.Content,
@@ -198,8 +190,8 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 		return &pb.RunEvent{Event: &pb.RunEvent_ToolCompleted{ToolCompleted: &pb.ToolExecutionCompletedEvent{CallId: event.CallID, Output: event.Output}}}
 	case agent.EvtToolFailed:
 		return &pb.RunEvent{Event: &pb.RunEvent_ToolFailed{ToolFailed: &pb.ToolExecutionFailedEvent{CallId: event.CallID, Error: event.Error}}}
-	case agent.EvtToolBatchCompleted:
-		return &pb.RunEvent{Event: &pb.RunEvent_BatchCompleted{BatchCompleted: &pb.ToolBatchCompletedEvent{BatchId: event.BatchID}}}
+	case agent.EvtToolsCompleted:
+		return &pb.RunEvent{Event: &pb.RunEvent_ToolsCompleted{ToolsCompleted: &pb.ToolsCompletedEvent{}}}
 	case agent.EvtRunCompleted:
 		return &pb.RunEvent{Event: &pb.RunEvent_Completed{Completed: &pb.RunCompletedEvent{RunId: string(event.RunID), Content: event.Response.Content, Reasoning: event.Response.Reasoning}}}
 	case agent.EvtRunCancelled:

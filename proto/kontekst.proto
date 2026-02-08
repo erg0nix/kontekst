@@ -33,8 +33,6 @@ message RunCommand {
     StartRunCommand start = 1;
     ApproveToolCommand approve_tool = 2;
     DenyToolCommand deny_tool = 3;
-    ApproveAllToolsCommand approve_all = 4;
-    DenyAllToolsCommand deny_all = 5;
     CancelRunCommand cancel = 6;
   }
 }
@@ -53,8 +51,6 @@ message SkillInvocation {
 }
 message ApproveToolCommand { string call_id = 1; }
 message DenyToolCommand { string call_id = 1; string reason = 2; }
-message ApproveAllToolsCommand { string batch_id = 1; }
-message DenyAllToolsCommand { string batch_id = 1; string reason = 2; }
 message CancelRunCommand {}
 
 message RunEvent {
@@ -63,11 +59,11 @@ message RunEvent {
     TokenDeltaEvent token = 2;
     ReasoningDeltaEvent reasoning = 3;
     TurnCompletedEvent turn_completed = 4;
-    ToolBatchProposedEvent batch_proposed = 5;
+    ToolsProposedEvent tools_proposed = 5;
     ToolExecutionStartedEvent tool_started = 6;
     ToolExecutionCompletedEvent tool_completed = 7;
     ToolExecutionFailedEvent tool_failed = 8;
-    ToolBatchCompletedEvent batch_completed = 9;
+    ToolsCompletedEvent tools_completed = 9;
     RunCompletedEvent completed = 10;
     RunCancelledEvent cancelled = 11;
     RunFailedEvent failed = 12;
@@ -78,12 +74,12 @@ message RunEvent {
 message RunStartedEvent {
   string run_id = 1;
   string session_id = 2;
-  string agent_name = 3; // Agent being used for this run
+  string agent_name = 3;
 }
 message TokenDeltaEvent { string text = 1; }
 message ReasoningDeltaEvent { string text = 1; }
 message TurnCompletedEvent { string content = 1; string reasoning = 2; ContextSnapshot context = 3; }
-message ToolBatchProposedEvent { string batch_id = 1; repeated ProposedToolCall calls = 2; }
+message ToolsProposedEvent { repeated ProposedToolCall calls = 1; }
 message ProposedToolCall {
   string call_id = 1;
   string name = 2;
@@ -93,7 +89,7 @@ message ProposedToolCall {
 message ToolExecutionStartedEvent { string call_id = 1; }
 message ToolExecutionCompletedEvent { string call_id = 1; string output = 2; }
 message ToolExecutionFailedEvent { string call_id = 1; string error = 2; }
-message ToolBatchCompletedEvent { string batch_id = 1; }
+message ToolsCompletedEvent {}
 message RunCompletedEvent { string run_id = 1; string content = 2; string reasoning = 3; }
 message RunCancelledEvent { string run_id = 1; }
 message RunFailedEvent { string run_id = 1; string error = 2; }

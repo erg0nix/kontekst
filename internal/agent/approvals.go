@@ -67,7 +67,7 @@ func (b *pendingBatch) asToolCalls() []core.ToolCall {
 	return out
 }
 
-func collectApprovals(commandChannel <-chan AgentCommand, batch *pendingBatch, batchID string) ([]*pendingCall, error) {
+func collectApprovals(commandChannel <-chan AgentCommand, batch *pendingBatch) ([]*pendingCall, error) {
 	for {
 		if allDecided(batch) {
 			return collectDecisions(batch), nil
@@ -81,25 +81,6 @@ func collectApprovals(commandChannel <-chan AgentCommand, batch *pendingBatch, b
 		switch command.Type {
 		case CmdCancel:
 			return nil, errors.New("cancelled")
-		case CmdApproveAll:
-			if command.BatchID == batchID {
-				for _, call := range batch.calls {
-					if call.Approved == nil {
-						v := true
-						call.Approved = &v
-					}
-				}
-			}
-		case CmdDenyAll:
-			if command.BatchID == batchID {
-				for _, call := range batch.calls {
-					if call.Approved == nil {
-						v := false
-						call.Approved = &v
-						call.Reason = command.Reason
-					}
-				}
-			}
 		case CmdApproveTool:
 			if call, ok := batch.calls[command.CallID]; ok && call.Approved == nil {
 				v := true

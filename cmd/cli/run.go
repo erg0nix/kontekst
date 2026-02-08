@@ -116,31 +116,29 @@ func runCmd(cmd *cobra.Command, args []string) error {
 					snap.SystemTokens, snap.ToolTokens, snap.HistoryTokens, snap.MemoryTokens,
 					snap.RemainingTokens)
 			}
-		case *pb.RunEvent_BatchProposed:
-			if autoApprove {
-				_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveAll{ApproveAll: &pb.ApproveAllToolsCommand{BatchId: e.BatchProposed.BatchId}}})
-				continue
-			}
+		case *pb.RunEvent_ToolsProposed:
+			for _, c := range e.ToolsProposed.Calls {
+				if autoApprove {
+					_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveTool{ApproveTool: &pb.ApproveToolCommand{CallId: c.CallId}}})
+					continue
+				}
 
-			fmt.Println("tool calls proposed:")
-
-			for _, c := range e.BatchProposed.Calls {
-				fmt.Printf("- %s(%s)\n", c.Name, c.ArgumentsJson)
+				fmt.Printf("tool: %s(%s)\n", c.Name, c.ArgumentsJson)
 				if c.Preview != "" {
 					fmt.Println("  Preview:")
 					for _, line := range strings.Split(c.Preview, "\n") {
 						fmt.Printf("    %s\n", line)
 					}
 				}
-			}
 
-			fmt.Print("approve all? [y/N]: ")
-			line, _ := reader.ReadString('\n')
+				fmt.Print("approve? [y/N]: ")
+				line, _ := reader.ReadString('\n')
 
-			if len(line) > 0 && (line[0] == 'y' || line[0] == 'Y') {
-				_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveAll{ApproveAll: &pb.ApproveAllToolsCommand{BatchId: e.BatchProposed.BatchId}}})
-			} else {
-				_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_DenyAll{DenyAll: &pb.DenyAllToolsCommand{BatchId: e.BatchProposed.BatchId, Reason: "user denied"}}})
+				if len(line) > 0 && (line[0] == 'y' || line[0] == 'Y') {
+					_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveTool{ApproveTool: &pb.ApproveToolCommand{CallId: c.CallId}}})
+				} else {
+					_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_DenyTool{DenyTool: &pb.DenyToolCommand{CallId: c.CallId, Reason: "user denied"}}})
+				}
 			}
 		case *pb.RunEvent_ToolCompleted:
 			fmt.Printf("tool %s completed: %s\n", e.ToolCompleted.CallId, e.ToolCompleted.Output)

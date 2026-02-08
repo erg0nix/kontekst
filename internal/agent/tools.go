@@ -10,7 +10,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools/builtin"
 )
 
-func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pendingCall, eventChannel chan<- AgentEvent) error {
+func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventChannel chan<- AgentEvent) error {
 	skillCallbacks := &builtin.SkillCallbacks{
 		ContextInjector: func(msg core.Message) error {
 			return agent.context.AddMessage(msg)
@@ -53,7 +53,7 @@ func (agent *Agent) executeTools(runID core.RunID, batchID string, calls []*pend
 		}
 	}
 
-	eventChannel <- AgentEvent{Type: EvtToolBatchCompleted, RunID: runID, BatchID: batchID}
+	eventChannel <- AgentEvent{Type: EvtToolsCompleted, RunID: runID}
 	return nil
 }
 

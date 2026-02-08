@@ -91,7 +91,7 @@ func TestExecuteTools_SingleTool(t *testing.T) {
 		{ID: "call1", Name: "test_tool", Args: map[string]any{}, Approved: &approved},
 	}
 
-	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+	if err := ag.executeTools("run1", calls, eventCh); err != nil {
 		t.Fatalf("executeTools failed: %v", err)
 	}
 
@@ -126,7 +126,7 @@ func TestExecuteTools_MultipleToolsProduceIndividualMessages(t *testing.T) {
 		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approved: &approved},
 	}
 
-	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+	if err := ag.executeTools("run1", calls, eventCh); err != nil {
 		t.Fatalf("executeTools failed: %v", err)
 	}
 
@@ -164,7 +164,7 @@ func TestExecuteTools_DeniedToolRecordsError(t *testing.T) {
 		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &denied, Reason: "not allowed"},
 	}
 
-	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+	if err := ag.executeTools("run1", calls, eventCh); err != nil {
 		t.Fatalf("executeTools failed: %v", err)
 	}
 
@@ -195,7 +195,7 @@ func TestExecuteTools_MixedApprovedAndDenied(t *testing.T) {
 		{ID: "call3", Name: "tool3", Args: map[string]any{}, Approved: &approved},
 	}
 
-	if err := ag.executeTools("run1", "batch1", calls, eventCh); err != nil {
+	if err := ag.executeTools("run1", calls, eventCh); err != nil {
 		t.Fatalf("executeTools failed: %v", err)
 	}
 

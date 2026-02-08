@@ -12,8 +12,6 @@ type SessionID string
 
 type ToolCallID string
 
-type ToolCallBatchID string
-
 type RequestID string
 
 func NewRunID() RunID {
@@ -26,10 +24,6 @@ func NewSessionID() SessionID {
 
 func NewToolCallID() ToolCallID {
 	return ToolCallID("call_" + randomSeed())
-}
-
-func NewToolCallBatchID() ToolCallBatchID {
-	return ToolCallBatchID("batch_" + randomSeed())
 }
 
 func NewRequestID() RequestID {
