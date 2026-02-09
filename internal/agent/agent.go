@@ -59,6 +59,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 	}
 
 	if err := agent.context.StartRun(ctx.BudgetParams{
+		ContextSize:      agent.config.ContextSize,
 		SystemContent:    systemContent,
 		SystemTokens:     systemTokens,
 		ToolTokens:       toolTokens,

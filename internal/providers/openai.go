@@ -8,38 +8,34 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
-	"os"
-	"os/exec"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
-type LlamaServerProvider struct {
-	cfg           config.LlamaServerConfig
+type OpenAIConfig struct {
+	Endpoint    string
+	HTTPTimeout time.Duration
+}
+
+type OpenAIProvider struct {
+	endpoint      string
 	client        *http.Client
-	mu            sync.Mutex
-	cmd           *exec.Cmd
-	start         time.Time
 	requestLogger *RequestLogger
 	validateRoles bool
 }
 
-func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugConfig) *LlamaServerProvider {
+func NewOpenAIProvider(cfg OpenAIConfig, debugCfg config.DebugConfig) *OpenAIProvider {
 	timeout := cfg.HTTPTimeout
-
 	if timeout == 0 {
 		timeout = 300 * time.Second
 	}
 
-	provider := &LlamaServerProvider{
-		cfg:    cfg,
-		client: &http.Client{Timeout: timeout},
+	provider := &OpenAIProvider{
+		endpoint: cfg.Endpoint,
+		client:   &http.Client{Timeout: timeout},
 	}
 
 	if debugCfg.LogRequests || debugCfg.LogResponses {
@@ -56,59 +52,27 @@ func NewLlamaServerProvider(cfg config.LlamaServerConfig, debugCfg config.DebugC
 	return provider
 }
 
-type LlamaServerStatus struct {
-	Endpoint  string
-	AutoStart bool
-	Healthy   bool
-	Running   bool
-	PID       int
-	StartedAt time.Time
+func (p *OpenAIProvider) IsHealthy() bool {
+	endpointURL := p.endpoint + "/v1/models"
+	resp, err := p.client.Get(endpointURL)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
-func (p *LlamaServerProvider) Status() LlamaServerStatus {
-	p.mu.Lock()
-	processID := 0
-
-	if p.cmd != nil && p.cmd.Process != nil {
-		processID = p.cmd.Process.Pid
-	}
-
-	endpoint := p.cfg.Endpoint
-	autoStart := p.cfg.AutoStart
-	started := p.start
-	p.mu.Unlock()
-
-	return LlamaServerStatus{
-		Endpoint:  endpoint,
-		AutoStart: autoStart,
-		Healthy:   p.isHealthy(),
-		Running:   processID != 0,
-		PID:       processID,
-		StartedAt: started,
-	}
-}
-
-func (p *LlamaServerProvider) Stop() {
-	p.stopProcess()
-}
-
-func (p *LlamaServerProvider) CountTokens(text string) (int, error) {
-	if err := p.ensureRunning(); err != nil {
-		return estimateTokens(text), nil
-	}
-
-	endpoint := p.cfg.Endpoint
-	endpointURL := endpoint + "/tokenize"
+func (p *OpenAIProvider) CountTokens(text string) (int, error) {
+	endpointURL := p.endpoint + "/tokenize"
 	requestBody, _ := json.Marshal(map[string]any{"content": text})
 	httpResp, err := p.client.Post(endpointURL, "application/json", bytes.NewReader(requestBody))
-
 	if err != nil {
 		return estimateTokens(text), nil
 	}
 	defer httpResp.Body.Close()
 
 	var payload map[string]any
-
 	if err := json.NewDecoder(httpResp.Body).Decode(&payload); err != nil {
 		return estimateTokens(text), nil
 	}
@@ -124,17 +88,13 @@ func (p *LlamaServerProvider) CountTokens(text string) (int, error) {
 	return estimateTokens(text), nil
 }
 
-func (p *LlamaServerProvider) GenerateChat(
+func (p *OpenAIProvider) GenerateChat(
 	messages []core.Message,
 	tools []core.ToolDef,
 	sampling *core.SamplingConfig,
 	model string,
 	useToolRole bool,
 ) (core.ChatResponse, error) {
-	if err := p.ensureRunning(); err != nil {
-		return core.ChatResponse{}, err
-	}
-
 	requestID := core.NewRequestID()
 
 	messages = normalizeMessages(messages, useToolRole)
@@ -148,11 +108,9 @@ func (p *LlamaServerProvider) GenerateChat(
 		}
 	}
 
-	endpoint := p.cfg.Endpoint
-	endpointURL := endpoint + "/v1/chat/completions"
+	endpointURL := p.endpoint + "/v1/chat/completions"
 
 	msgJSON := make([]map[string]any, 0, len(messages))
-
 	for _, message := range messages {
 		entry := map[string]any{"role": string(message.Role), "content": message.Content}
 
@@ -180,7 +138,6 @@ func (p *LlamaServerProvider) GenerateChat(
 	}
 
 	toolJSON := make([]map[string]any, 0, len(tools))
-
 	for _, t := range tools {
 		toolJSON = append(toolJSON, map[string]any{
 			"type": "function",
@@ -263,7 +220,6 @@ func (p *LlamaServerProvider) GenerateChat(
 	}
 
 	var responsePayload map[string]any
-
 	if err := json.NewDecoder(httpResp.Body).Decode(&responsePayload); err != nil {
 		return core.ChatResponse{}, err
 	}
@@ -280,150 +236,12 @@ func (p *LlamaServerProvider) GenerateChat(
 	return response, nil
 }
 
-func (p *LlamaServerProvider) Start() error {
-	if !p.cfg.AutoStart {
-		return errors.New("auto_start disabled")
-	}
-
-	if p.cfg.ModelDir == "" {
-		return errors.New("model_dir required")
-	}
-
-	if _, err := os.Stat(p.cfg.ModelDir); err != nil {
-		return err
-	}
-
-	p.stopProcess()
-	return p.spawnProcess()
-}
-
-func (p *LlamaServerProvider) ensureRunning() error {
-	if p.isHealthy() {
-		return nil
-	}
-
-	if !p.cfg.AutoStart {
-		return errors.New("llama-server not reachable")
-	}
-
-	if err := p.Start(); err != nil {
-		return err
-	}
-
-	return p.waitReady()
-}
-
-func (p *LlamaServerProvider) isHealthy() bool {
-	endpoint := p.cfg.Endpoint
-	url := endpoint + "/v1/models"
-	resp, err := p.client.Get(url)
-
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
-}
-
-func (p *LlamaServerProvider) spawnProcess() error {
-	endpoint := p.cfg.Endpoint
-	parsed, err := url.Parse(endpoint)
-
-	if err != nil {
-		return err
-	}
-
-	host := parsed.Hostname()
-
-	if host == "" {
-		host = "127.0.0.1"
-	}
-
-	port := parsed.Port()
-
-	if port == "" {
-		port = "8080"
-	}
-
-	bin := p.cfg.BinPath
-
-	if bin == "" {
-		bin = "llama-server"
-	}
-
-	args := []string{
-		"--host", host,
-		"--port", port,
-		"--ctx-size", intToString(p.cfg.ContextSize),
-		"--n-gpu-layers", intToString(p.cfg.GPULayers),
-		"--models-dir", p.cfg.ModelDir,
-		"--reasoning-format", "deepseek",
-	}
-
-	cmd := exec.Command(bin, args...)
-	if p.cfg.InheritStdio {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	cmd.Dir = p.cfg.ModelDir
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	p.mu.Lock()
-	p.cmd = cmd
-	p.start = time.Now()
-	p.mu.Unlock()
-
-	return nil
-}
-
-func (p *LlamaServerProvider) stopProcess() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.cmd == nil || p.cmd.Process == nil {
-		return
-	}
-
-	if err := p.cmd.Process.Kill(); err != nil {
-		slog.Warn("failed to kill llama-server process", "error", err)
-	}
-	p.cmd = nil
-}
-
-func (p *LlamaServerProvider) waitReady() error {
-	wait := p.cfg.StartupWait
-
-	if wait == 0 {
-		wait = 10 * time.Second
-	}
-
-	deadline := time.Now().Add(wait)
-
-	for time.Now().Before(deadline) {
-		if p.isHealthy() {
-			return nil
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	return errors.New("llama-server did not become ready")
-}
-
 func estimateTokens(text string) int {
 	return len(text) / 4
 }
 
-func intToString(v int) string {
-	return strconv.Itoa(v)
-}
-
 func toToolCalls(calls []core.ToolCall) []map[string]any {
 	var toolCalls []map[string]any
-
 	for _, call := range calls {
 		argsJSON, _ := json.Marshal(call.Arguments)
 		toolCalls = append(toolCalls, map[string]any{
@@ -468,13 +286,11 @@ func parseResponsePayload(payload map[string]any) (core.ChatResponse, error) {
 
 func parseToolCalls(message map[string]any) []core.ToolCall {
 	rawCalls, ok := message["tool_calls"].([]any)
-
 	if !ok {
 		return nil
 	}
 
 	var toolCalls []core.ToolCall
-
 	for _, rawCall := range rawCalls {
 		rawEntry, ok := rawCall.(map[string]any)
 		if !ok {
@@ -494,7 +310,6 @@ func parseToolCalls(message map[string]any) []core.ToolCall {
 		}
 
 		arguments := map[string]any{}
-
 		switch v := functionEntry["arguments"].(type) {
 		case string:
 			if v != "" {

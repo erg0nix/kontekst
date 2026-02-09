@@ -17,9 +17,7 @@ message GetStatusResponse {
   string bind = 1;
   string endpoint = 2;
   string model_dir = 4;
-  bool llama_server_healthy = 6;
-  bool llama_server_running = 7;
-  int32 llama_server_pid = 8;
+  bool endpoint_healthy = 6;
   int64 uptime_seconds = 9;
   string started_at_rfc3339 = 10;
   string data_dir = 11;

@@ -58,18 +58,16 @@ func (*GetStatusRequest) Descriptor() ([]byte, []int) {
 }
 
 type GetStatusResponse struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Bind               string                 `protobuf:"bytes,1,opt,name=bind,proto3" json:"bind,omitempty"`
-	Endpoint           string                 `protobuf:"bytes,2,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	ModelDir           string                 `protobuf:"bytes,4,opt,name=model_dir,json=modelDir,proto3" json:"model_dir,omitempty"`
-	LlamaServerHealthy bool                   `protobuf:"varint,6,opt,name=llama_server_healthy,json=llamaServerHealthy,proto3" json:"llama_server_healthy,omitempty"`
-	LlamaServerRunning bool                   `protobuf:"varint,7,opt,name=llama_server_running,json=llamaServerRunning,proto3" json:"llama_server_running,omitempty"`
-	LlamaServerPid     int32                  `protobuf:"varint,8,opt,name=llama_server_pid,json=llamaServerPid,proto3" json:"llama_server_pid,omitempty"`
-	UptimeSeconds      int64                  `protobuf:"varint,9,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
-	StartedAtRfc3339   string                 `protobuf:"bytes,10,opt,name=started_at_rfc3339,json=startedAtRfc3339,proto3" json:"started_at_rfc3339,omitempty"`
-	DataDir            string                 `protobuf:"bytes,11,opt,name=data_dir,json=dataDir,proto3" json:"data_dir,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Bind             string                 `protobuf:"bytes,1,opt,name=bind,proto3" json:"bind,omitempty"`
+	Endpoint         string                 `protobuf:"bytes,2,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	ModelDir         string                 `protobuf:"bytes,4,opt,name=model_dir,json=modelDir,proto3" json:"model_dir,omitempty"`
+	EndpointHealthy  bool                   `protobuf:"varint,6,opt,name=endpoint_healthy,json=endpointHealthy,proto3" json:"endpoint_healthy,omitempty"`
+	UptimeSeconds    int64                  `protobuf:"varint,9,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
+	StartedAtRfc3339 string                 `protobuf:"bytes,10,opt,name=started_at_rfc3339,json=startedAtRfc3339,proto3" json:"started_at_rfc3339,omitempty"`
+	DataDir          string                 `protobuf:"bytes,11,opt,name=data_dir,json=dataDir,proto3" json:"data_dir,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetStatusResponse) Reset() {
@@ -123,25 +121,11 @@ func (x *GetStatusResponse) GetModelDir() string {
 	return ""
 }
 
-func (x *GetStatusResponse) GetLlamaServerHealthy() bool {
+func (x *GetStatusResponse) GetEndpointHealthy() bool {
 	if x != nil {
-		return x.LlamaServerHealthy
+		return x.EndpointHealthy
 	}
 	return false
-}
-
-func (x *GetStatusResponse) GetLlamaServerRunning() bool {
-	if x != nil {
-		return x.LlamaServerRunning
-	}
-	return false
-}
-
-func (x *GetStatusResponse) GetLlamaServerPid() int32 {
-	if x != nil {
-		return x.LlamaServerPid
-	}
-	return 0
 }
 
 func (x *GetStatusResponse) GetUptimeSeconds() int64 {
@@ -1718,14 +1702,12 @@ var File_proto_kontekst_proto protoreflect.FileDescriptor
 const file_proto_kontekst_proto_rawDesc = "" +
 	"\n" +
 	"\x14proto/kontekst.proto\x12\bkontekst\"\x12\n" +
-	"\x10GetStatusRequest\"\xde\x02\n" +
+	"\x10GetStatusRequest\"\xfb\x01\n" +
 	"\x11GetStatusResponse\x12\x12\n" +
 	"\x04bind\x18\x01 \x01(\tR\x04bind\x12\x1a\n" +
 	"\bendpoint\x18\x02 \x01(\tR\bendpoint\x12\x1b\n" +
-	"\tmodel_dir\x18\x04 \x01(\tR\bmodelDir\x120\n" +
-	"\x14llama_server_healthy\x18\x06 \x01(\bR\x12llamaServerHealthy\x120\n" +
-	"\x14llama_server_running\x18\a \x01(\bR\x12llamaServerRunning\x12(\n" +
-	"\x10llama_server_pid\x18\b \x01(\x05R\x0ellamaServerPid\x12%\n" +
+	"\tmodel_dir\x18\x04 \x01(\tR\bmodelDir\x12)\n" +
+	"\x10endpoint_healthy\x18\x06 \x01(\bR\x0fendpointHealthy\x12%\n" +
 	"\x0euptime_seconds\x18\t \x01(\x03R\ruptimeSeconds\x12,\n" +
 	"\x12started_at_rfc3339\x18\n" +
 	" \x01(\tR\x10startedAtRfc3339\x12\x19\n" +

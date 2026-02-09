@@ -12,15 +12,17 @@ type AgentConfig struct {
 	DisplayName  string
 	SystemPrompt string
 	Model        string
+	ContextSize  int
 	Sampling     *core.SamplingConfig
 	ToolRole     bool
 }
 
 type AgentTOML struct {
-	Name     string               `toml:"name"`
-	Model    string               `toml:"model"`
-	Sampling *core.SamplingConfig `toml:"sampling"`
-	ToolRole bool                 `toml:"tool_role"`
+	Name        string               `toml:"name"`
+	Model       string               `toml:"model"`
+	ContextSize int                  `toml:"context_size"`
+	Sampling    *core.SamplingConfig `toml:"sampling"`
+	ToolRole    bool                 `toml:"tool_role"`
 }
 
 func LoadTOML(path string) (*AgentTOML, error) {

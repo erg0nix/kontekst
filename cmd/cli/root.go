@@ -37,6 +37,7 @@ func execute() {
 	rootCmd.AddCommand(newSessionCmd())
 	rootCmd.AddCommand(newStopCmd())
 	rootCmd.AddCommand(newPsCmd())
+	rootCmd.AddCommand(newLlamaCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -174,13 +175,7 @@ func printStatus(addr string, resp *pb.GetStatusResponse) {
 	fmt.Println("  data_dir:", resp.DataDir)
 	fmt.Println("  model_dir:", resp.ModelDir)
 	fmt.Println("  endpoint:", resp.Endpoint)
-	fmt.Println("llama-server")
-	fmt.Println("  running:", resp.LlamaServerRunning)
-	fmt.Println("  healthy:", resp.LlamaServerHealthy)
-
-	if resp.LlamaServerPid != 0 {
-		fmt.Println("  pid:", resp.LlamaServerPid)
-	}
+	fmt.Println("  endpoint_healthy:", resp.EndpointHealthy)
 }
 
 func formatUptime(seconds int64) string {

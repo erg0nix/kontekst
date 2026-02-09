@@ -31,7 +31,7 @@ func main() {
 	var (
 		configPathFlag = flag.String("config", "", "path to config file (default ~/.kontekst/config.toml)")
 		bindFlag       = flag.String("bind", "", "gRPC bind address")
-		endpointFlag   = flag.String("endpoint", "", "llama-server endpoint")
+		endpointFlag   = flag.String("endpoint", "", "LLM endpoint URL")
 		modelDirFlag   = flag.String("model-dir", "", "directory where models live")
 		dataDirFlag    = flag.String("data-dir", "", "base data dir (default ~/.kontekst)")
 	)
@@ -65,24 +65,13 @@ func main() {
 		logger.Warn("failed to ensure default agent", "error", err)
 	}
 
-	llamaProvider := providers.NewLlamaServerProvider(
-		config.LlamaServerConfig{
-			Endpoint:     daemonConfig.Endpoint,
-			AutoStart:    true,
-			InheritStdio: true,
-			ModelDir:     daemonConfig.ModelDir,
-			ContextSize:  daemonConfig.ContextSize,
-			GPULayers:    daemonConfig.GPULayers,
-			StartupWait:  15 * time.Second,
-			HTTPTimeout:  300 * time.Second,
+	openaiProvider := providers.NewOpenAIProvider(
+		providers.OpenAIConfig{
+			Endpoint:    daemonConfig.Endpoint,
+			HTTPTimeout: 300 * time.Second,
 		},
 		daemonConfig.Debug,
 	)
-	if daemonConfig.ModelDir != "" {
-		if err := llamaProvider.Start(); err != nil {
-			logger.Warn("failed to start llama-server", "error", err)
-		}
-	}
 
 	skillsDir := filepath.Join(daemonConfig.DataDir, "skills")
 	skillsRegistry := skills.NewRegistry(skillsDir)
@@ -101,11 +90,11 @@ func main() {
 	builtin.RegisterSkill(toolRegistry, skillsRegistry)
 	builtin.RegisterCommand(toolRegistry, commandsRegistry)
 
-	contextService := context.NewFileContextService(&daemonConfig)
+	contextService := context.NewFileContextService(daemonConfig.DataDir)
 	sessionService := &sessions.FileSessionService{BaseDir: daemonConfig.DataDir}
 
 	runner := &agent.AgentRunner{
-		Provider: &providers.SingleProviderRouter{Provider: llamaProvider, ConcurrencyLimit: 1},
+		Provider: &providers.SingleProviderRouter{Provider: openaiProvider, ConcurrencyLimit: 1},
 		Tools:    toolRegistry,
 		Context:  contextService,
 		Sessions: sessionService,
@@ -124,7 +113,7 @@ func main() {
 	pb.RegisterAgentServiceServer(grpcServer, &grpcsvc.AgentHandler{Runner: runner, Registry: agentRegistry, Skills: skillsRegistry})
 	pb.RegisterDaemonServiceServer(grpcServer, &grpcsvc.DaemonHandler{
 		Config:    daemonConfig,
-		Provider:  llamaProvider,
+		Endpoint:  openaiProvider,
 		StartTime: startTime,
 		StopFunc:  grpcServer.GracefulStop,
 	})

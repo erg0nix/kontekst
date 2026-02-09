@@ -9,6 +9,7 @@ const DefaultAgentName = "default"
 
 const defaultAgentConfigTOML = `name = "Default Assistant"
 model = "gpt-oss-20b-Q4_K_M.gguf"
+context_size = 4096
 tool_role = false
 
 [sampling]

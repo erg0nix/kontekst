@@ -32,25 +32,23 @@ type DebugConfig struct {
 }
 
 type Config struct {
-	Bind        string      `toml:"bind"`
-	Endpoint    string      `toml:"endpoint"`
-	ModelDir    string      `toml:"model_dir"`
-	ContextSize int         `toml:"context_size"`
-	GPULayers   int         `toml:"gpu_layers"`
-	DataDir     string      `toml:"data_dir"`
-	Tools       ToolsConfig `toml:"tools"`
-	Debug       DebugConfig `toml:"debug"`
+	Bind      string      `toml:"bind"`
+	Endpoint  string      `toml:"endpoint"`
+	ModelDir  string      `toml:"model_dir"`
+	GPULayers int         `toml:"gpu_layers"`
+	DataDir   string      `toml:"data_dir"`
+	Tools     ToolsConfig `toml:"tools"`
+	Debug     DebugConfig `toml:"debug"`
 }
 
 func Default() Config {
 	defaultDataDir := defaultDataDir()
 	return Config{
-		Bind:        ":50051",
-		Endpoint:    "http://127.0.0.1:8080",
-		ModelDir:    defaultModelsDir(),
-		ContextSize: 4096,
-		GPULayers:   0,
-		DataDir:     defaultDataDir,
+		Bind:      ":50051",
+		Endpoint:  "http://127.0.0.1:8080",
+		ModelDir:  defaultModelsDir(),
+		GPULayers: 0,
+		DataDir:   defaultDataDir,
 		Tools: ToolsConfig{
 			WorkingDir: "",
 			File: FileToolsConfig{

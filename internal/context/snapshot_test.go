@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
@@ -18,12 +17,11 @@ func TestContextWindow_Snapshot(t *testing.T) {
 	}
 	writeMessages(t, sessionPath, historicalMessages...)
 
-	cfg := &config.Config{ContextSize: 4096, DataDir: dir}
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf, cfg)
+	cw := newContextWindow(sf)
 
 	systemTokens := 100
-	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: systemTokens}); err != nil {
+	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: systemTokens}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -68,10 +66,10 @@ func TestContextWindow_Snapshot(t *testing.T) {
 }
 
 func TestContextWindow_SnapshotEmpty(t *testing.T) {
-	cw := newTestContextWindow(t, 4096)
+	cw := newTestContextWindow(t)
 
 	systemTokens := 50
-	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: systemTokens}); err != nil {
+	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: systemTokens}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 
@@ -109,11 +107,10 @@ func TestContextWindow_SnapshotMessageDetails(t *testing.T) {
 	}
 	writeMessages(t, sessionPath, historicalMessages...)
 
-	cfg := &config.Config{ContextSize: 4096, DataDir: dir}
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf, cfg)
+	cw := newContextWindow(sf)
 
-	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 50}); err != nil {
+	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
 	}
 

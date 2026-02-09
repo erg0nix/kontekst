@@ -105,6 +105,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 			if tomlCfg.Model != "" {
 				cfg.Model = tomlCfg.Model
 			}
+			cfg.ContextSize = tomlCfg.ContextSize
 			cfg.Sampling = tomlCfg.Sampling
 			cfg.ToolRole = tomlCfg.ToolRole
 		}

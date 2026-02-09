@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
 type BudgetParams struct {
+	ContextSize      int
 	SystemContent    string
 	SystemTokens     int
 	ToolTokens       int
@@ -35,15 +35,15 @@ type ContextService interface {
 }
 
 type FileContextService struct {
-	cfg *config.Config
+	dataDir string
 }
 
-func NewFileContextService(cfg *config.Config) *FileContextService {
-	return &FileContextService{cfg: cfg}
+func NewFileContextService(dataDir string) *FileContextService {
+	return &FileContextService{dataDir: dataDir}
 }
 
 func (service *FileContextService) NewWindow(sessionID core.SessionID) (ContextWindow, error) {
-	sessionDir := filepath.Join(service.cfg.DataDir, "sessions")
+	sessionDir := filepath.Join(service.dataDir, "sessions")
 
 	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
 		return nil, err
@@ -52,25 +52,24 @@ func (service *FileContextService) NewWindow(sessionID core.SessionID) (ContextW
 	sessionPath := filepath.Join(sessionDir, string(sessionID)+".jsonl")
 	sessionFile := NewSessionFile(sessionPath)
 
-	return newContextWindow(sessionFile, service.cfg), nil
+	return newContextWindow(sessionFile), nil
 }
 
 type contextWindow struct {
-	cfg               *config.Config
 	sessionFile       *SessionFile
 	history           []core.Message
 	memory            []core.Message
 	agentSystemPrompt string
 	activeSkill       *core.SkillMetadata
 	systemContent     string
+	contextSize       int
 	systemTokens      int
 	toolTokens        int
 	mu                sync.Mutex
 }
 
-func newContextWindow(sessionFile *SessionFile, cfg *config.Config) *contextWindow {
+func newContextWindow(sessionFile *SessionFile) *contextWindow {
 	return &contextWindow{
-		cfg:         cfg,
 		sessionFile: sessionFile,
 	}
 }
@@ -92,11 +91,12 @@ func (cw *contextWindow) StartRun(params BudgetParams) error {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
+	cw.contextSize = params.ContextSize
 	cw.systemContent = params.SystemContent
 	cw.systemTokens = params.SystemTokens
 	cw.toolTokens = params.ToolTokens
 
-	historyBudget := cw.cfg.ContextSize - params.SystemTokens - params.ToolTokens - params.UserPromptTokens
+	historyBudget := cw.contextSize - params.SystemTokens - params.ToolTokens - params.UserPromptTokens
 	if historyBudget < 0 {
 		historyBudget = 0
 	}
@@ -178,7 +178,7 @@ func (cw *contextWindow) Snapshot() core.ContextSnapshot {
 	memoryTokens := sumTokens(cw.memory)
 	totalTokens := cw.systemTokens + cw.toolTokens + historyTokens + memoryTokens
 
-	historyBudget := cw.cfg.ContextSize - cw.systemTokens - cw.toolTokens - memoryTokens
+	historyBudget := cw.contextSize - cw.systemTokens - cw.toolTokens - memoryTokens
 	if historyBudget < 0 {
 		historyBudget = 0
 	}
@@ -193,13 +193,13 @@ func (cw *contextWindow) Snapshot() core.ContextSnapshot {
 	}
 
 	return core.ContextSnapshot{
-		ContextSize:     cw.cfg.ContextSize,
+		ContextSize:     cw.contextSize,
 		SystemTokens:    cw.systemTokens,
 		ToolTokens:      cw.toolTokens,
 		HistoryTokens:   historyTokens,
 		MemoryTokens:    memoryTokens,
 		TotalTokens:     totalTokens,
-		RemainingTokens: cw.cfg.ContextSize - totalTokens,
+		RemainingTokens: cw.contextSize - totalTokens,
 		HistoryMessages: len(cw.history),
 		MemoryMessages:  len(cw.memory),
 		TotalMessages:   1 + len(cw.history) + len(cw.memory),

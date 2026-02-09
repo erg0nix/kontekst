@@ -53,6 +53,7 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			agentName := startCommand.AgentName
 			agentSystemPrompt := ""
 			agentModel := ""
+			agentContextSize := 0
 			agentToolRole := false
 			var agentSampling *core.SamplingConfig
 
@@ -65,6 +66,7 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 					continue
 				}
 				agentSystemPrompt = loadedAgent.SystemPrompt
+				agentContextSize = loadedAgent.ContextSize
 				agentSampling = loadedAgent.Sampling
 				agentModel = loadedAgent.Model
 				agentToolRole = loadedAgent.ToolRole
@@ -102,6 +104,7 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				SessionID:         core.SessionID(startCommand.SessionId),
 				AgentName:         agentName,
 				AgentSystemPrompt: agentSystemPrompt,
+				ContextSize:       agentContextSize,
 				Sampling:          agentSampling,
 				Model:             agentModel,
 				WorkingDir:        startCommand.WorkingDir,

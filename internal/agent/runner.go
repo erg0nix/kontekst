@@ -20,6 +20,7 @@ type RunConfig struct {
 	SessionID         core.SessionID
 	AgentName         string
 	AgentSystemPrompt string
+	ContextSize       int
 	Sampling          *core.SamplingConfig
 	Model             string
 	WorkingDir        string

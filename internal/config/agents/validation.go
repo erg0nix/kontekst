@@ -26,6 +26,10 @@ func Validate(cfg *AgentConfig) error {
 		}
 	}
 
+	if cfg.ContextSize <= 0 {
+		return errors.New("context_size must be greater than 0")
+	}
+
 	if cfg.Sampling != nil {
 		if err := validateSampling(cfg.Sampling); err != nil {
 			return err
