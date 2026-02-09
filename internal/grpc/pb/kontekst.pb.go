@@ -60,9 +60,6 @@ func (*GetStatusRequest) Descriptor() ([]byte, []int) {
 type GetStatusResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Bind             string                 `protobuf:"bytes,1,opt,name=bind,proto3" json:"bind,omitempty"`
-	Endpoint         string                 `protobuf:"bytes,2,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	ModelDir         string                 `protobuf:"bytes,4,opt,name=model_dir,json=modelDir,proto3" json:"model_dir,omitempty"`
-	EndpointHealthy  bool                   `protobuf:"varint,6,opt,name=endpoint_healthy,json=endpointHealthy,proto3" json:"endpoint_healthy,omitempty"`
 	UptimeSeconds    int64                  `protobuf:"varint,9,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
 	StartedAtRfc3339 string                 `protobuf:"bytes,10,opt,name=started_at_rfc3339,json=startedAtRfc3339,proto3" json:"started_at_rfc3339,omitempty"`
 	DataDir          string                 `protobuf:"bytes,11,opt,name=data_dir,json=dataDir,proto3" json:"data_dir,omitempty"`
@@ -105,27 +102,6 @@ func (x *GetStatusResponse) GetBind() string {
 		return x.Bind
 	}
 	return ""
-}
-
-func (x *GetStatusResponse) GetEndpoint() string {
-	if x != nil {
-		return x.Endpoint
-	}
-	return ""
-}
-
-func (x *GetStatusResponse) GetModelDir() string {
-	if x != nil {
-		return x.ModelDir
-	}
-	return ""
-}
-
-func (x *GetStatusResponse) GetEndpointHealthy() bool {
-	if x != nil {
-		return x.EndpointHealthy
-	}
-	return false
 }
 
 func (x *GetStatusResponse) GetUptimeSeconds() int64 {
@@ -1702,12 +1678,9 @@ var File_proto_kontekst_proto protoreflect.FileDescriptor
 const file_proto_kontekst_proto_rawDesc = "" +
 	"\n" +
 	"\x14proto/kontekst.proto\x12\bkontekst\"\x12\n" +
-	"\x10GetStatusRequest\"\xfb\x01\n" +
+	"\x10GetStatusRequest\"\x97\x01\n" +
 	"\x11GetStatusResponse\x12\x12\n" +
-	"\x04bind\x18\x01 \x01(\tR\x04bind\x12\x1a\n" +
-	"\bendpoint\x18\x02 \x01(\tR\bendpoint\x12\x1b\n" +
-	"\tmodel_dir\x18\x04 \x01(\tR\bmodelDir\x12)\n" +
-	"\x10endpoint_healthy\x18\x06 \x01(\bR\x0fendpointHealthy\x12%\n" +
+	"\x04bind\x18\x01 \x01(\tR\x04bind\x12%\n" +
 	"\x0euptime_seconds\x18\t \x01(\x03R\ruptimeSeconds\x12,\n" +
 	"\x12started_at_rfc3339\x18\n" +
 	" \x01(\tR\x10startedAtRfc3339\x12\x19\n" +

@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/providers"
@@ -16,17 +18,19 @@ import (
 )
 
 type RunConfig struct {
-	Prompt            string
-	SessionID         core.SessionID
-	AgentName         string
-	AgentSystemPrompt string
-	ContextSize       int
-	Sampling          *core.SamplingConfig
-	Model             string
-	WorkingDir        string
-	Skill             *skills.Skill
-	SkillContent      string
-	ToolRole          bool
+	Prompt              string
+	SessionID           core.SessionID
+	AgentName           string
+	AgentSystemPrompt   string
+	ContextSize         int
+	Sampling            *core.SamplingConfig
+	ProviderEndpoint    string
+	ProviderModel       string
+	ProviderHTTPTimeout time.Duration
+	WorkingDir          string
+	Skill               *skills.Skill
+	SkillContent        string
+	ToolRole            bool
 }
 
 type Runner interface {
@@ -34,10 +38,10 @@ type Runner interface {
 }
 
 type AgentRunner struct {
-	Provider providers.Provider
-	Tools    tools.ToolExecutor
-	Context  context.ContextService
-	Sessions sessions.SessionService
+	Tools       tools.ToolExecutor
+	Context     context.ContextService
+	Sessions    sessions.SessionService
+	DebugConfig config.DebugConfig
 }
 
 func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error) {
@@ -81,7 +85,15 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 		}
 	}
 
-	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, cfg)
+	provider := providers.NewOpenAIProvider(
+		providers.OpenAIConfig{
+			Endpoint:    cfg.ProviderEndpoint,
+			HTTPTimeout: cfg.ProviderHTTPTimeout,
+		},
+		runner.DebugConfig,
+	)
+
+	agentEngine := New(provider, runner.Tools, ctxWindow, cfg)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)

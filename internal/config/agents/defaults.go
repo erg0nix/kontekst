@@ -8,9 +8,12 @@ import (
 const DefaultAgentName = "default"
 
 const defaultAgentConfigTOML = `name = "Default Assistant"
-model = "gpt-oss-20b-Q4_K_M.gguf"
 context_size = 4096
 tool_role = false
+
+[provider]
+endpoint = "http://127.0.0.1:8080"
+model = "gpt-oss-20b-Q4_K_M.gguf"
 
 [sampling]
 temperature = 0.7

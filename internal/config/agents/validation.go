@@ -17,10 +17,14 @@ func Validate(cfg *AgentConfig) error {
 		return errors.New("agent name is required")
 	}
 
-	if cfg.Model != "" {
-		if _, err := os.Stat(cfg.Model); err != nil {
+	if cfg.Provider.Endpoint == "" {
+		return errors.New("provider.endpoint is required")
+	}
+
+	if cfg.Provider.Model != "" {
+		if _, err := os.Stat(cfg.Provider.Model); err != nil {
 			if os.IsNotExist(err) {
-				return &ModelNotFoundError{Model: cfg.Model}
+				return &ModelNotFoundError{Model: cfg.Provider.Model}
 			}
 			return err
 		}

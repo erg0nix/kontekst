@@ -2,25 +2,38 @@ package agents
 
 import (
 	"os"
+	"time"
 
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/pelletier/go-toml/v2"
 )
 
+type ProviderTOML struct {
+	Endpoint           string `toml:"endpoint"`
+	Model              string `toml:"model"`
+	HTTPTimeoutSeconds int    `toml:"http_timeout_seconds"`
+}
+
+type ProviderConfig struct {
+	Endpoint    string
+	Model       string
+	HTTPTimeout time.Duration
+}
+
 type AgentConfig struct {
 	Name         string
 	DisplayName  string
 	SystemPrompt string
-	Model        string
 	ContextSize  int
+	Provider     ProviderConfig
 	Sampling     *core.SamplingConfig
 	ToolRole     bool
 }
 
 type AgentTOML struct {
 	Name        string               `toml:"name"`
-	Model       string               `toml:"model"`
 	ContextSize int                  `toml:"context_size"`
+	Provider    ProviderTOML         `toml:"provider"`
 	Sampling    *core.SamplingConfig `toml:"sampling"`
 	ToolRole    bool                 `toml:"tool_role"`
 }

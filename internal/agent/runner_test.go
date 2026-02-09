@@ -60,7 +60,6 @@ func TestStartRun_WithAgentsMD(t *testing.T) {
 
 	capturer := &capturingContext{}
 	runner := &AgentRunner{
-		Provider: &mockProvider{},
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},
@@ -92,7 +91,6 @@ func TestStartRun_WithoutAgentsMD(t *testing.T) {
 
 	capturer := &capturingContext{}
 	runner := &AgentRunner{
-		Provider: &mockProvider{},
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},
@@ -124,7 +122,6 @@ func TestStartRun_AgentsMDBeforeSkillContent(t *testing.T) {
 
 	capturer := &capturingContext{}
 	runner := &AgentRunner{
-		Provider: &mockProvider{},
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},

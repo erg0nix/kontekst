@@ -8,14 +8,9 @@ import (
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
 )
 
-type EndpointChecker interface {
-	IsHealthy() bool
-}
-
 type DaemonHandler struct {
 	pb.UnimplementedDaemonServiceServer
 	Config    config.Config
-	Endpoint  EndpointChecker
 	StartTime time.Time
 	StopFunc  func()
 }
@@ -31,16 +26,8 @@ func (h *DaemonHandler) GetStatus(ctx context.Context, _ *pb.GetStatusRequest) (
 		startedAtText = h.StartTime.Format(time.RFC3339)
 	}
 
-	endpointHealthy := false
-	if h.Endpoint != nil {
-		endpointHealthy = h.Endpoint.IsHealthy()
-	}
-
 	return &pb.GetStatusResponse{
 		Bind:             h.Config.Bind,
-		Endpoint:         h.Config.Endpoint,
-		ModelDir:         h.Config.ModelDir,
-		EndpointHealthy:  endpointHealthy,
 		UptimeSeconds:    uptimeSeconds,
 		StartedAtRfc3339: startedAtText,
 		DataDir:          h.Config.DataDir,

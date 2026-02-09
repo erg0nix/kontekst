@@ -86,7 +86,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			contextMessages,
 			agent.tools.ToolDefinitions(),
 			agent.config.Sampling,
-			agent.config.Model,
+			agent.config.ProviderModel,
 			agent.config.ToolRole,
 		)
 

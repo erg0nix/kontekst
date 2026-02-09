@@ -15,7 +15,6 @@ import (
 	"github.com/erg0nix/kontekst/internal/context"
 	grpcsvc "github.com/erg0nix/kontekst/internal/grpc"
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
-	"github.com/erg0nix/kontekst/internal/providers"
 	"github.com/erg0nix/kontekst/internal/sessions"
 	"github.com/erg0nix/kontekst/internal/skills"
 	"github.com/erg0nix/kontekst/internal/tools"
@@ -31,8 +30,6 @@ func main() {
 	var (
 		configPathFlag = flag.String("config", "", "path to config file (default ~/.kontekst/config.toml)")
 		bindFlag       = flag.String("bind", "", "gRPC bind address")
-		endpointFlag   = flag.String("endpoint", "", "LLM endpoint URL")
-		modelDirFlag   = flag.String("model-dir", "", "directory where models live")
 		dataDirFlag    = flag.String("data-dir", "", "base data dir (default ~/.kontekst)")
 	)
 	flag.Parse()
@@ -55,8 +52,6 @@ func main() {
 	}
 
 	setIfNotEmpty(&daemonConfig.Bind, *bindFlag)
-	setIfNotEmpty(&daemonConfig.Endpoint, *endpointFlag)
-	setIfNotEmpty(&daemonConfig.ModelDir, *modelDirFlag)
 	setIfNotEmpty(&daemonConfig.DataDir, *dataDirFlag)
 
 	daemonConfig.Debug = config.LoadDebugConfigFromEnv(daemonConfig.Debug)
@@ -64,14 +59,6 @@ func main() {
 	if err := agentcfg.EnsureDefault(daemonConfig.DataDir); err != nil {
 		logger.Warn("failed to ensure default agent", "error", err)
 	}
-
-	openaiProvider := providers.NewOpenAIProvider(
-		providers.OpenAIConfig{
-			Endpoint:    daemonConfig.Endpoint,
-			HTTPTimeout: 300 * time.Second,
-		},
-		daemonConfig.Debug,
-	)
 
 	skillsDir := filepath.Join(daemonConfig.DataDir, "skills")
 	skillsRegistry := skills.NewRegistry(skillsDir)
@@ -94,10 +81,10 @@ func main() {
 	sessionService := &sessions.FileSessionService{BaseDir: daemonConfig.DataDir}
 
 	runner := &agent.AgentRunner{
-		Provider: &providers.SingleProviderRouter{Provider: openaiProvider, ConcurrencyLimit: 1},
-		Tools:    toolRegistry,
-		Context:  contextService,
-		Sessions: sessionService,
+		Tools:       toolRegistry,
+		Context:     contextService,
+		Sessions:    sessionService,
+		DebugConfig: daemonConfig.Debug,
 	}
 
 	grpcListener, err := net.Listen("tcp", daemonConfig.Bind)
@@ -113,7 +100,6 @@ func main() {
 	pb.RegisterAgentServiceServer(grpcServer, &grpcsvc.AgentHandler{Runner: runner, Registry: agentRegistry, Skills: skillsRegistry})
 	pb.RegisterDaemonServiceServer(grpcServer, &grpcsvc.DaemonHandler{
 		Config:    daemonConfig,
-		Endpoint:  openaiProvider,
 		StartTime: startTime,
 		StopFunc:  grpcServer.GracefulStop,
 	})

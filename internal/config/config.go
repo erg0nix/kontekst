@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,23 +31,17 @@ type DebugConfig struct {
 }
 
 type Config struct {
-	Bind      string      `toml:"bind"`
-	Endpoint  string      `toml:"endpoint"`
-	ModelDir  string      `toml:"model_dir"`
-	GPULayers int         `toml:"gpu_layers"`
-	DataDir   string      `toml:"data_dir"`
-	Tools     ToolsConfig `toml:"tools"`
-	Debug     DebugConfig `toml:"debug"`
+	Bind    string      `toml:"bind"`
+	DataDir string      `toml:"data_dir"`
+	Tools   ToolsConfig `toml:"tools"`
+	Debug   DebugConfig `toml:"debug"`
 }
 
 func Default() Config {
 	defaultDataDir := defaultDataDir()
 	return Config{
-		Bind:      ":50051",
-		Endpoint:  "http://127.0.0.1:8080",
-		ModelDir:  defaultModelsDir(),
-		GPULayers: 0,
-		DataDir:   defaultDataDir,
+		Bind:    ":50051",
+		DataDir: defaultDataDir,
 		Tools: ToolsConfig{
 			WorkingDir: "",
 			File: FileToolsConfig{
@@ -102,13 +95,7 @@ func LoadOrCreate(path string) (Config, error) {
 	}
 
 	config.DataDir = expandPath(config.DataDir)
-	config.ModelDir = expandPath(config.ModelDir)
-	config.Endpoint = strings.TrimSpace(config.Endpoint)
 	config.Bind = strings.TrimSpace(config.Bind)
-
-	if config.Endpoint == "" {
-		return config, errors.New("endpoint is required")
-	}
 
 	if config.Bind == "" {
 		config.Bind = ":50051"
@@ -125,16 +112,6 @@ func defaultDataDir() string {
 	}
 
 	return filepath.Join(homeDir, ".kontekst")
-}
-
-func defaultModelsDir() string {
-	homeDir, _ := os.UserHomeDir()
-
-	if homeDir == "" {
-		return "models"
-	}
-
-	return filepath.Join(homeDir, "models")
 }
 
 func expandPath(path string) string {

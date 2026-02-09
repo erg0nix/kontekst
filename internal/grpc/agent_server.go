@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"time"
 
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/core"
@@ -52,10 +53,12 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			startCommand := commandPayload.Start
 			agentName := startCommand.AgentName
 			agentSystemPrompt := ""
-			agentModel := ""
 			agentContextSize := 0
 			agentToolRole := false
 			var agentSampling *core.SamplingConfig
+			var providerEndpoint string
+			var providerModel string
+			var providerHTTPTimeout time.Duration
 
 			if agentName != "" && h.Registry != nil {
 				loadedAgent, err := h.Registry.Load(agentName)
@@ -68,8 +71,10 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 				agentSystemPrompt = loadedAgent.SystemPrompt
 				agentContextSize = loadedAgent.ContextSize
 				agentSampling = loadedAgent.Sampling
-				agentModel = loadedAgent.Model
 				agentToolRole = loadedAgent.ToolRole
+				providerEndpoint = loadedAgent.Provider.Endpoint
+				providerModel = loadedAgent.Provider.Model
+				providerHTTPTimeout = loadedAgent.Provider.HTTPTimeout
 			}
 
 			var skill *skills.Skill
@@ -100,17 +105,19 @@ func (h *AgentHandler) Run(stream pb.AgentService_RunServer) error {
 			}
 
 			commandChannelForRun, eventChannelForRun, err := h.Runner.StartRun(agent.RunConfig{
-				Prompt:            startCommand.Prompt,
-				SessionID:         core.SessionID(startCommand.SessionId),
-				AgentName:         agentName,
-				AgentSystemPrompt: agentSystemPrompt,
-				ContextSize:       agentContextSize,
-				Sampling:          agentSampling,
-				Model:             agentModel,
-				WorkingDir:        startCommand.WorkingDir,
-				Skill:             skill,
-				SkillContent:      skillContent,
-				ToolRole:          agentToolRole,
+				Prompt:              startCommand.Prompt,
+				SessionID:           core.SessionID(startCommand.SessionId),
+				AgentName:           agentName,
+				AgentSystemPrompt:   agentSystemPrompt,
+				ContextSize:         agentContextSize,
+				Sampling:            agentSampling,
+				ProviderEndpoint:    providerEndpoint,
+				ProviderModel:       providerModel,
+				ProviderHTTPTimeout: providerHTTPTimeout,
+				WorkingDir:          startCommand.WorkingDir,
+				Skill:               skill,
+				SkillContent:        skillContent,
+				ToolRole:            agentToolRole,
 			})
 			if err != nil {
 				if err := stream.Send(&pb.RunEvent{Event: &pb.RunEvent_Failed{Failed: &pb.RunFailedEvent{Error: err.Error()}}}); err != nil {

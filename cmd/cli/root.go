@@ -173,9 +173,6 @@ func printStatus(addr string, resp *pb.GetStatusResponse) {
 	}
 
 	fmt.Println("  data_dir:", resp.DataDir)
-	fmt.Println("  model_dir:", resp.ModelDir)
-	fmt.Println("  endpoint:", resp.Endpoint)
-	fmt.Println("  endpoint_healthy:", resp.EndpointHealthy)
 }
 
 func formatUptime(seconds int64) string {

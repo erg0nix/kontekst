@@ -27,26 +27,26 @@ func newLlamaStartCmd() *cobra.Command {
 	var (
 		binPath    string
 		background bool
+		endpoint   string
+		modelDir   string
+		gpuLayers  int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start llama-server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			configPath, _ := cmd.Flags().GetString("config")
-			cfg, _ := loadConfig(configPath)
-
-			host, port := parseEndpointHostPort(cfg.Endpoint)
+			host, port := parseEndpointHostPort(endpoint)
 
 			args := []string{
 				"--host", host,
 				"--port", port,
-				"--n-gpu-layers", strconv.Itoa(cfg.GPULayers),
+				"--n-gpu-layers", strconv.Itoa(gpuLayers),
 				"--reasoning-format", "deepseek",
 			}
 
-			if cfg.ModelDir != "" {
-				args = append(args, "--models-dir", cfg.ModelDir)
+			if modelDir != "" {
+				args = append(args, "--models-dir", modelDir)
 			}
 
 			llamaCmd := exec.Command(binPath, args...)
@@ -85,6 +85,9 @@ func newLlamaStartCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&binPath, "bin", "llama-server", "path to llama-server binary")
 	cmd.Flags().BoolVar(&background, "background", false, "run in background (detached)")
+	cmd.Flags().StringVar(&endpoint, "endpoint", "http://127.0.0.1:8080", "LLM endpoint URL")
+	cmd.Flags().StringVar(&modelDir, "model-dir", "", "directory where models live")
+	cmd.Flags().IntVar(&gpuLayers, "gpu-layers", 0, "number of GPU layers")
 
 	return cmd
 }

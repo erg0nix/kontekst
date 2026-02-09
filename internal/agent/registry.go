@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
 )
@@ -102,9 +103,17 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 			if tomlCfg.Name != "" {
 				cfg.DisplayName = tomlCfg.Name
 			}
-			if tomlCfg.Model != "" {
-				cfg.Model = tomlCfg.Model
+
+			cfg.Provider = agentConfig.ProviderConfig{
+				Endpoint: tomlCfg.Provider.Endpoint,
+				Model:    tomlCfg.Provider.Model,
 			}
+			if tomlCfg.Provider.HTTPTimeoutSeconds > 0 {
+				cfg.Provider.HTTPTimeout = time.Duration(tomlCfg.Provider.HTTPTimeoutSeconds) * time.Second
+			} else {
+				cfg.Provider.HTTPTimeout = 300 * time.Second
+			}
+
 			cfg.ContextSize = tomlCfg.ContextSize
 			cfg.Sampling = tomlCfg.Sampling
 			cfg.ToolRole = tomlCfg.ToolRole
