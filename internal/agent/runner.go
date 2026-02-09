@@ -30,12 +30,10 @@ type Runner interface {
 }
 
 type AgentRunner struct {
-	Provider   providers.ProviderRouter
-	Tools      tools.ToolExecutor
-	Context    context.ContextService
-	Sessions   sessions.SessionService
-	Runs       sessions.RunService
-	ContextLog *sessions.ContextLogWriter
+	Provider providers.ProviderRouter
+	Tools    tools.ToolExecutor
+	Context  context.ContextService
+	Sessions sessions.SessionService
 }
 
 func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error) {
@@ -83,28 +81,27 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 
 			switch event.Type {
 			case EvtRunStarted:
-				if err := runner.Runs.StartRun(sessionID, event.RunID); err != nil {
-					slog.Warn("failed to record run start", "run_id", event.RunID, "error", err)
-				}
+				slog.Info("run started", "run_id", event.RunID, "session_id", sessionID)
 			case EvtContextSnapshot:
 				turnCounter++
-				if runner.ContextLog != nil && event.Snapshot != nil {
-					if err := runner.ContextLog.Write(event.RunID, turnCounter, *event.Snapshot); err != nil {
-						slog.Warn("failed to write context log", "run_id", event.RunID, "error", err)
-					}
+				if event.Snapshot != nil {
+					slog.Info("context snapshot",
+						"run_id", event.RunID,
+						"turn", turnCounter,
+						"context_size", event.Snapshot.ContextSize,
+						"total_tokens", event.Snapshot.TotalTokens,
+						"remaining_tokens", event.Snapshot.RemainingTokens,
+						"history_tokens", event.Snapshot.HistoryTokens,
+						"history_messages", event.Snapshot.HistoryMessages,
+						"total_messages", event.Snapshot.TotalMessages,
+					)
 				}
 			case EvtRunCompleted:
-				if err := runner.Runs.CompleteRun(event.RunID); err != nil {
-					slog.Warn("failed to record run completion", "run_id", event.RunID, "error", err)
-				}
+				slog.Info("run completed", "run_id", event.RunID)
 			case EvtRunCancelled:
-				if err := runner.Runs.CancelRun(event.RunID); err != nil {
-					slog.Warn("failed to record run cancellation", "run_id", event.RunID, "error", err)
-				}
+				slog.Info("run cancelled", "run_id", event.RunID)
 			case EvtRunFailed:
-				if err := runner.Runs.FailRun(event.RunID); err != nil {
-					slog.Warn("failed to record run failure", "run_id", event.RunID, "error", err)
-				}
+				slog.Info("run failed", "run_id", event.RunID)
 			}
 
 			outputChannel <- event

@@ -8,10 +8,3 @@ type SessionService interface {
 	GetDefaultAgent(sessionID core.SessionID) (string, error)
 	SetDefaultAgent(sessionID core.SessionID, agentName string) error
 }
-
-type RunService interface {
-	StartRun(sessionID core.SessionID, runID core.RunID) error
-	CompleteRun(runID core.RunID) error
-	CancelRun(runID core.RunID) error
-	FailRun(runID core.RunID) error
-}
