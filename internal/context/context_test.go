@@ -181,9 +181,7 @@ func TestContextWindow_CompleteRunClearsMemory(t *testing.T) {
 		t.Fatalf("AddMessage failed: %v", err)
 	}
 
-	if err := cw.CompleteRun(); err != nil {
-		t.Fatalf("CompleteRun failed: %v", err)
-	}
+	cw.CompleteRun()
 
 	msgs, err := cw.BuildContext()
 	if err != nil {
@@ -209,9 +207,7 @@ func TestContextWindow_MultipleRunsAccumulateHistory(t *testing.T) {
 	if err := cw.AddMessage(core.Message{Role: core.RoleUser, Content: "run1", Tokens: 10}); err != nil {
 		t.Fatalf("AddMessage failed: %v", err)
 	}
-	if err := cw.CompleteRun(); err != nil {
-		t.Fatalf("CompleteRun failed: %v", err)
-	}
+	cw.CompleteRun()
 
 	if err := cw.StartRun(BudgetParams{SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)

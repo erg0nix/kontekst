@@ -20,9 +20,7 @@ func (m *mockContext) StartRun(params ctx.BudgetParams) error {
 	return nil
 }
 
-func (m *mockContext) CompleteRun() error {
-	return nil
-}
+func (m *mockContext) CompleteRun() {}
 
 func (m *mockContext) BuildContext() ([]core.Message, error) {
 	return m.messages, nil
@@ -71,10 +69,6 @@ func (m *mockProvider) GenerateChat(messages []core.Message, tools []core.ToolDe
 
 func (m *mockProvider) CountTokens(text string) (int, error) {
 	return len(text) / 4, nil
-}
-
-func (m *mockProvider) ConcurrencyLimit() int {
-	return 1
 }
 
 func TestExecuteTools_SingleTool(t *testing.T) {

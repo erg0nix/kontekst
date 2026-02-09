@@ -33,7 +33,7 @@ type Runner interface {
 }
 
 type AgentRunner struct {
-	Provider providers.ProviderRouter
+	Provider providers.Provider
 	Tools    tools.ToolExecutor
 	Context  context.ContextService
 	Sessions sessions.SessionService
@@ -96,7 +96,7 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 			switch event.Type {
 			case EvtRunStarted:
 				slog.Info("run started", "run_id", event.RunID, "session_id", sessionID)
-			case EvtContextSnapshot:
+			case EvtTurnCompleted:
 				turnCounter++
 				if event.Snapshot != nil {
 					slog.Info("context snapshot",

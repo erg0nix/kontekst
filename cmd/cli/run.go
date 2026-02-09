@@ -13,8 +13,6 @@ import (
 	"github.com/erg0nix/kontekst/internal/sessions"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func runCmd(cmd *cobra.Command, args []string) error {
@@ -55,9 +53,8 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		agentName = agentConfig.DefaultAgentName
 	}
 
-	grpcConn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	grpcConn, err := dialDaemon(serverAddr)
 	if err != nil {
-		printDaemonNotRunning(serverAddr, err)
 		return err
 	}
 	defer grpcConn.Close()
@@ -104,9 +101,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 			if e.TurnCompleted.Content != "" {
 				fmt.Println(e.TurnCompleted.Content)
 			}
-		case *pb.RunEvent_ContextSnapshot:
-			snap := e.ContextSnapshot.Context
-			if snap != nil {
+			if snap := e.TurnCompleted.Context; snap != nil {
 				pct := int32(0)
 				if snap.ContextSize > 0 {
 					pct = snap.TotalTokens * 100 / snap.ContextSize

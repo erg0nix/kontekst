@@ -143,6 +143,16 @@ func saveActiveSession(dataDir string, sessionID string) error {
 	return os.WriteFile(path, []byte(sessionID), 0o644)
 }
 
+func dialDaemon(serverAddr string) (*grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		printDaemonNotRunning(serverAddr, err)
+		return nil, fmt.Errorf("dial daemon at %s: %w", serverAddr, err)
+	}
+
+	return conn, nil
+}
+
 func printDaemonNotRunning(addr string, err error) {
 	fmt.Println("daemon is not running at", addr)
 	fmt.Println("start with: kontekst start")

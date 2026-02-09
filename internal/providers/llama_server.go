@@ -280,10 +280,6 @@ func (p *LlamaServerProvider) GenerateChat(
 	return response, nil
 }
 
-func (p *LlamaServerProvider) ConcurrencyLimit() int {
-	return 1
-}
-
 func (p *LlamaServerProvider) Start() error {
 	if !p.cfg.AutoStart {
 		return errors.New("auto_start disabled")

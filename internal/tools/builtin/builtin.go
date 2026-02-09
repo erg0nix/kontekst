@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -29,6 +30,19 @@ func isSafeRelative(path string) bool {
 	return !strings.HasPrefix(clean, "..")
 }
 
+func validatePath(args map[string]any) (string, error) {
+	path, ok := getStringArg("path", args)
+	if !ok || path == "" {
+		return "", errors.New("missing required argument: path")
+	}
+
+	if !isSafeRelative(path) {
+		return "", errors.New("absolute or parent-traversal paths are not allowed")
+	}
+
+	return path, nil
+}
+
 func getStringArg(key string, args map[string]any) (string, bool) {
 	value, ok := args[key]
 	if !ok {
@@ -37,16 +51,6 @@ func getStringArg(key string, args map[string]any) (string, bool) {
 
 	stringValue, ok := value.(string)
 	return stringValue, ok
-}
-
-func getBoolArg(key string, args map[string]any) (bool, bool) {
-	value, ok := args[key]
-	if !ok {
-		return false, false
-	}
-
-	boolValue, ok := value.(bool)
-	return boolValue, ok
 }
 
 func getIntArg(key string, args map[string]any) (int, bool) {

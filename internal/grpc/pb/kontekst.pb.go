@@ -635,7 +635,6 @@ type RunEvent struct {
 	//	*RunEvent_Completed
 	//	*RunEvent_Cancelled
 	//	*RunEvent_Failed
-	//	*RunEvent_ContextSnapshot
 	Event         isRunEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -786,15 +785,6 @@ func (x *RunEvent) GetFailed() *RunFailedEvent {
 	return nil
 }
 
-func (x *RunEvent) GetContextSnapshot() *ContextSnapshotEvent {
-	if x != nil {
-		if x, ok := x.Event.(*RunEvent_ContextSnapshot); ok {
-			return x.ContextSnapshot
-		}
-	}
-	return nil
-}
-
 type isRunEvent_Event interface {
 	isRunEvent_Event()
 }
@@ -847,10 +837,6 @@ type RunEvent_Failed struct {
 	Failed *RunFailedEvent `protobuf:"bytes,12,opt,name=failed,proto3,oneof"`
 }
 
-type RunEvent_ContextSnapshot struct {
-	ContextSnapshot *ContextSnapshotEvent `protobuf:"bytes,13,opt,name=context_snapshot,json=contextSnapshot,proto3,oneof"`
-}
-
 func (*RunEvent_Started) isRunEvent_Event() {}
 
 func (*RunEvent_Token) isRunEvent_Event() {}
@@ -874,8 +860,6 @@ func (*RunEvent_Completed) isRunEvent_Event() {}
 func (*RunEvent_Cancelled) isRunEvent_Event() {}
 
 func (*RunEvent_Failed) isRunEvent_Event() {}
-
-func (*RunEvent_ContextSnapshot) isRunEvent_Event() {}
 
 type RunStartedEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1729,50 +1713,6 @@ func (x *MessageStats) GetSource() string {
 	return ""
 }
 
-type ContextSnapshotEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Context       *ContextSnapshot       `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ContextSnapshotEvent) Reset() {
-	*x = ContextSnapshotEvent{}
-	mi := &file_proto_kontekst_proto_msgTypes[26]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ContextSnapshotEvent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ContextSnapshotEvent) ProtoMessage() {}
-
-func (x *ContextSnapshotEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_kontekst_proto_msgTypes[26]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ContextSnapshotEvent.ProtoReflect.Descriptor instead.
-func (*ContextSnapshotEvent) Descriptor() ([]byte, []int) {
-	return file_proto_kontekst_proto_rawDescGZIP(), []int{26}
-}
-
-func (x *ContextSnapshotEvent) GetContext() *ContextSnapshot {
-	if x != nil {
-		return x.Context
-	}
-	return nil
-}
-
 var File_proto_kontekst_proto protoreflect.FileDescriptor
 
 const file_proto_kontekst_proto_rawDesc = "" +
@@ -1817,7 +1757,7 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\x0fDenyToolCommand\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"\x12\n" +
-	"\x10CancelRunCommand\"\xf0\x06\n" +
+	"\x10CancelRunCommand\"\xa3\x06\n" +
 	"\bRunEvent\x125\n" +
 	"\astarted\x18\x01 \x01(\v2\x19.kontekst.RunStartedEventH\x00R\astarted\x121\n" +
 	"\x05token\x18\x02 \x01(\v2\x19.kontekst.TokenDeltaEventH\x00R\x05token\x12=\n" +
@@ -1832,8 +1772,7 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\tcompleted\x18\n" +
 	" \x01(\v2\x1b.kontekst.RunCompletedEventH\x00R\tcompleted\x12;\n" +
 	"\tcancelled\x18\v \x01(\v2\x1b.kontekst.RunCancelledEventH\x00R\tcancelled\x122\n" +
-	"\x06failed\x18\f \x01(\v2\x18.kontekst.RunFailedEventH\x00R\x06failed\x12K\n" +
-	"\x10context_snapshot\x18\r \x01(\v2\x1e.kontekst.ContextSnapshotEventH\x00R\x0fcontextSnapshotB\a\n" +
+	"\x06failed\x18\f \x01(\v2\x18.kontekst.RunFailedEventH\x00R\x06failedB\a\n" +
 	"\x05event\"f\n" +
 	"\x0fRunStartedEvent\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1d\n" +
@@ -1892,9 +1831,7 @@ const file_proto_kontekst_proto_rawDesc = "" +
 	"\fMessageStats\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x16\n" +
 	"\x06tokens\x18\x02 \x01(\x05R\x06tokens\x12\x16\n" +
-	"\x06source\x18\x03 \x01(\tR\x06source\"K\n" +
-	"\x14ContextSnapshotEvent\x123\n" +
-	"\acontext\x18\x01 \x01(\v2\x19.kontekst.ContextSnapshotR\acontext2C\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source2C\n" +
 	"\fAgentService\x123\n" +
 	"\x03Run\x12\x14.kontekst.RunCommand\x1a\x12.kontekst.RunEvent(\x010\x012\x98\x01\n" +
 	"\rDaemonService\x12D\n" +
@@ -1913,7 +1850,7 @@ func file_proto_kontekst_proto_rawDescGZIP() []byte {
 	return file_proto_kontekst_proto_rawDescData
 }
 
-var file_proto_kontekst_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_proto_kontekst_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_proto_kontekst_proto_goTypes = []any{
 	(*GetStatusRequest)(nil),            // 0: kontekst.GetStatusRequest
 	(*GetStatusResponse)(nil),           // 1: kontekst.GetStatusResponse
@@ -1941,7 +1878,6 @@ var file_proto_kontekst_proto_goTypes = []any{
 	(*RunFailedEvent)(nil),              // 23: kontekst.RunFailedEvent
 	(*ContextSnapshot)(nil),             // 24: kontekst.ContextSnapshot
 	(*MessageStats)(nil),                // 25: kontekst.MessageStats
-	(*ContextSnapshotEvent)(nil),        // 26: kontekst.ContextSnapshotEvent
 }
 var file_proto_kontekst_proto_depIdxs = []int32{
 	5,  // 0: kontekst.RunCommand.start:type_name -> kontekst.StartRunCommand
@@ -1961,22 +1897,20 @@ var file_proto_kontekst_proto_depIdxs = []int32{
 	21, // 14: kontekst.RunEvent.completed:type_name -> kontekst.RunCompletedEvent
 	22, // 15: kontekst.RunEvent.cancelled:type_name -> kontekst.RunCancelledEvent
 	23, // 16: kontekst.RunEvent.failed:type_name -> kontekst.RunFailedEvent
-	26, // 17: kontekst.RunEvent.context_snapshot:type_name -> kontekst.ContextSnapshotEvent
-	24, // 18: kontekst.TurnCompletedEvent.context:type_name -> kontekst.ContextSnapshot
-	16, // 19: kontekst.ToolsProposedEvent.calls:type_name -> kontekst.ProposedToolCall
-	25, // 20: kontekst.ContextSnapshot.messages:type_name -> kontekst.MessageStats
-	24, // 21: kontekst.ContextSnapshotEvent.context:type_name -> kontekst.ContextSnapshot
-	4,  // 22: kontekst.AgentService.Run:input_type -> kontekst.RunCommand
-	0,  // 23: kontekst.DaemonService.GetStatus:input_type -> kontekst.GetStatusRequest
-	2,  // 24: kontekst.DaemonService.Shutdown:input_type -> kontekst.ShutdownRequest
-	10, // 25: kontekst.AgentService.Run:output_type -> kontekst.RunEvent
-	1,  // 26: kontekst.DaemonService.GetStatus:output_type -> kontekst.GetStatusResponse
-	3,  // 27: kontekst.DaemonService.Shutdown:output_type -> kontekst.ShutdownResponse
-	25, // [25:28] is the sub-list for method output_type
-	22, // [22:25] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	24, // 17: kontekst.TurnCompletedEvent.context:type_name -> kontekst.ContextSnapshot
+	16, // 18: kontekst.ToolsProposedEvent.calls:type_name -> kontekst.ProposedToolCall
+	25, // 19: kontekst.ContextSnapshot.messages:type_name -> kontekst.MessageStats
+	4,  // 20: kontekst.AgentService.Run:input_type -> kontekst.RunCommand
+	0,  // 21: kontekst.DaemonService.GetStatus:input_type -> kontekst.GetStatusRequest
+	2,  // 22: kontekst.DaemonService.Shutdown:input_type -> kontekst.ShutdownRequest
+	10, // 23: kontekst.AgentService.Run:output_type -> kontekst.RunEvent
+	1,  // 24: kontekst.DaemonService.GetStatus:output_type -> kontekst.GetStatusResponse
+	3,  // 25: kontekst.DaemonService.Shutdown:output_type -> kontekst.ShutdownResponse
+	23, // [23:26] is the sub-list for method output_type
+	20, // [20:23] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_proto_kontekst_proto_init() }
@@ -2003,7 +1937,6 @@ func file_proto_kontekst_proto_init() {
 		(*RunEvent_Completed)(nil),
 		(*RunEvent_Cancelled)(nil),
 		(*RunEvent_Failed)(nil),
-		(*RunEvent_ContextSnapshot)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2011,7 +1944,7 @@ func file_proto_kontekst_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_kontekst_proto_rawDesc), len(file_proto_kontekst_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   27,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

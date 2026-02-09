@@ -105,7 +105,7 @@ func main() {
 	sessionService := &sessions.FileSessionService{BaseDir: daemonConfig.DataDir}
 
 	runner := &agent.AgentRunner{
-		Provider: &providers.SingleProviderRouter{Provider: llamaProvider},
+		Provider: &providers.SingleProviderRouter{Provider: llamaProvider, ConcurrencyLimit: 1},
 		Tools:    toolRegistry,
 		Context:  contextService,
 		Sessions: sessionService,

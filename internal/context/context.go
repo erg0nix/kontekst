@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/erg0nix/kontekst/internal/config"
@@ -21,7 +20,7 @@ type BudgetParams struct {
 type ContextWindow interface {
 	SystemContent() string
 	StartRun(params BudgetParams) error
-	CompleteRun() error
+	CompleteRun()
 	AddMessage(msg core.Message) error
 	BuildContext() ([]core.Message, error)
 	RenderUserMessage(prompt string) (string, error)
@@ -66,19 +65,15 @@ type contextWindow struct {
 	systemContent     string
 	systemTokens      int
 	toolTokens        int
-	userTemplate      string
 	mu                sync.Mutex
 }
 
 func newContextWindow(sessionFile *SessionFile, cfg *config.Config) *contextWindow {
 	return &contextWindow{
-		cfg:          cfg,
-		sessionFile:  sessionFile,
-		userTemplate: defaultUserTemplate,
+		cfg:         cfg,
+		sessionFile: sessionFile,
 	}
 }
-
-const defaultUserTemplate = "{{ user_message }}"
 
 func (cw *contextWindow) SystemContent() string {
 	cw.mu.Lock()
@@ -117,13 +112,11 @@ func (cw *contextWindow) StartRun(params BudgetParams) error {
 	return nil
 }
 
-func (cw *contextWindow) CompleteRun() error {
+func (cw *contextWindow) CompleteRun() {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
 	cw.memory = nil
-
-	return nil
 }
 
 func (cw *contextWindow) AddMessage(msg core.Message) error {
@@ -153,11 +146,7 @@ func (cw *contextWindow) BuildContext() ([]core.Message, error) {
 }
 
 func (cw *contextWindow) RenderUserMessage(prompt string) (string, error) {
-	if cw.userTemplate == "" {
-		return prompt, nil
-	}
-
-	return strings.ReplaceAll(cw.userTemplate, "{{ user_message }}", prompt), nil
+	return prompt, nil
 }
 
 func (cw *contextWindow) SetAgentSystemPrompt(prompt string) {

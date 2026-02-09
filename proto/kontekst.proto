@@ -67,7 +67,6 @@ message RunEvent {
     RunCompletedEvent completed = 10;
     RunCancelledEvent cancelled = 11;
     RunFailedEvent failed = 12;
-    ContextSnapshotEvent context_snapshot = 13;
   }
 }
 
@@ -115,6 +114,3 @@ message MessageStats {
     string source = 3;
 }
 
-message ContextSnapshotEvent {
-    ContextSnapshot context = 1;
-}

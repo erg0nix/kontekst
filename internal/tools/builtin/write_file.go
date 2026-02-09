@@ -41,12 +41,8 @@ func (tool *WriteFile) Parameters() map[string]any {
 func (tool *WriteFile) RequiresApproval() bool { return true }
 
 func (tool *WriteFile) Preview(args map[string]any, ctx context.Context) (string, error) {
-	path, ok := getStringArg("path", args)
-	if !ok || path == "" {
-		return "", nil
-	}
-
-	if !isSafeRelative(path) {
+	path, err := validatePath(args)
+	if err != nil {
 		return "", nil
 	}
 
@@ -70,13 +66,9 @@ func (tool *WriteFile) Preview(args map[string]any, ctx context.Context) (string
 }
 
 func (tool *WriteFile) Execute(args map[string]any, ctx context.Context) (string, error) {
-	path, ok := getStringArg("path", args)
-	if !ok || path == "" {
-		return "", errors.New("missing path")
-	}
-
-	if !isSafeRelative(path) {
-		return "", errors.New("absolute or parent paths are not allowed")
+	path, err := validatePath(args)
+	if err != nil {
+		return "", err
 	}
 
 	content, ok := getStringArg("content", args)

@@ -7,8 +7,6 @@ import (
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func newPsCmd() *cobra.Command {
@@ -21,9 +19,8 @@ func newPsCmd() *cobra.Command {
 			config, _ := loadConfig(configPath)
 			serverAddr := resolveServer(serverOverride, config)
 
-			grpcConn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			grpcConn, err := dialDaemon(serverAddr)
 			if err != nil {
-				printDaemonNotRunning(serverAddr, err)
 				return err
 			}
 			defer grpcConn.Close()

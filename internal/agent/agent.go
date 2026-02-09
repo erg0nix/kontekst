@@ -12,14 +12,14 @@ import (
 )
 
 type Agent struct {
-	provider providers.ProviderRouter
+	provider providers.Provider
 	tools    tools.ToolExecutor
 	context  ctx.ContextWindow
 	config   RunConfig
 }
 
 func New(
-	provider providers.ProviderRouter,
+	provider providers.Provider,
 	toolExecutor tools.ToolExecutor,
 	contextWindow ctx.ContextWindow,
 	cfg RunConfig,
@@ -110,7 +110,6 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			}
 			snapshot := agent.context.Snapshot()
 			eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
-			eventChannel <- AgentEvent{Type: EvtContextSnapshot, RunID: runID, Snapshot: &snapshot}
 			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
 			return
 		}
@@ -129,7 +128,6 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 		}
 		snapshot := agent.context.Snapshot()
 		eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
-		eventChannel <- AgentEvent{Type: EvtContextSnapshot, RunID: runID, Snapshot: &snapshot}
 
 		previewCtx := tools.WithWorkingDir(context.Background(), agent.config.WorkingDir)
 		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)

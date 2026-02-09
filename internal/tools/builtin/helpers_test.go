@@ -35,10 +35,10 @@ func TestIsSafeRelative(t *testing.T) {
 
 func TestGetStringArg(t *testing.T) {
 	args := map[string]any{
-		"str":    "hello",
-		"int":    42,
-		"empty":  "",
-		"bool":   true,
+		"str":   "hello",
+		"int":   42,
+		"empty": "",
+		"bool":  true,
 	}
 
 	tests := []struct {
@@ -57,35 +57,6 @@ func TestGetStringArg(t *testing.T) {
 		gotVal, gotOK := getStringArg(tt.key, args)
 		if gotVal != tt.wantVal || gotOK != tt.wantOK {
 			t.Errorf("getStringArg(%q) = (%q, %v), want (%q, %v)",
-				tt.key, gotVal, gotOK, tt.wantVal, tt.wantOK)
-		}
-	}
-}
-
-func TestGetBoolArg(t *testing.T) {
-	args := map[string]any{
-		"true":  true,
-		"false": false,
-		"str":   "true",
-		"int":   1,
-	}
-
-	tests := []struct {
-		key     string
-		wantVal bool
-		wantOK  bool
-	}{
-		{"true", true, true},
-		{"false", false, true},
-		{"str", false, false},
-		{"int", false, false},
-		{"missing", false, false},
-	}
-
-	for _, tt := range tests {
-		gotVal, gotOK := getBoolArg(tt.key, args)
-		if gotVal != tt.wantVal || gotOK != tt.wantOK {
-			t.Errorf("getBoolArg(%q) = (%v, %v), want (%v, %v)",
 				tt.key, gotVal, gotOK, tt.wantVal, tt.wantOK)
 		}
 	}

@@ -15,17 +15,13 @@ type Provider interface {
 		useToolRole bool,
 	) (core.ChatResponse, error)
 	CountTokens(text string) (int, error)
-	ConcurrencyLimit() int
-}
-
-type ProviderRouter interface {
-	Provider
 }
 
 type SingleProviderRouter struct {
-	Provider Provider
-	once     sync.Once
-	limiter  *semaphore
+	Provider         Provider
+	ConcurrencyLimit int
+	once             sync.Once
+	limiter          *semaphore
 }
 
 func (r *SingleProviderRouter) GenerateChat(
@@ -55,20 +51,10 @@ func (r *SingleProviderRouter) CountTokens(text string) (int, error) {
 	return r.Provider.CountTokens(text)
 }
 
-func (r *SingleProviderRouter) ConcurrencyLimit() int {
-	if r.Provider == nil {
-		return 0
-	}
-
-	return r.Provider.ConcurrencyLimit()
-}
-
 func (r *SingleProviderRouter) getLimiter() *semaphore {
 	r.once.Do(func() {
-		concurrencyLimit := r.ConcurrencyLimit()
-
-		if concurrencyLimit > 0 {
-			r.limiter = newSemaphore(concurrencyLimit)
+		if r.ConcurrencyLimit > 0 {
+			r.limiter = newSemaphore(r.ConcurrencyLimit)
 		}
 	})
 	return r.limiter

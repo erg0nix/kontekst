@@ -3,7 +3,6 @@ package builtin
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,13 +44,9 @@ func (tool *ReadFile) Parameters() map[string]any {
 func (tool *ReadFile) RequiresApproval() bool { return true }
 
 func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string, error) {
-	path, ok := getStringArg("path", args)
-	if !ok {
-		return "", errors.New("missing path")
-	}
-
-	if !isSafeRelative(path) {
-		return "", errors.New("absolute or parent paths are not allowed")
+	path, err := validatePath(args)
+	if err != nil {
+		return "", err
 	}
 
 	startLine, _ := getIntArg("start_line", args)

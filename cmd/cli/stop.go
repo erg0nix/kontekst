@@ -8,8 +8,6 @@ import (
 	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func newStopCmd() *cobra.Command {
@@ -22,15 +20,13 @@ func newStopCmd() *cobra.Command {
 			config, _ := loadConfig(configPath)
 			serverAddr := resolveServer(serverOverride, config)
 
-			grpcConn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			grpcConn, err := dialDaemon(serverAddr)
 			if err != nil {
-				printDaemonNotRunning(serverAddr, err)
 				return err
 			}
 			defer grpcConn.Close()
 
 			daemonClient := pb.NewDaemonServiceClient(grpcConn)
-
 			shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancelShutdown()
 

@@ -180,10 +180,6 @@ func convertEvent(event agent.AgentEvent) *pb.RunEvent {
 			Reasoning: event.Response.Reasoning,
 			Context:   convertContextSnapshot(event.Snapshot),
 		}}}
-	case agent.EvtContextSnapshot:
-		return &pb.RunEvent{Event: &pb.RunEvent_ContextSnapshot{ContextSnapshot: &pb.ContextSnapshotEvent{
-			Context: convertContextSnapshot(event.Snapshot),
-		}}}
 	case agent.EvtToolStarted:
 		return &pb.RunEvent{Event: &pb.RunEvent_ToolStarted{ToolStarted: &pb.ToolExecutionStartedEvent{CallId: event.CallID}}}
 	case agent.EvtToolCompleted:

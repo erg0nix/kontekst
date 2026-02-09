@@ -48,12 +48,8 @@ func (tool *EditFile) Parameters() map[string]any {
 func (tool *EditFile) RequiresApproval() bool { return true }
 
 func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string, error) {
-	path, ok := getStringArg("path", args)
-	if !ok || path == "" {
-		return "", nil
-	}
-
-	if !isSafeRelative(path) {
+	path, err := validatePath(args)
+	if err != nil {
 		return "", nil
 	}
 
@@ -86,20 +82,20 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 	if occurrence == 0 {
 		newContent = strings.ReplaceAll(content, oldStr, newStr)
 	} else {
-		newContent, _ = replaceNth(content, oldStr, newStr, occurrence)
+		replaced, ok := replaceNth(content, oldStr, newStr, occurrence)
+		if !ok {
+			return "", nil
+		}
+		newContent = replaced
 	}
 
 	return generateUnifiedDiff(path, content, newContent), nil
 }
 
 func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string, error) {
-	path, ok := getStringArg("path", args)
-	if !ok || path == "" {
-		return "", errors.New("missing path")
-	}
-
-	if !isSafeRelative(path) {
-		return "", errors.New("absolute or parent paths are not allowed")
+	path, err := validatePath(args)
+	if err != nil {
+		return "", err
 	}
 
 	oldStr, ok := getStringArg("old_str", args)
@@ -132,16 +128,18 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 
 	var newContent string
-	replacementCount := 0
+	var replacementCount int
 
 	if occurrence == 0 {
 		newContent = strings.ReplaceAll(content, oldStr, newStr)
 		replacementCount = strings.Count(content, oldStr)
 	} else {
-		newContent, replacementCount = replaceNth(content, oldStr, newStr, occurrence)
-		if replacementCount == 0 {
+		replaced, ok := replaceNth(content, oldStr, newStr, occurrence)
+		if !ok {
 			return "", fmt.Errorf("occurrence %d of old_str not found (only %d occurrences exist)", occurrence, strings.Count(content, oldStr))
 		}
+		newContent = replaced
+		replacementCount = 1
 	}
 
 	if tool.FileConfig.MaxSizeBytes > 0 && int64(len(newContent)) > tool.FileConfig.MaxSizeBytes {
@@ -158,24 +156,24 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 	return fmt.Sprintf("Replaced occurrence %d in %s", occurrence, path), nil
 }
 
-func replaceNth(s, old, new string, n int) (string, int) {
+func replaceNth(s, old, new string, n int) (string, bool) {
 	if n <= 0 {
-		return s, 0
+		return s, false
 	}
 
 	index := 0
 	for i := 1; i <= n; i++ {
 		pos := strings.Index(s[index:], old)
 		if pos == -1 {
-			return s, 0
+			return s, false
 		}
 		if i == n {
-			return s[:index+pos] + new + s[index+pos+len(old):], 1
+			return s[:index+pos] + new + s[index+pos+len(old):], true
 		}
 		index += pos + len(old)
 	}
 
-	return s, 0
+	return s, false
 }
 
 func RegisterEditFile(registry *tools.Registry, baseDir string, fileConfig config.FileToolsConfig) {

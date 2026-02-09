@@ -150,25 +150,25 @@ func TestEditFilePreview(t *testing.T) {
 
 func TestReplaceNth(t *testing.T) {
 	tests := []struct {
-		s      string
-		old    string
-		new    string
-		n      int
-		want   string
-		wantN  int
+		s     string
+		old   string
+		new   string
+		n     int
+		want  string
+		wantN bool
 	}{
-		{"foo bar foo baz foo", "foo", "x", 1, "x bar foo baz foo", 1},
-		{"foo bar foo baz foo", "foo", "x", 2, "foo bar x baz foo", 1},
-		{"foo bar foo baz foo", "foo", "x", 3, "foo bar foo baz x", 1},
-		{"foo bar foo baz foo", "foo", "x", 4, "foo bar foo baz foo", 0},
-		{"foo", "bar", "x", 1, "foo", 0},
-		{"foo", "foo", "x", 0, "foo", 0},
+		{"foo bar foo baz foo", "foo", "x", 1, "x bar foo baz foo", true},
+		{"foo bar foo baz foo", "foo", "x", 2, "foo bar x baz foo", true},
+		{"foo bar foo baz foo", "foo", "x", 3, "foo bar foo baz x", true},
+		{"foo bar foo baz foo", "foo", "x", 4, "foo bar foo baz foo", false},
+		{"foo", "bar", "x", 1, "foo", false},
+		{"foo", "foo", "x", 0, "foo", false},
 	}
 
 	for _, tt := range tests {
 		got, gotN := replaceNth(tt.s, tt.old, tt.new, tt.n)
 		if got != tt.want || gotN != tt.wantN {
-			t.Errorf("replaceNth(%q, %q, %q, %d) = (%q, %d), want (%q, %d)",
+			t.Errorf("replaceNth(%q, %q, %q, %d) = (%q, %v), want (%q, %v)",
 				tt.s, tt.old, tt.new, tt.n, got, gotN, tt.want, tt.wantN)
 		}
 	}

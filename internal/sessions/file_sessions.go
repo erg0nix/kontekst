@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -16,45 +17,48 @@ type FileSessionService struct {
 	BaseDir string
 }
 
+func (service *FileSessionService) sessionDir() string {
+	return filepath.Join(service.BaseDir, "sessions")
+}
+
+func (service *FileSessionService) sessionPath(id core.SessionID) string {
+	return filepath.Join(service.sessionDir(), string(id)+".jsonl")
+}
+
 func (service *FileSessionService) Create() (core.SessionID, string, error) {
 	sessionID := core.NewSessionID()
-	sessionDir := filepath.Join(service.BaseDir, "sessions")
 
-	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
-		return "", "", err
+	if err := os.MkdirAll(service.sessionDir(), 0o755); err != nil {
+		return "", "", fmt.Errorf("create sessions directory: %w", err)
 	}
 
-	sessionPath := filepath.Join(sessionDir, string(sessionID)+".jsonl")
-	file, err := os.OpenFile(sessionPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	path := service.sessionPath(sessionID)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("create session file: %w", err)
 	}
-
 	file.Close()
 
-	return sessionID, sessionPath, nil
+	return sessionID, path, nil
 }
 
 func (service *FileSessionService) Ensure(sessionID core.SessionID) (string, error) {
-	sessionDir := filepath.Join(service.BaseDir, "sessions")
-
-	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
-		return "", err
+	if err := os.MkdirAll(service.sessionDir(), 0o755); err != nil {
+		return "", fmt.Errorf("create sessions directory: %w", err)
 	}
 
-	sessionPath := filepath.Join(sessionDir, string(sessionID)+".jsonl")
-	file, err := os.OpenFile(sessionPath, os.O_CREATE, 0o644)
+	path := service.sessionPath(sessionID)
+	file, err := os.OpenFile(path, os.O_CREATE, 0o644)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("ensure session file: %w", err)
 	}
-
 	file.Close()
 
-	return sessionPath, nil
+	return path, nil
 }
 
 func (service *FileSessionService) metaPath(sessionID core.SessionID) string {
-	return filepath.Join(service.BaseDir, "sessions", string(sessionID)+".meta.json")
+	return filepath.Join(service.sessionDir(), string(sessionID)+".meta.json")
 }
 
 func (service *FileSessionService) GetDefaultAgent(sessionID core.SessionID) (string, error) {
@@ -63,12 +67,12 @@ func (service *FileSessionService) GetDefaultAgent(sessionID core.SessionID) (st
 		if os.IsNotExist(err) {
 			return "", nil
 		}
-		return "", err
+		return "", fmt.Errorf("read session metadata: %w", err)
 	}
 
 	var meta sessionMeta
 	if err := json.Unmarshal(data, &meta); err != nil {
-		return "", err
+		return "", fmt.Errorf("parse session metadata: %w", err)
 	}
 
 	return meta.DefaultAgent, nil
@@ -87,7 +91,7 @@ func (service *FileSessionService) SetDefaultAgent(sessionID core.SessionID, age
 
 	data, err = json.Marshal(meta)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal session metadata: %w", err)
 	}
 
 	return os.WriteFile(metaPath, data, 0o644)
