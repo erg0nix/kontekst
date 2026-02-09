@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/agent"
+	"github.com/erg0nix/kontekst/internal/commands"
 	"github.com/erg0nix/kontekst/internal/config"
 	agentcfg "github.com/erg0nix/kontekst/internal/config/agents"
 	"github.com/erg0nix/kontekst/internal/context"
@@ -89,9 +90,16 @@ func main() {
 		logger.Warn("failed to load skills", "error", err)
 	}
 
+	commandsDir := filepath.Join(daemonConfig.DataDir, "commands")
+	commandsRegistry := commands.NewRegistry(commandsDir)
+	if err := commandsRegistry.Load(); err != nil {
+		logger.Warn("failed to load commands", "error", err)
+	}
+
 	toolRegistry := tools.NewRegistry()
 	builtin.RegisterAll(toolRegistry, daemonConfig.DataDir, daemonConfig.Tools)
 	builtin.RegisterSkill(toolRegistry, skillsRegistry)
+	builtin.RegisterCommand(toolRegistry, commandsRegistry)
 
 	contextService := context.NewFileContextService(&daemonConfig)
 	sessionService := &sessions.FileSessionService{BaseDir: daemonConfig.DataDir}
