@@ -118,7 +118,7 @@ func (tool *CommandTool) Execute(args map[string]any, ctx context.Context) (stri
 	env := buildEnv(cmd, resolvedArgs, ctx)
 
 	if cmd.Runtime == "python" && cmd.RequirementsFile != "" {
-		if err := ensureVenv(cmd); err != nil {
+		if err := ensureVenv(ctx, cmd); err != nil {
 			return "", fmt.Errorf("failed to set up python venv: %w", err)
 		}
 	}
@@ -201,8 +201,16 @@ func extractArgumentMap(args map[string]any) map[string]string {
 	return result
 }
 
+var allowedEnvKeys = []string{"PATH", "HOME", "USER", "SHELL", "TMPDIR", "LANG", "TERM"}
+
 func buildEnv(cmd *commands.Command, resolvedArgs map[string]string, ctx context.Context) []string {
-	env := os.Environ()
+	var env []string
+	for _, key := range allowedEnvKeys {
+		if val, ok := os.LookupEnv(key); ok {
+			env = append(env, key+"="+val)
+		}
+	}
+
 	env = append(env, "KONTEKST_COMMAND_DIR="+cmd.Dir)
 
 	if agentDir := tools.WorkingDir(ctx); agentDir != "" {
@@ -239,13 +247,18 @@ func resolveWorkDir(cmd *commands.Command, ctx context.Context) string {
 	return cmd.Dir
 }
 
-func ensureVenv(cmd *commands.Command) error {
+const venvSetupTimeout = 120 * time.Second
+
+func ensureVenv(ctx context.Context, cmd *commands.Command) error {
 	venvDir := filepath.Join(cmd.Dir, ".venv")
 	if _, err := os.Stat(venvDir); err == nil {
 		return nil
 	}
 
-	createCmd := exec.Command("python3", "-m", "venv", venvDir)
+	venvCtx, cancel := context.WithTimeout(ctx, venvSetupTimeout)
+	defer cancel()
+
+	createCmd := exec.CommandContext(venvCtx, "python3", "-m", "venv", venvDir)
 	createCmd.Dir = cmd.Dir
 	if output, err := createCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("venv creation failed: %w\n%s", err, string(output))
@@ -257,7 +270,7 @@ func ensureVenv(cmd *commands.Command) error {
 	}
 
 	pip := filepath.Join(venvDir, "bin", "pip")
-	installCmd := exec.Command(pip, "install", "-r", reqPath)
+	installCmd := exec.CommandContext(venvCtx, pip, "install", "-r", reqPath)
 	installCmd.Dir = cmd.Dir
 	if output, err := installCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("pip install failed: %w\n%s", err, string(output))
