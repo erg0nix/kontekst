@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
-	"strconv"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -19,6 +19,7 @@ func newLlamaCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newLlamaStartCmd())
+	cmd.AddCommand(newLlamaStopCmd())
 
 	return cmd
 }
@@ -27,26 +28,22 @@ func newLlamaStartCmd() *cobra.Command {
 	var (
 		binPath    string
 		background bool
-		endpoint   string
-		modelDir   string
-		gpuLayers  int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start llama-server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			host, port := parseEndpointHostPort(endpoint)
+			homeDir, _ := os.UserHomeDir()
+			modelDir := filepath.Join(homeDir, "models")
 
 			args := []string{
-				"--host", host,
-				"--port", port,
-				"--n-gpu-layers", strconv.Itoa(gpuLayers),
+				"--host", "127.0.0.1",
+				"--port", "8080",
+				"--ctx-size", "4096",
+				"--n-gpu-layers", "99",
+				"--models-dir", modelDir,
 				"--reasoning-format", "deepseek",
-			}
-
-			if modelDir != "" {
-				args = append(args, "--models-dir", modelDir)
 			}
 
 			llamaCmd := exec.Command(binPath, args...)
@@ -85,28 +82,22 @@ func newLlamaStartCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&binPath, "bin", "llama-server", "path to llama-server binary")
 	cmd.Flags().BoolVar(&background, "background", false, "run in background (detached)")
-	cmd.Flags().StringVar(&endpoint, "endpoint", "http://127.0.0.1:8080", "LLM endpoint URL")
-	cmd.Flags().StringVar(&modelDir, "model-dir", "", "directory where models live")
-	cmd.Flags().IntVar(&gpuLayers, "gpu-layers", 0, "number of GPU layers")
 
 	return cmd
 }
 
-func parseEndpointHostPort(endpoint string) (string, string) {
-	parsed, err := url.Parse(endpoint)
-	if err != nil {
-		return "127.0.0.1", "8080"
-	}
+func newLlamaStopCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "stop",
+		Short: "Stop llama-server",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			out, err := exec.Command("pkill", "-f", "llama-server").CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("stop llama-server: %s", strings.TrimSpace(string(out)))
+			}
 
-	host := parsed.Hostname()
-	if host == "" {
-		host = "127.0.0.1"
+			fmt.Println("stopped llama-server")
+			return nil
+		},
 	}
-
-	port := parsed.Port()
-	if port == "" {
-		port = "8080"
-	}
-
-	return host, port
 }
