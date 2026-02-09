@@ -3,6 +3,9 @@ package agent
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
@@ -64,6 +67,14 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 	if cfg.Skill != nil && cfg.SkillContent != "" {
 		ctxWindow.SetActiveSkill(&core.SkillMetadata{Name: cfg.Skill.Name, Path: cfg.Skill.Path})
 		prompt = fmt.Sprintf("%s\n\n---\n\n%s", cfg.Skill.FormatContent(cfg.SkillContent), prompt)
+	}
+
+	if cfg.WorkingDir != "" {
+		agentsMDPath := filepath.Join(cfg.WorkingDir, "AGENTS.md")
+		if content, err := os.ReadFile(agentsMDPath); err == nil {
+			prompt = fmt.Sprintf("<project-instructions>\n%s\n</project-instructions>\n\n%s",
+				strings.TrimSpace(string(content)), prompt)
+		}
 	}
 
 	agentEngine := New(runner.Provider, runner.Tools, ctxWindow, cfg)
