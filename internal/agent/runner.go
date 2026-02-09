@@ -71,9 +71,12 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 
 	if cfg.WorkingDir != "" {
 		agentsMDPath := filepath.Join(cfg.WorkingDir, "AGENTS.md")
-		if content, err := os.ReadFile(agentsMDPath); err == nil {
+		content, err := os.ReadFile(agentsMDPath)
+		if err == nil {
 			prompt = fmt.Sprintf("<project-instructions>\n%s\n</project-instructions>\n\n%s",
 				strings.TrimSpace(string(content)), prompt)
+		} else if !os.IsNotExist(err) {
+			slog.Warn("failed to read AGENTS.md", "path", agentsMDPath, "error", err)
 		}
 	}
 

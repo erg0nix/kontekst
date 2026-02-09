@@ -8,6 +8,7 @@ import (
 
 	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/skills"
 )
 
 type capturingContext struct {
@@ -130,8 +131,10 @@ func TestStartRun_AgentsMDBeforeSkillContent(t *testing.T) {
 	}
 
 	_, events, err := runner.StartRun(RunConfig{
-		Prompt:     "do something",
-		WorkingDir: dir,
+		Prompt:       "do something",
+		WorkingDir:   dir,
+		Skill:        &skills.Skill{Name: "test-skill", Path: "/test"},
+		SkillContent: "Skill instructions here.",
 	})
 	if err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -140,8 +143,19 @@ func TestStartRun_AgentsMDBeforeSkillContent(t *testing.T) {
 	drainEvents(events)
 
 	projectIdx := strings.Index(capturer.capturedPrompt, "<project-instructions>")
+	skillIdx := strings.Index(capturer.capturedPrompt, "[Skill: test-skill]")
 	promptIdx := strings.Index(capturer.capturedPrompt, "do something")
-	if projectIdx >= promptIdx {
-		t.Fatal("expected project instructions to appear before user prompt")
+
+	if projectIdx == -1 {
+		t.Fatal("expected <project-instructions> in prompt")
+	}
+	if skillIdx == -1 {
+		t.Fatal("expected skill content in prompt")
+	}
+	if projectIdx >= skillIdx {
+		t.Fatal("expected project instructions to appear before skill content")
+	}
+	if skillIdx >= promptIdx {
+		t.Fatal("expected skill content to appear before user prompt")
 	}
 }
