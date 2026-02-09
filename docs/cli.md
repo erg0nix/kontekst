@@ -54,8 +54,7 @@ kontekst ps
 
 Output includes:
 - Daemon address, bind address, uptime, start time
-- Data directory, model directory, endpoint
-- llama-server status: running, healthy, PID
+- Data directory
 
 ### `agents`
 
@@ -70,6 +69,29 @@ Scans `~/.kontekst/agents/` for agent directories. Each agent directory can cont
 - `agent.md` - System prompt
 
 Output is a table with columns: NAME, DISPLAY NAME, PROMPT, CONFIG.
+
+### `llama start`
+
+Start llama-server with hardcoded defaults (127.0.0.1:8080, ~/models, 99 GPU layers).
+
+```bash
+kontekst llama start
+kontekst llama start --background
+kontekst llama start --bin /usr/local/bin/llama-server
+```
+
+| Flag | Description |
+|------|-------------|
+| `--background` | Run llama-server in the background (detached). |
+| `--bin` | Path to the llama-server binary. Defaults to `llama-server` on `$PATH`. |
+
+### `llama stop`
+
+Stop a running llama-server.
+
+```bash
+kontekst llama stop
+```
 
 ### `session set-agent`
 

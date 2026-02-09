@@ -48,7 +48,7 @@ Shared types with zero internal dependencies. Everything else imports this packa
 
 ### Layer 1: `internal/config`
 
-TOML configuration loading. `Config` struct covers daemon bind address, LLM endpoint, model directory, context size, GPU layers, tool limits.
+TOML configuration loading. `Config` struct covers daemon bind address, data directory, tool limits, and debug settings.
 
 Default config path: `~/.kontekst/config.toml`. Created automatically on first use.
 
@@ -56,10 +56,10 @@ Default config path: `~/.kontekst/config.toml`. Created automatically on first u
 
 Per-agent configuration. Each agent lives in `~/.kontekst/agents/<name>/` with:
 
-- `config.toml` - model filename, sampling parameters, display name, tool_role flag
+- `config.toml` - provider (endpoint, model, http_timeout), context_size, sampling parameters, display name, tool_role flag
 - `agent.md` - system prompt
 
-A `default` agent is auto-created if none exists.
+Each agent is self-contained with its own `[provider]` section. A `default` agent is auto-created if none exists.
 
 ### Layer 2: `internal/providers`
 
@@ -67,9 +67,8 @@ LLM backend abstraction. The `Provider` interface:
 
 - `GenerateChat(messages, tools, sampling, model, useToolRole)` - send a chat completion request
 - `CountTokens(text)` - estimate token count
-- `ConcurrencyLimit()` - max parallel requests
 
-Currently one implementation: llama-server (HTTP API). `SingleProviderRouter` wraps a `Provider` with a concurrency semaphore.
+Currently one implementation: `OpenAIProvider` (OpenAI-compatible HTTP API, works with llama-server). Providers are created per-run from the agent's `[provider]` config.
 
 ### Layer 2: `internal/context`
 
@@ -134,9 +133,10 @@ Built-in tool implementations:
 - `edit_file` - search-and-replace edits with preview
 - `list_files` - list directory contents
 - `web_fetch` - fetch URL content
+- `run_command` - execute user-defined commands
 - `skill` - invoke a skill by name (does not require approval)
 
-The first five are registered via `RegisterAll()`. The `skill` tool is registered separately with a reference to the skill registry. File tools resolve paths relative to the working directory and reject path traversal (`..`).
+File and command tools are registered via `RegisterAll()`. The `skill` tool is registered separately with a reference to the skill registry. File tools resolve paths relative to the working directory and reject path traversal (`..`).
 
 ### Layer 4: `internal/agent`
 
@@ -154,7 +154,7 @@ Two services:
 
 ### Layer 6: `cmd/daemon` + `cmd/cli`
 
-Executables. The daemon starts the gRPC server and manages llama-server. The CLI parses commands, connects to the daemon, and handles the interactive tool approval workflow.
+Executables. The daemon starts the gRPC server. The CLI parses commands, connects to the daemon, and handles the interactive tool approval workflow. llama-server is managed separately via `kontekst llama start/stop`.
 
 ## Context Management
 
@@ -211,10 +211,7 @@ History loading reads the file backwards in 8KB chunks, parsing messages from ne
 
 ```toml
 bind = ":50051"
-endpoint = "http://127.0.0.1:8080"
-model_dir = "~/models"
-context_size = 4096
-gpu_layers = 0
+data_dir = "~/.kontekst"
 
 [tools]
 working_dir = ""
@@ -223,22 +220,28 @@ max_size_bytes = 10485760
 [tools.web]
 timeout_seconds = 30
 max_response_bytes = 5242880
+
+[debug]
+log_requests = false
+log_responses = false
+validate_roles = true
 ```
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `bind` | `:50051` | gRPC listen address |
-| `endpoint` | `http://127.0.0.1:8080` | llama-server URL |
-| `model_dir` | `~/models` | Directory with GGUF model files |
-| `context_size` | 4096 | Token context window |
-| `gpu_layers` | 0 | GPU layers for llama-server |
+| `data_dir` | `~/.kontekst` | Base data directory |
 
 ### Per-Agent Config (`~/.kontekst/agents/<name>/config.toml`)
 
 ```toml
 name = "Default Assistant"
-model = "gpt-oss-20b-Q4_K_M.gguf"
+context_size = 4096
 tool_role = false
+
+[provider]
+endpoint = "http://127.0.0.1:8080"
+model = "gpt-oss-20b-Q4_K_M.gguf"
 
 [sampling]
 temperature = 0.7
@@ -251,8 +254,11 @@ max_tokens = 4096
 | Setting | Description |
 |---------|-------------|
 | `name` | Display name for the agent |
-| `model` | GGUF model filename (within `model_dir`) |
+| `context_size` | Token context window (default: 4096) |
 | `tool_role` | Use `tool` role for tool results instead of embedding in `user` messages |
+| `provider.endpoint` | LLM HTTP endpoint URL |
+| `provider.model` | Model name passed to the LLM API |
+| `provider.http_timeout_seconds` | HTTP timeout in seconds (optional, default: 300) |
 | `sampling.*` | LLM sampling parameters |
 
 ### Data Directory Layout

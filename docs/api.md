@@ -154,14 +154,6 @@ The run failed due to an error.
 | `run_id` | string | Run identifier. |
 | `error` | string | Error message. |
 
-#### `ContextSnapshotEvent`
-
-Token usage snapshot, sent after each turn.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `context` | ContextSnapshot | Token usage data. |
-
 ## DaemonService
 
 ### `GetStatus`
@@ -177,11 +169,6 @@ Returns daemon status. `GetStatusRequest` has no fields.
 | Field | Type | Description |
 |-------|------|-------------|
 | `bind` | string | gRPC listen address. |
-| `endpoint` | string | llama-server HTTP endpoint. |
-| `model_dir` | string | Model directory path. |
-| `llama_server_healthy` | bool | Whether llama-server health check passes. |
-| `llama_server_running` | bool | Whether llama-server process is running. |
-| `llama_server_pid` | int32 | llama-server process ID (0 if not running). |
 | `uptime_seconds` | int64 | Daemon uptime in seconds. |
 | `started_at_rfc3339` | string | Daemon start time in RFC 3339 format. |
 | `data_dir` | string | Data directory path. |
