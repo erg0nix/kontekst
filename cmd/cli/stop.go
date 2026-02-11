@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/erg0nix/kontekst/internal/acp"
+
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +20,7 @@ func newStopCmd() *cobra.Command {
 			cfg, _ := loadConfig(configPath)
 			serverAddr := resolveServer(serverOverride, cfg)
 
-			client, err := dialServer(serverAddr)
+			client, err := dialServer(serverAddr, acp.ClientCallbacks{})
 			if err != nil {
 				return err
 			}

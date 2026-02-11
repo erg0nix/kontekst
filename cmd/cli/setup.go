@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/erg0nix/kontekst/internal/agent"
@@ -16,10 +17,9 @@ import (
 )
 
 type setupResult struct {
-	Runner   *agent.AgentRunner
-	Agents   *agent.Registry
-	Skills   *skills.Registry
-	Commands *commands.Registry
+	Runner *agent.AgentRunner
+	Agents *agent.Registry
+	Skills *skills.Registry
 }
 
 func setupServices(cfg config.Config) setupResult {
@@ -28,12 +28,14 @@ func setupServices(cfg config.Config) setupResult {
 	}
 
 	skillsDir := filepath.Join(cfg.DataDir, "skills")
+	os.MkdirAll(skillsDir, 0o755)
 	skillsRegistry := skills.NewRegistry(skillsDir)
 	if err := skillsRegistry.Load(); err != nil {
 		slog.Warn("failed to load skills", "error", err)
 	}
 
 	commandsDir := filepath.Join(cfg.DataDir, "commands")
+	os.MkdirAll(commandsDir, 0o755)
 	commandsRegistry := commands.NewRegistry(commandsDir)
 	if err := commandsRegistry.Load(); err != nil {
 		slog.Warn("failed to load commands", "error", err)
@@ -55,9 +57,8 @@ func setupServices(cfg config.Config) setupResult {
 	}
 
 	return setupResult{
-		Runner:   runner,
-		Agents:   agent.NewRegistry(cfg.DataDir),
-		Skills:   skillsRegistry,
-		Commands: commandsRegistry,
+		Runner: runner,
+		Agents: agent.NewRegistry(cfg.DataDir),
+		Skills: skillsRegistry,
 	}
 }
