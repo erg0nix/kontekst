@@ -88,20 +88,12 @@ func runCmd(cmd *cobra.Command, args []string) error {
 			Cwd:        workingDir,
 			McpServers: []acp.McpServer{},
 		})
-		if err != nil {
-			sessResp, err := client.NewSession(ctx, acp.NewSessionRequest{
-				Cwd:        workingDir,
-				McpServers: []acp.McpServer{},
-				Meta:       meta,
-			})
-			if err != nil {
-				return fmt.Errorf("new session: %w", err)
-			}
-			sid = sessResp.SessionID
-		} else {
+		if err == nil {
 			sid = resp.SessionID
 		}
-	} else {
+	}
+
+	if sid == "" {
 		sessResp, err := client.NewSession(ctx, acp.NewSessionRequest{
 			Cwd:        workingDir,
 			McpServers: []acp.McpServer{},
@@ -137,13 +129,8 @@ func runCmd(cmd *cobra.Command, args []string) error {
 }
 
 func handleSessionUpdate(notif acp.SessionNotification) {
-	raw, err := json.Marshal(notif.Update)
-	if err != nil {
-		return
-	}
-
-	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
+	m, ok := notif.Update.(map[string]any)
+	if !ok {
 		return
 	}
 

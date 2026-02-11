@@ -130,12 +130,7 @@ func saveActiveSession(dataDir string, sessionID string) error {
 	return nil
 }
 
-func dialServer(serverAddr string, callbacks ...acp.ClientCallbacks) (*acp.Client, error) {
-	var cb acp.ClientCallbacks
-	if len(callbacks) > 0 {
-		cb = callbacks[0]
-	}
-
+func dialServer(serverAddr string, cb acp.ClientCallbacks) (*acp.Client, error) {
 	client, err := acp.Dial(context.Background(), serverAddr, cb)
 	if err != nil {
 		printServerNotRunning(serverAddr, err)

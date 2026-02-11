@@ -31,6 +31,18 @@ type sessionState struct {
 	cancelFn  context.CancelFunc
 }
 
+func (s *sessionState) sendCommand(cmd agent.AgentCommand) bool {
+	s.mu.Lock()
+	ch := s.commandCh
+	s.mu.Unlock()
+
+	if ch == nil {
+		return false
+	}
+	ch <- cmd
+	return true
+}
+
 func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *skills.Registry) *Handler {
 	return &Handler{
 		runner:   runner,
@@ -240,23 +252,11 @@ func (h *Handler) forwardEvents(ctx context.Context, sid SessionID, sess *sessio
 			}
 
 		case <-h.conn.Done():
-			sess.mu.Lock()
-			ch := sess.commandCh
-			sess.mu.Unlock()
-
-			if ch != nil {
-				ch <- agent.AgentCommand{Type: agent.CmdCancel}
-			}
+			sess.sendCommand(agent.AgentCommand{Type: agent.CmdCancel})
 			return PromptResponse{StopReason: StopReasonCancelled}, nil
 
 		case <-ctx.Done():
-			sess.mu.Lock()
-			ch := sess.commandCh
-			sess.mu.Unlock()
-
-			if ch != nil {
-				ch <- agent.AgentCommand{Type: agent.CmdCancel}
-			}
+			sess.sendCommand(agent.AgentCommand{Type: agent.CmdCancel})
 			return PromptResponse{StopReason: StopReasonCancelled}, nil
 		}
 	}
@@ -289,14 +289,7 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 
 	case agent.EvtToolsProposed:
 		for _, call := range event.Calls {
-			var rawInput any
-			if call.ArgumentsJSON != "" {
-				var args map[string]any
-				if err := json.Unmarshal([]byte(call.ArgumentsJSON), &args); err == nil {
-					rawInput = args
-				}
-			}
-
+			rawInput := parseRawInput(call.ArgumentsJSON)
 			kind := ToolKindFromName(call.Name)
 			h.sendUpdate(sid, ToolCallStart(
 				ToolCallID(call.CallID),
@@ -313,20 +306,18 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 
 			permResp, err := h.requestPermission(ctx, sid, call, kind, options)
 			if err != nil {
-				if sess.commandCh != nil {
-					sess.commandCh <- agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: "permission request failed"}
-				}
+				sess.sendCommand(agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: "permission request failed"})
 				continue
 			}
 
 			if isAllowOutcome(permResp.Outcome, options) {
-				sess.commandCh <- agent.AgentCommand{Type: agent.CmdApproveTool, CallID: call.CallID}
+				sess.sendCommand(agent.AgentCommand{Type: agent.CmdApproveTool, CallID: call.CallID})
 			} else {
 				reason := "denied by user"
 				if permResp.Outcome.Outcome == "cancelled" {
 					reason = "cancelled"
 				}
-				sess.commandCh <- agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: reason}
+				sess.sendCommand(agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: reason})
 			}
 		}
 		return PromptResponse{}, false, nil
@@ -363,14 +354,6 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 
 func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call agent.ProposedToolCall, kind ToolKind, options []PermissionOption) (RequestPermissionResponse, error) {
 	status := ToolCallStatusPending
-	var rawInput any
-	if call.ArgumentsJSON != "" {
-		var args map[string]any
-		if err := json.Unmarshal([]byte(call.ArgumentsJSON), &args); err == nil {
-			rawInput = args
-		}
-	}
-
 	req := RequestPermissionRequest{
 		SessionID: sid,
 		ToolCall: ToolCallDetail{
@@ -378,7 +361,7 @@ func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call age
 			Title:      &call.Name,
 			Kind:       &kind,
 			Status:     &status,
-			RawInput:   rawInput,
+			RawInput:   parseRawInput(call.ArgumentsJSON),
 		},
 		Options: options,
 	}
@@ -419,13 +402,7 @@ func (h *Handler) handleCancel(params json.RawMessage) {
 	}
 	sess := val.(*sessionState)
 
-	sess.mu.Lock()
-	ch := sess.commandCh
-	sess.mu.Unlock()
-
-	if ch != nil {
-		ch <- agent.AgentCommand{Type: agent.CmdCancel}
-	}
+	sess.sendCommand(agent.AgentCommand{Type: agent.CmdCancel})
 }
 
 func (h *Handler) sendUpdate(sid SessionID, update any) {
@@ -443,6 +420,18 @@ func extractText(blocks []ContentBlock) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func parseRawInput(argumentsJSON string) any {
+	if argumentsJSON == "" {
+		return nil
+	}
+
+	var args map[string]any
+	if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
+		return nil
+	}
+	return args
 }
 
 func parseSkillInvocation(text string) (name string, args string) {
