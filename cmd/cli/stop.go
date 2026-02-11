@@ -5,38 +5,34 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
-
 	"github.com/spf13/cobra"
 )
 
 func newStopCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop",
-		Short: "Stop the kontekst daemon",
+		Short: "Stop the kontekst server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			configPath, _ := cmd.Flags().GetString("config")
 			serverOverride, _ := cmd.Flags().GetString("server")
-			config, _ := loadConfig(configPath)
-			serverAddr := resolveServer(serverOverride, config)
+			cfg, _ := loadConfig(configPath)
+			serverAddr := resolveServer(serverOverride, cfg)
 
-			grpcConn, err := dialDaemon(serverAddr)
+			client, err := dialServer(serverAddr)
 			if err != nil {
 				return err
 			}
-			defer grpcConn.Close()
+			defer client.Close()
 
-			daemonClient := pb.NewDaemonServiceClient(grpcConn)
-			shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancelShutdown()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			shutdownResp, err := daemonClient.Shutdown(shutdownCtx, &pb.ShutdownRequest{})
-			if err != nil {
-				printDaemonNotRunning(serverAddr, err)
+			if err := client.Shutdown(ctx); err != nil {
+				printServerNotRunning(serverAddr, err)
 				return err
 			}
 
-			fmt.Println(shutdownResp.Message)
+			fmt.Println("shutting down")
 			return nil
 		},
 	}

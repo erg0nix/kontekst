@@ -7,15 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
-	"time"
+	"syscall"
 
+	"github.com/erg0nix/kontekst/internal/acp"
 	"github.com/erg0nix/kontekst/internal/config"
-	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func execute() {
@@ -27,7 +26,7 @@ func execute() {
 	}
 
 	rootCmd.PersistentFlags().StringP("config", "c", "", "path to config file")
-	rootCmd.PersistentFlags().String("server", "", "gRPC server address")
+	rootCmd.PersistentFlags().String("server", "", "server address")
 	rootCmd.PersistentFlags().Bool("auto-approve", false, "auto-approve tools")
 	rootCmd.PersistentFlags().String("session", "", "session id to reuse")
 	rootCmd.PersistentFlags().String("agent", "", "agent to use for this run")
@@ -38,6 +37,8 @@ func execute() {
 	rootCmd.AddCommand(newStopCmd())
 	rootCmd.AddCommand(newPsCmd())
 	rootCmd.AddCommand(newLlamaCmd())
+	rootCmd.AddCommand(newServerCmd())
+	rootCmd.AddCommand(newACPCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -47,11 +48,9 @@ func execute() {
 
 func loadConfig(path string) (config.Config, error) {
 	configPath := path
-
 	if configPath == "" {
 		configPath = filepath.Join(config.Default().DataDir, "config.toml")
 	}
-
 	return config.LoadOrCreate(configPath)
 }
 
@@ -59,7 +58,6 @@ func resolveServer(override string, cfg config.Config) string {
 	if override != "" {
 		return override
 	}
-
 	return clientAddrFromBind(cfg.Bind)
 }
 
@@ -72,7 +70,6 @@ func clientAddrFromBind(bind string) string {
 	if host == "" || host == "0.0.0.0" || host == "::" {
 		return "127.0.0.1:" + port
 	}
-
 	return bind
 }
 
@@ -85,39 +82,27 @@ func netSplitHostPort(addr string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-
 	return host, port, nil
 }
 
-func alreadyRunning(addr string) bool {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func alreadyRunning(dataDir string) bool {
+	pidFile := filepath.Join(dataDir, "server.pid")
+	data, err := os.ReadFile(pidFile)
 	if err != nil {
 		return false
 	}
-	defer conn.Close()
 
-	client := pb.NewDaemonServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	_, err = client.GetStatus(ctx, &pb.GetStatusRequest{})
-
-	return err == nil
-}
-
-func defaultDaemonBin() string {
-	executablePath, err := os.Executable()
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
 	if err != nil {
-		return "kontekst-daemon"
+		return false
 	}
 
-	executableDir := filepath.Dir(executablePath)
-	daemonPath := filepath.Join(executableDir, "kontekst-daemon")
-	if _, err := os.Stat(daemonPath); err == nil {
-		return daemonPath
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
 	}
 
-	return "kontekst-daemon"
+	return process.Signal(syscall.Signal(0)) == nil
 }
 
 func loadActiveSession(dataDir string) string {
@@ -126,7 +111,6 @@ func loadActiveSession(dataDir string) string {
 	if err != nil {
 		return ""
 	}
-
 	return strings.TrimSpace(string(data))
 }
 
@@ -136,92 +120,68 @@ func saveActiveSession(dataDir string, sessionID string) error {
 	}
 
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return err
+		return fmt.Errorf("save active session: mkdir: %w", err)
 	}
 
 	path := filepath.Join(dataDir, "active_session")
-
-	return os.WriteFile(path, []byte(sessionID), 0o644)
+	if err := os.WriteFile(path, []byte(sessionID), 0o644); err != nil {
+		return fmt.Errorf("save active session: %w", err)
+	}
+	return nil
 }
 
-func dialDaemon(serverAddr string) (*grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		printDaemonNotRunning(serverAddr, err)
-		return nil, fmt.Errorf("dial daemon at %s: %w", serverAddr, err)
+func dialServer(serverAddr string, callbacks ...acp.ClientCallbacks) (*acp.Client, error) {
+	var cb acp.ClientCallbacks
+	if len(callbacks) > 0 {
+		cb = callbacks[0]
 	}
 
-	return conn, nil
+	client, err := acp.Dial(context.Background(), serverAddr, cb)
+	if err != nil {
+		printServerNotRunning(serverAddr, err)
+		return nil, err
+	}
+	return client, nil
 }
 
-func printDaemonNotRunning(addr string, err error) {
-	fmt.Println("daemon is not running at", addr)
+func printServerNotRunning(addr string, err error) {
+	fmt.Println("server is not running at", addr)
 	fmt.Println("start with: kontekst start")
 	if err != nil {
 		fmt.Println("error:", err)
 	}
 }
 
-func printStatus(addr string, resp *pb.GetStatusResponse) {
-	fmt.Println("kontekst daemon")
+func printStatus(addr string, resp acp.StatusResponse) {
+	fmt.Println("kontekst server")
 	fmt.Println("  address:", addr)
 	fmt.Println("  bind:", resp.Bind)
-	fmt.Println("  uptime:", formatUptime(resp.UptimeSeconds))
-
-	if resp.StartedAtRfc3339 != "" {
-		fmt.Println("  started:", resp.StartedAtRfc3339)
+	fmt.Println("  uptime:", resp.Uptime)
+	if resp.StartedAt != "" {
+		fmt.Println("  started:", resp.StartedAt)
 	}
-
 	fmt.Println("  data_dir:", resp.DataDir)
 }
 
-func formatUptime(seconds int64) string {
-	if seconds <= 0 {
-		return "0s"
-	}
-
-	uptime := time.Duration(seconds) * time.Second
-	hours := int(uptime.Hours())
-	minutes := int(uptime.Minutes()) % 60
-	secondsRemainder := int(uptime.Seconds()) % 60
-
-	if hours > 0 {
-		return fmt.Sprintf("%dh%dm%ds", hours, minutes, secondsRemainder)
-	}
-
-	if minutes > 0 {
-		return fmt.Sprintf("%dm%ds", minutes, secondsRemainder)
-	}
-
-	return fmt.Sprintf("%ds", secondsRemainder)
-}
-
-func startDaemon(cfg config.Config, configPath string, daemonBin string, foreground bool) error {
-	serverAddr := resolveServer("", cfg)
-
-	if alreadyRunning(serverAddr) {
-		fmt.Println("daemon already running at", serverAddr)
+func startServer(cfg config.Config, configPath string, foreground bool) error {
+	if alreadyRunning(cfg.DataDir) {
+		serverAddr := resolveServer("", cfg)
+		fmt.Println("server already running at", serverAddr)
 		return nil
 	}
 
-	daemonPath := daemonBin
-	if daemonPath == "" {
-		daemonPath = defaultDaemonBin()
-	}
-
-	daemonCmd := exec.Command(daemonPath)
+	serverCmd := exec.Command(os.Args[0], "server")
 	if configPath != "" {
-		daemonCmd.Args = append(daemonCmd.Args, "--config", configPath)
+		serverCmd.Args = append(serverCmd.Args, "--config", configPath)
 	}
 
 	if foreground {
-		daemonCmd.Stdout = os.Stdout
-		daemonCmd.Stderr = os.Stderr
-		return daemonCmd.Run()
+		serverCmd.Stdout = os.Stdout
+		serverCmd.Stderr = os.Stderr
+		return serverCmd.Run()
 	}
 
-	logFile := filepath.Join(cfg.DataDir, "daemon.log")
-
+	logFile := filepath.Join(cfg.DataDir, "server.log")
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		return err
 	}
@@ -232,14 +192,13 @@ func startDaemon(cfg config.Config, configPath string, daemonBin string, foregro
 	}
 	defer out.Close()
 
-	daemonCmd.Stdout = out
-	daemonCmd.Stderr = out
+	serverCmd.Stdout = out
+	serverCmd.Stderr = out
 
-	if err := daemonCmd.Start(); err != nil {
+	if err := serverCmd.Start(); err != nil {
 		return err
 	}
 
-	fmt.Println("started daemon pid", daemonCmd.Process.Pid)
-
+	fmt.Println("started server pid", serverCmd.Process.Pid)
 	return nil
 }

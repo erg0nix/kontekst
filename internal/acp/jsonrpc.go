@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -58,11 +59,17 @@ func NewRPCError(code ErrorCode, message string) *RPCError {
 }
 
 func NewConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection {
+	c := newConnection(handler, w, r)
+	go c.readLoop()
+	return c
+}
+
+func newConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, maxMessageSize), maxMessageSize)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	c := &Connection{
+	return &Connection{
 		writer:  w,
 		scanner: scanner,
 		handler: handler,
@@ -71,9 +78,10 @@ func NewConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection 
 		ctx:     ctx,
 		cancel:  cancel,
 	}
+}
 
+func (c *Connection) Start() {
 	go c.readLoop()
-	return c
 }
 
 func (c *Connection) readLoop() {
@@ -135,7 +143,8 @@ func (c *Connection) handleRequest(msg jsonrpcMessage) {
 	resp.ID = msg.ID
 
 	if err != nil {
-		if rpcErr, ok := err.(*RPCError); ok {
+		var rpcErr *RPCError
+		if errors.As(err, &rpcErr) {
 			resp.Error = &jsonrpcError{Code: rpcErr.Code, Message: rpcErr.Message}
 		} else {
 			resp.Error = &jsonrpcError{Code: int(ErrInternalError), Message: err.Error()}
@@ -170,7 +179,10 @@ func (c *Connection) writeMessage(msg jsonrpcMessage) error {
 
 	data = append(data, '\n')
 	_, err = c.writer.Write(data)
-	return err
+	if err != nil {
+		return fmt.Errorf("acp: write: %w", err)
+	}
+	return nil
 }
 
 func (c *Connection) Request(ctx context.Context, method string, params any) (json.RawMessage, error) {

@@ -4,34 +4,31 @@ import (
 	"context"
 	"time"
 
-	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
-
 	"github.com/spf13/cobra"
 )
 
 func newPsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ps",
-		Short: "Show daemon status",
+		Short: "Show server status",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			configPath, _ := cmd.Flags().GetString("config")
 			serverOverride, _ := cmd.Flags().GetString("server")
-			config, _ := loadConfig(configPath)
-			serverAddr := resolveServer(serverOverride, config)
+			cfg, _ := loadConfig(configPath)
+			serverAddr := resolveServer(serverOverride, cfg)
 
-			grpcConn, err := dialDaemon(serverAddr)
+			client, err := dialServer(serverAddr)
 			if err != nil {
 				return err
 			}
-			defer grpcConn.Close()
+			defer client.Close()
 
-			daemonClient := pb.NewDaemonServiceClient(grpcConn)
-			statusCtx, cancelStatus := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancelStatus()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			statusResp, err := daemonClient.GetStatus(statusCtx, &pb.GetStatusRequest{})
+			statusResp, err := client.Status(ctx)
 			if err != nil {
-				printDaemonNotRunning(serverAddr, err)
+				printServerNotRunning(serverAddr, err)
 				return err
 			}
 

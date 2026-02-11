@@ -3,19 +3,19 @@ package acp
 const ProtocolVersion = 1
 
 const (
-	MethodInitialize      = "initialize"
-	MethodAuthenticate    = "authenticate"
-	MethodSessionNew      = "session/new"
-	MethodSessionLoad     = "session/load"
-	MethodSessionPrompt   = "session/prompt"
-	MethodSessionCancel   = "session/cancel"
-	MethodSessionSetMode  = "session/set_mode"
-	MethodSessionSetCfg   = "session/set_config_option"
-	MethodSessionUpdate   = "session/update"
-	MethodRequestPerm     = "session/request_permission"
-	MethodKontekstStatus  = "_kontekst/status"
-	MethodKontekstShutdown = "_kontekst/shutdown"
-	MethodKontekstContext  = "_kontekst/context"
+	MethodInitialize        = "initialize"
+	MethodAuthenticate      = "authenticate"
+	MethodSessionNew        = "session/new"
+	MethodSessionLoad       = "session/load"
+	MethodSessionPrompt     = "session/prompt"
+	MethodSessionCancel     = "session/cancel"
+	MethodSessionSetMode    = "session/set_mode"
+	MethodSessionSetConfig  = "session/set_config_option"
+	MethodSessionUpdate     = "session/update"
+	MethodRequestPermission = "session/request_permission"
+	MethodKontekstStatus    = "_kontekst/status"
+	MethodKontekstShutdown  = "_kontekst/shutdown"
+	MethodKontekstContext   = "_kontekst/context"
 )
 
 type InitializeRequest struct {
@@ -68,17 +68,17 @@ type McpCapabilities struct {
 type SessionCapabilities struct{}
 
 type AuthMethod struct {
-	Id   string `json:"id"`
+	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
 type AuthenticateRequest struct {
-	MethodId string `json:"methodId"`
+	MethodID string `json:"methodId"`
 }
 
 type AuthenticateResponse struct{}
 
-type SessionId string
+type SessionID string
 
 type NewSessionRequest struct {
 	Cwd        string         `json:"cwd"`
@@ -89,15 +89,17 @@ type NewSessionRequest struct {
 type McpServer struct{}
 
 type NewSessionResponse struct {
-	SessionId SessionId `json:"sessionId"`
+	SessionID SessionID `json:"sessionId"`
 }
 
 type LoadSessionRequest struct {
-	SessionId SessionId `json:"sessionId"`
+	SessionID  SessionID   `json:"sessionId"`
+	Cwd        string      `json:"cwd"`
+	McpServers []McpServer `json:"mcpServers"`
 }
 
 type LoadSessionResponse struct {
-	SessionId SessionId `json:"sessionId"`
+	SessionID SessionID `json:"sessionId"`
 }
 
 type ContentBlock struct {
@@ -110,7 +112,7 @@ func TextBlock(text string) ContentBlock {
 }
 
 type PromptRequest struct {
-	SessionId SessionId      `json:"sessionId"`
+	SessionID SessionID      `json:"sessionId"`
 	Prompt    []ContentBlock `json:"prompt"`
 }
 
@@ -129,24 +131,40 @@ type PromptResponse struct {
 }
 
 type CancelNotification struct {
-	SessionId SessionId `json:"sessionId"`
+	SessionID SessionID `json:"sessionId"`
 }
 
 type SetSessionModeRequest struct {
-	SessionId SessionId `json:"sessionId"`
+	SessionID SessionID `json:"sessionId"`
+	ModeID    string    `json:"modeId"`
 }
 
 type SetSessionModeResponse struct{}
 
 type SetSessionConfigOptionRequest struct {
-	SessionId SessionId `json:"sessionId"`
-	ConfigId  string    `json:"configId"`
-	ValueId   string    `json:"valueId"`
+	SessionID SessionID `json:"sessionId"`
+	ConfigID  string    `json:"configId"`
+	Value     string    `json:"value"`
 }
 
-type SetSessionConfigOptionResponse struct{}
+type SessionConfigOption struct {
+	ID          string                     `json:"id"`
+	Label       string                     `json:"label"`
+	Values      []SessionConfigOptionValue `json:"values"`
+	SelectedID  string                     `json:"selectedId"`
+	Description string                     `json:"description,omitempty"`
+}
 
-type ToolCallId string
+type SessionConfigOptionValue struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+type SetSessionConfigOptionResponse struct {
+	ConfigOptions []SessionConfigOption `json:"configOptions"`
+}
+
+type ToolCallID string
 
 type ToolKind string
 
@@ -205,7 +223,7 @@ func TextToolContent(text string) ToolCallContent {
 }
 
 type SessionNotification struct {
-	SessionId SessionId `json:"sessionId"`
+	SessionID SessionID `json:"sessionId"`
 	Update    any       `json:"update"`
 }
 
@@ -223,7 +241,7 @@ func AgentThoughtChunk(text string) map[string]any {
 	}
 }
 
-func ToolCallStart(id ToolCallId, title string, kind ToolKind, locations []ToolCallLocation, rawInput any) map[string]any {
+func ToolCallStart(id ToolCallID, title string, kind ToolKind, locations []ToolCallLocation, rawInput any) map[string]any {
 	m := map[string]any{
 		"sessionUpdate": "tool_call",
 		"toolCallId":    id,
@@ -241,7 +259,7 @@ func ToolCallStart(id ToolCallId, title string, kind ToolKind, locations []ToolC
 	return m
 }
 
-func ToolCallUpdate(id ToolCallId, status ToolCallStatus, content []ToolCallContent, rawOutput any) map[string]any {
+func ToolCallUpdate(id ToolCallID, status ToolCallStatus, content []ToolCallContent, rawOutput any) map[string]any {
 	m := map[string]any{
 		"sessionUpdate": "tool_call_update",
 		"toolCallId":    id,
@@ -269,7 +287,7 @@ func AvailableCommandsUpdate(commands []Command) map[string]any {
 }
 
 type PermissionOption struct {
-	OptionId string               `json:"optionId"`
+	OptionID string               `json:"optionId"`
 	Name     string               `json:"name"`
 	Kind     PermissionOptionKind `json:"kind"`
 }
@@ -283,8 +301,12 @@ const (
 	PermissionOptionKindRejectAlways PermissionOptionKind = "reject_always"
 )
 
+func (k PermissionOptionKind) IsAllow() bool {
+	return k == PermissionOptionKindAllowOnce || k == PermissionOptionKindAllowAlways
+}
+
 type ToolCallDetail struct {
-	ToolCallId ToolCallId      `json:"toolCallId"`
+	ToolCallID ToolCallID      `json:"toolCallId"`
 	Title      *string         `json:"title,omitempty"`
 	Kind       *ToolKind       `json:"kind,omitempty"`
 	Status     *ToolCallStatus `json:"status,omitempty"`
@@ -292,7 +314,7 @@ type ToolCallDetail struct {
 }
 
 type RequestPermissionRequest struct {
-	SessionId SessionId          `json:"sessionId"`
+	SessionID SessionID          `json:"sessionId"`
 	ToolCall  ToolCallDetail     `json:"toolCall"`
 	Options   []PermissionOption `json:"options"`
 }
@@ -302,12 +324,16 @@ type RequestPermissionResponse struct {
 }
 
 type PermissionOutcome struct {
-	Selected  *SelectedOutcome `json:"selected,omitempty"`
-	Cancelled *struct{}        `json:"cancelled,omitempty"`
+	Outcome  string `json:"outcome"`
+	OptionID string `json:"optionId,omitempty"`
 }
 
-type SelectedOutcome struct {
-	OptionId string `json:"optionId"`
+func PermissionSelected(optionID string) PermissionOutcome {
+	return PermissionOutcome{Outcome: "selected", OptionID: optionID}
+}
+
+func PermissionCancelled() PermissionOutcome {
+	return PermissionOutcome{Outcome: "cancelled"}
 }
 
 type ErrorCode int
