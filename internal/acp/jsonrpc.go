@@ -104,7 +104,7 @@ func (c *Connection) readLoop() {
 		} else if msg.ID != nil && msg.Method != "" {
 			go c.handleRequest(msg)
 		} else if msg.Method != "" {
-			go c.handleNotification(msg)
+			c.handleNotification(msg)
 		}
 	}
 
