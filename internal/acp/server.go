@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
@@ -14,14 +15,15 @@ import (
 )
 
 type Handler struct {
-	Runner   agent.Runner
-	Registry *agent.Registry
-	Skills   *skills.Registry
+	runner   agent.Runner
+	registry *agent.Registry
+	skills   *skills.Registry
 	conn     *Connection
 	sessions sync.Map
 }
 
 type sessionState struct {
+	mu        sync.Mutex
 	agentName string
 	sessionID core.SessionID
 	cwd       string
@@ -31,14 +33,22 @@ type sessionState struct {
 
 func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *skills.Registry) *Handler {
 	return &Handler{
-		Runner:   runner,
-		Registry: registry,
-		Skills:   skillsRegistry,
+		runner:   runner,
+		registry: registry,
+		skills:   skillsRegistry,
 	}
 }
 
-func (h *Handler) SetConnection(conn *Connection) {
+func (h *Handler) Serve(w io.Writer, r io.Reader) *Connection {
+	conn := NewConnection(h.Dispatch, w, r)
 	h.conn = conn
+	return conn
+}
+
+func (h *Handler) ServeWith(dispatch MethodHandler, w io.Writer, r io.Reader) *Connection {
+	conn := NewConnection(dispatch, w, r)
+	h.conn = conn
+	return conn
 }
 
 func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
@@ -58,8 +68,8 @@ func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMe
 		return nil, nil
 	case MethodSessionSetMode:
 		return SetSessionModeResponse{}, nil
-	case MethodSessionSetCfg:
-		return SetSessionConfigOptionResponse{}, nil
+	case MethodSessionSetConfig:
+		return SetSessionConfigOptionResponse{ConfigOptions: []SessionConfigOption{}}, nil
 	default:
 		if strings.HasPrefix(method, "_") {
 			return nil, NewRPCError(ErrMethodNotFound, fmt.Sprintf("unknown extension: %s", method))
@@ -96,7 +106,7 @@ func (h *Handler) handleNewSession(_ context.Context, params json.RawMessage) (N
 		}
 	}
 
-	sid := SessionId(core.NewSessionID())
+	sid := SessionID(core.NewSessionID())
 
 	h.sessions.Store(sid, &sessionState{
 		agentName: agentName,
@@ -104,20 +114,20 @@ func (h *Handler) handleNewSession(_ context.Context, params json.RawMessage) (N
 		cwd:       req.Cwd,
 	})
 
-	if h.Skills != nil {
+	if h.skills != nil {
 		var commands []Command
-		for _, s := range h.Skills.ModelInvocableSkills() {
+		for _, s := range h.skills.ModelInvocableSkills() {
 			commands = append(commands, Command{Name: s.Name, Description: s.Description})
 		}
 		if len(commands) > 0 {
 			_ = h.conn.Notify(context.Background(), MethodSessionUpdate, SessionNotification{
-				SessionId: sid,
+				SessionID: sid,
 				Update:    AvailableCommandsUpdate(commands),
 			})
 		}
 	}
 
-	return NewSessionResponse{SessionId: sid}, nil
+	return NewSessionResponse{SessionID: sid}, nil
 }
 
 func (h *Handler) handleLoadSession(_ context.Context, params json.RawMessage) (LoadSessionResponse, error) {
@@ -128,12 +138,13 @@ func (h *Handler) handleLoadSession(_ context.Context, params json.RawMessage) (
 
 	agentName := agentConfig.DefaultAgentName
 
-	h.sessions.Store(req.SessionId, &sessionState{
+	h.sessions.Store(req.SessionID, &sessionState{
 		agentName: agentName,
-		sessionID: core.SessionID(req.SessionId),
+		sessionID: core.SessionID(req.SessionID),
+		cwd:       req.Cwd,
 	})
 
-	return LoadSessionResponse{SessionId: req.SessionId}, nil
+	return LoadSessionResponse{SessionID: req.SessionID}, nil
 }
 
 func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (PromptResponse, error) {
@@ -142,7 +153,7 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 		return PromptResponse{}, NewRPCError(ErrInvalidParams, err.Error())
 	}
 
-	val, ok := h.sessions.Load(req.SessionId)
+	val, ok := h.sessions.Load(req.SessionID)
 	if !ok {
 		return PromptResponse{}, NewRPCError(ErrNotFound, "session not found")
 	}
@@ -154,8 +165,8 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 	var skillContent string
 	if strings.HasPrefix(promptText, "/") {
 		skillName, args := parseSkillInvocation(promptText)
-		if h.Skills != nil {
-			if loadedSkill, found := h.Skills.Get(skillName); found {
+		if h.skills != nil {
+			if loadedSkill, found := h.skills.Get(skillName); found {
 				rendered, err := loadedSkill.Render(args)
 				if err != nil {
 					return PromptResponse{}, NewRPCError(ErrInvalidParams, fmt.Sprintf("failed to render skill: %v", err))
@@ -167,15 +178,14 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 		}
 	}
 
-	agentCfg, err := h.Registry.Load(sess.agentName)
+	agentCfg, err := h.registry.Load(sess.agentName)
 	if err != nil {
 		return PromptResponse{}, NewRPCError(ErrInvalidParams, err.Error())
 	}
 
 	runCtx, cancelFn := context.WithCancel(ctx)
-	sess.cancelFn = cancelFn
 
-	commandCh, eventCh, err := h.Runner.StartRun(agent.RunConfig{
+	commandCh, eventCh, err := h.runner.StartRun(agent.RunConfig{
 		Prompt:              promptText,
 		SessionID:           sess.sessionID,
 		AgentName:           sess.agentName,
@@ -195,17 +205,23 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 		return PromptResponse{}, NewRPCError(ErrInternalError, err.Error())
 	}
 
+	sess.mu.Lock()
+	sess.cancelFn = cancelFn
 	sess.commandCh = commandCh
-	return h.forwardEvents(runCtx, req.SessionId, sess, eventCh)
+	sess.mu.Unlock()
+
+	return h.forwardEvents(runCtx, req.SessionID, sess, eventCh)
 }
 
-func (h *Handler) forwardEvents(ctx context.Context, sid SessionId, sess *sessionState, eventCh <-chan agent.AgentEvent) (PromptResponse, error) {
+func (h *Handler) forwardEvents(ctx context.Context, sid SessionID, sess *sessionState, eventCh <-chan agent.AgentEvent) (PromptResponse, error) {
 	defer func() {
+		sess.mu.Lock()
 		if sess.cancelFn != nil {
 			sess.cancelFn()
 		}
 		sess.commandCh = nil
 		sess.cancelFn = nil
+		sess.mu.Unlock()
 	}()
 
 	for {
@@ -224,18 +240,29 @@ func (h *Handler) forwardEvents(ctx context.Context, sid SessionId, sess *sessio
 			}
 
 		case <-h.conn.Done():
-			if sess.commandCh != nil {
-				sess.commandCh <- agent.AgentCommand{Type: agent.CmdCancel}
+			sess.mu.Lock()
+			ch := sess.commandCh
+			sess.mu.Unlock()
+
+			if ch != nil {
+				ch <- agent.AgentCommand{Type: agent.CmdCancel}
 			}
 			return PromptResponse{StopReason: StopReasonCancelled}, nil
 
 		case <-ctx.Done():
+			sess.mu.Lock()
+			ch := sess.commandCh
+			sess.mu.Unlock()
+
+			if ch != nil {
+				ch <- agent.AgentCommand{Type: agent.CmdCancel}
+			}
 			return PromptResponse{StopReason: StopReasonCancelled}, nil
 		}
 	}
 }
 
-func (h *Handler) processEvent(ctx context.Context, sid SessionId, sess *sessionState, event agent.AgentEvent) (PromptResponse, bool, error) {
+func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *sessionState, event agent.AgentEvent) (PromptResponse, bool, error) {
 	switch event.Type {
 	case agent.EvtRunStarted:
 		return PromptResponse{}, false, nil
@@ -272,14 +299,19 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionId, sess *session
 
 			kind := ToolKindFromName(call.Name)
 			h.sendUpdate(sid, ToolCallStart(
-				ToolCallId(call.CallID),
+				ToolCallID(call.CallID),
 				call.Name,
 				kind,
 				nil,
 				rawInput,
 			))
 
-			permResp, err := h.requestPermission(ctx, sid, call, kind)
+			options := []PermissionOption{
+				{OptionID: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
+				{OptionID: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
+			}
+
+			permResp, err := h.requestPermission(ctx, sid, call, kind, options)
 			if err != nil {
 				if sess.commandCh != nil {
 					sess.commandCh <- agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: "permission request failed"}
@@ -287,11 +319,11 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionId, sess *session
 				continue
 			}
 
-			if permResp.Outcome.Selected != nil && permResp.Outcome.Selected.OptionId == "allow" {
+			if isAllowOutcome(permResp.Outcome, options) {
 				sess.commandCh <- agent.AgentCommand{Type: agent.CmdApproveTool, CallID: call.CallID}
 			} else {
 				reason := "denied by user"
-				if permResp.Outcome.Cancelled != nil {
+				if permResp.Outcome.Outcome == "cancelled" {
 					reason = "cancelled"
 				}
 				sess.commandCh <- agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: reason}
@@ -300,17 +332,17 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionId, sess *session
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolStarted:
-		h.sendUpdate(sid, ToolCallUpdate(ToolCallId(event.CallID), ToolCallStatusInProgress, nil, nil))
+		h.sendUpdate(sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusInProgress, nil, nil))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolCompleted:
 		content := []ToolCallContent{TextToolContent(event.Output)}
-		h.sendUpdate(sid, ToolCallUpdate(ToolCallId(event.CallID), ToolCallStatusCompleted, content, map[string]any{"content": event.Output}))
+		h.sendUpdate(sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusCompleted, content, map[string]any{"content": event.Output}))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolFailed:
 		content := []ToolCallContent{TextToolContent(event.Error)}
-		h.sendUpdate(sid, ToolCallUpdate(ToolCallId(event.CallID), ToolCallStatusFailed, content, map[string]any{"error": event.Error}))
+		h.sendUpdate(sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusFailed, content, map[string]any{"error": event.Error}))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolsCompleted:
@@ -329,7 +361,7 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionId, sess *session
 	return PromptResponse{}, false, nil
 }
 
-func (h *Handler) requestPermission(ctx context.Context, sid SessionId, call agent.ProposedToolCall, kind ToolKind) (RequestPermissionResponse, error) {
+func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call agent.ProposedToolCall, kind ToolKind, options []PermissionOption) (RequestPermissionResponse, error) {
 	status := ToolCallStatusPending
 	var rawInput any
 	if call.ArgumentsJSON != "" {
@@ -340,23 +372,20 @@ func (h *Handler) requestPermission(ctx context.Context, sid SessionId, call age
 	}
 
 	req := RequestPermissionRequest{
-		SessionId: sid,
+		SessionID: sid,
 		ToolCall: ToolCallDetail{
-			ToolCallId: ToolCallId(call.CallID),
+			ToolCallID: ToolCallID(call.CallID),
 			Title:      &call.Name,
 			Kind:       &kind,
 			Status:     &status,
 			RawInput:   rawInput,
 		},
-		Options: []PermissionOption{
-			{OptionId: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
-			{OptionId: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
-		},
+		Options: options,
 	}
 
-	result, err := h.conn.Request(ctx, MethodRequestPerm, req)
+	result, err := h.conn.Request(ctx, MethodRequestPermission, req)
 	if err != nil {
-		return RequestPermissionResponse{}, err
+		return RequestPermissionResponse{}, fmt.Errorf("acp: request permission: %w", err)
 	}
 
 	var resp RequestPermissionResponse
@@ -366,26 +395,42 @@ func (h *Handler) requestPermission(ctx context.Context, sid SessionId, call age
 	return resp, nil
 }
 
+func isAllowOutcome(outcome PermissionOutcome, options []PermissionOption) bool {
+	if outcome.Outcome != "selected" {
+		return false
+	}
+	for _, opt := range options {
+		if opt.OptionID == outcome.OptionID {
+			return opt.Kind.IsAllow()
+		}
+	}
+	return false
+}
+
 func (h *Handler) handleCancel(params json.RawMessage) {
 	var notif CancelNotification
 	if err := json.Unmarshal(params, &notif); err != nil {
 		return
 	}
 
-	val, ok := h.sessions.Load(notif.SessionId)
+	val, ok := h.sessions.Load(notif.SessionID)
 	if !ok {
 		return
 	}
 	sess := val.(*sessionState)
 
-	if sess.commandCh != nil {
-		sess.commandCh <- agent.AgentCommand{Type: agent.CmdCancel}
+	sess.mu.Lock()
+	ch := sess.commandCh
+	sess.mu.Unlock()
+
+	if ch != nil {
+		ch <- agent.AgentCommand{Type: agent.CmdCancel}
 	}
 }
 
-func (h *Handler) sendUpdate(sid SessionId, update any) {
+func (h *Handler) sendUpdate(sid SessionID, update any) {
 	_ = h.conn.Notify(context.Background(), MethodSessionUpdate, SessionNotification{
-		SessionId: sid,
+		SessionID: sid,
 		Update:    update,
 	})
 }

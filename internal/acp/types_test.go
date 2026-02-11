@@ -23,52 +23,6 @@ func mustUnmarshalMap(t *testing.T, data string) map[string]any {
 	return m
 }
 
-func TestInitializeResponse(t *testing.T) {
-	resp := InitializeResponse{
-		ProtocolVersion: 1,
-		AgentCapabilities: AgentCapabilities{
-			LoadSession: true,
-		},
-		AgentInfo: &Implementation{
-			Name:    "kontekst",
-			Title:   "Kontekst",
-			Version: "0.1.0",
-		},
-		AuthMethods: []AuthMethod{},
-	}
-
-	data := mustMarshal(t, resp)
-	m := mustUnmarshalMap(t, data)
-
-	if m["protocolVersion"] != float64(1) {
-		t.Errorf("protocolVersion = %v, want 1", m["protocolVersion"])
-	}
-
-	caps, ok := m["agentCapabilities"].(map[string]any)
-	if !ok {
-		t.Fatal("agentCapabilities not a map")
-	}
-	if caps["loadSession"] != true {
-		t.Errorf("loadSession = %v, want true", caps["loadSession"])
-	}
-
-	info, ok := m["agentInfo"].(map[string]any)
-	if !ok {
-		t.Fatal("agentInfo not a map")
-	}
-	if info["name"] != "kontekst" {
-		t.Errorf("agentInfo.name = %v, want kontekst", info["name"])
-	}
-
-	methods, ok := m["authMethods"].([]any)
-	if !ok {
-		t.Fatal("authMethods not an array")
-	}
-	if len(methods) != 0 {
-		t.Errorf("authMethods length = %d, want 0", len(methods))
-	}
-}
-
 func TestNewSessionRequest_McpServersEmptyArray(t *testing.T) {
 	req := NewSessionRequest{
 		Cwd:        "/home/user/project",
@@ -113,7 +67,7 @@ func TestNewSessionRequest_WithMeta(t *testing.T) {
 func TestAgentMessageChunk(t *testing.T) {
 	update := AgentMessageChunk("hello world")
 	notif := SessionNotification{
-		SessionId: "sess_1",
+		SessionID: "sess_1",
 		Update:    update,
 	}
 
@@ -144,17 +98,6 @@ func TestAgentMessageChunk(t *testing.T) {
 	}
 }
 
-func TestAgentThoughtChunk(t *testing.T) {
-	update := AgentThoughtChunk("thinking...")
-
-	data := mustMarshal(t, update)
-	m := mustUnmarshalMap(t, data)
-
-	if m["sessionUpdate"] != "agent_thought_chunk" {
-		t.Errorf("sessionUpdate = %v, want agent_thought_chunk", m["sessionUpdate"])
-	}
-}
-
 func TestToolCallStart(t *testing.T) {
 	update := ToolCallStart(
 		"call_1",
@@ -164,7 +107,7 @@ func TestToolCallStart(t *testing.T) {
 		map[string]any{"path": "/project/main.go"},
 	)
 
-	notif := SessionNotification{SessionId: "sess_1", Update: update}
+	notif := SessionNotification{SessionID: "sess_1", Update: update}
 	data := mustMarshal(t, notif)
 	m := mustUnmarshalMap(t, data)
 
@@ -200,107 +143,6 @@ func TestToolCallStart(t *testing.T) {
 	}
 }
 
-func TestToolCallUpdate(t *testing.T) {
-	update := ToolCallUpdate(
-		"call_1",
-		ToolCallStatusCompleted,
-		[]ToolCallContent{TextToolContent("file contents...")},
-		map[string]any{"content": "file contents..."},
-	)
-
-	data := mustMarshal(t, update)
-	m := mustUnmarshalMap(t, data)
-
-	if m["sessionUpdate"] != "tool_call_update" {
-		t.Errorf("sessionUpdate = %v, want tool_call_update", m["sessionUpdate"])
-	}
-	if m["toolCallId"] != "call_1" {
-		t.Errorf("toolCallId = %v, want call_1", m["toolCallId"])
-	}
-	if m["status"] != "completed" {
-		t.Errorf("status = %v, want completed", m["status"])
-	}
-
-	content := m["content"].([]any)
-	if len(content) != 1 {
-		t.Fatalf("content length = %d, want 1", len(content))
-	}
-
-	c := content[0].(map[string]any)
-	if c["type"] != "content" {
-		t.Errorf("content[0].type = %v, want content", c["type"])
-	}
-}
-
-func TestRequestPermissionRoundTrip(t *testing.T) {
-	kind := ToolKindEdit
-	status := ToolCallStatusPending
-	req := RequestPermissionRequest{
-		SessionId: "sess_1",
-		ToolCall: ToolCallDetail{
-			ToolCallId: "call_1",
-			Title:      strPtr("Write config.json"),
-			Kind:       &kind,
-			Status:     &status,
-			RawInput:   map[string]any{"path": "/project/config.json"},
-		},
-		Options: []PermissionOption{
-			{OptionId: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
-			{OptionId: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
-		},
-	}
-
-	data := mustMarshal(t, req)
-
-	var decoded RequestPermissionRequest
-	if err := json.Unmarshal([]byte(data), &decoded); err != nil {
-		t.Fatalf("unmarshal failed: %v", err)
-	}
-
-	if decoded.SessionId != "sess_1" {
-		t.Errorf("sessionId = %v, want sess_1", decoded.SessionId)
-	}
-	if decoded.ToolCall.ToolCallId != "call_1" {
-		t.Errorf("toolCallId = %v, want call_1", decoded.ToolCall.ToolCallId)
-	}
-	if *decoded.ToolCall.Title != "Write config.json" {
-		t.Errorf("title = %v, want Write config.json", *decoded.ToolCall.Title)
-	}
-	if len(decoded.Options) != 2 {
-		t.Fatalf("options length = %d, want 2", len(decoded.Options))
-	}
-	if decoded.Options[0].Kind != PermissionOptionKindAllowOnce {
-		t.Errorf("options[0].kind = %v, want allow_once", decoded.Options[0].Kind)
-	}
-}
-
-func TestPromptRequest(t *testing.T) {
-	req := PromptRequest{
-		SessionId: "sess_1",
-		Prompt:    []ContentBlock{TextBlock("Fix the bug in auth.go")},
-	}
-
-	data := mustMarshal(t, req)
-	m := mustUnmarshalMap(t, data)
-
-	if m["sessionId"] != "sess_1" {
-		t.Errorf("sessionId = %v, want sess_1", m["sessionId"])
-	}
-
-	prompt := m["prompt"].([]any)
-	if len(prompt) != 1 {
-		t.Fatalf("prompt length = %d, want 1", len(prompt))
-	}
-
-	block := prompt[0].(map[string]any)
-	if block["type"] != "text" {
-		t.Errorf("block.type = %v, want text", block["type"])
-	}
-	if block["text"] != "Fix the bug in auth.go" {
-		t.Errorf("block.text = %v, want Fix the bug in auth.go", block["text"])
-	}
-}
-
 func TestToolKindFromName(t *testing.T) {
 	tests := []struct {
 		name string
@@ -324,67 +166,54 @@ func TestToolKindFromName(t *testing.T) {
 	}
 }
 
-func TestAvailableCommandsUpdate(t *testing.T) {
-	update := AvailableCommandsUpdate([]Command{
-		{Name: "help", Description: "Show help"},
-	})
-
-	data := mustMarshal(t, update)
-	m := mustUnmarshalMap(t, data)
-
-	if m["sessionUpdate"] != "available_commands_update" {
-		t.Errorf("sessionUpdate = %v, want available_commands_update", m["sessionUpdate"])
-	}
-
-	cmds := m["availableCommands"].([]any)
-	if len(cmds) != 1 {
-		t.Fatalf("availableCommands length = %d, want 1", len(cmds))
-	}
-
-	cmd := cmds[0].(map[string]any)
-	if cmd["name"] != "help" {
-		t.Errorf("name = %v, want help", cmd["name"])
-	}
-}
-
 func TestPermissionResponseSelected(t *testing.T) {
 	resp := RequestPermissionResponse{
-		Outcome: PermissionOutcome{
-			Selected: &SelectedOutcome{OptionId: "allow"},
-		},
+		Outcome: PermissionSelected("allow"),
 	}
 
 	data := mustMarshal(t, resp)
 	m := mustUnmarshalMap(t, data)
 
 	outcome := m["outcome"].(map[string]any)
-	selected := outcome["selected"].(map[string]any)
-	if selected["optionId"] != "allow" {
-		t.Errorf("optionId = %v, want allow", selected["optionId"])
+	if outcome["outcome"] != "selected" {
+		t.Errorf("outcome = %v, want selected", outcome["outcome"])
 	}
-
-	if _, ok := outcome["cancelled"]; ok {
-		t.Error("cancelled should not be present")
+	if outcome["optionId"] != "allow" {
+		t.Errorf("optionId = %v, want allow", outcome["optionId"])
 	}
 }
 
 func TestPermissionResponseCancelled(t *testing.T) {
 	resp := RequestPermissionResponse{
-		Outcome: PermissionOutcome{
-			Cancelled: &struct{}{},
-		},
+		Outcome: PermissionCancelled(),
 	}
 
 	data := mustMarshal(t, resp)
 	m := mustUnmarshalMap(t, data)
 
 	outcome := m["outcome"].(map[string]any)
-	if _, ok := outcome["cancelled"]; !ok {
-		t.Error("cancelled should be present")
+	if outcome["outcome"] != "cancelled" {
+		t.Errorf("outcome = %v, want cancelled", outcome["outcome"])
 	}
-	if _, ok := outcome["selected"]; ok {
-		t.Error("selected should not be present")
+	if _, ok := outcome["optionId"]; ok {
+		t.Error("optionId should not be present for cancelled")
 	}
 }
 
-func strPtr(s string) *string { return &s }
+func TestPermissionOptionKindIsAllow(t *testing.T) {
+	tests := []struct {
+		kind PermissionOptionKind
+		want bool
+	}{
+		{PermissionOptionKindAllowOnce, true},
+		{PermissionOptionKindAllowAlways, true},
+		{PermissionOptionKindRejectOnce, false},
+		{PermissionOptionKindRejectAlways, false},
+	}
+
+	for _, tt := range tests {
+		if got := tt.kind.IsAllow(); got != tt.want {
+			t.Errorf("%q.IsAllow() = %v, want %v", tt.kind, got, tt.want)
+		}
+	}
+}

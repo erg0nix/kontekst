@@ -3,13 +3,14 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/erg0nix/kontekst/internal/acp"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
 	"github.com/erg0nix/kontekst/internal/core"
-	pb "github.com/erg0nix/kontekst/internal/grpc/pb"
 	"github.com/erg0nix/kontekst/internal/sessions"
 
 	"github.com/spf13/cobra"
@@ -22,29 +23,21 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	sessionOverride, _ := cmd.Flags().GetString("session")
 	agentName, _ := cmd.Flags().GetString("agent")
 
-	config, _ := loadConfig(configPath)
-	serverAddr := resolveServer(serverOverride, config)
+	cfg, _ := loadConfig(configPath)
+	serverAddr := resolveServer(serverOverride, cfg)
 
 	prompt := strings.TrimSpace(strings.Join(args, " "))
-
-	var skillInvocation *pb.SkillInvocation
-	if strings.HasPrefix(prompt, "/") {
-		skillName, skillArgs := parseSkillInvocation(prompt)
-		skillInvocation = &pb.SkillInvocation{Name: skillName, Arguments: skillArgs}
-		prompt = ""
-	}
-
-	if prompt == "" && skillInvocation == nil {
+	if prompt == "" {
 		return fmt.Errorf("prompt is required")
 	}
 
 	sessionID := strings.TrimSpace(sessionOverride)
 	if sessionID == "" {
-		sessionID = loadActiveSession(config.DataDir)
+		sessionID = loadActiveSession(cfg.DataDir)
 	}
 
 	if agentName == "" && sessionID != "" {
-		sessionService := &sessions.FileSessionService{BaseDir: config.DataDir}
+		sessionService := &sessions.FileSessionService{BaseDir: cfg.DataDir}
 		if defaultAgent, err := sessionService.GetDefaultAgent(core.SessionID(sessionID)); err == nil && defaultAgent != "" {
 			agentName = defaultAgent
 		}
@@ -53,112 +46,187 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		agentName = agentConfig.DefaultAgentName
 	}
 
-	grpcConn, err := dialDaemon(serverAddr)
+	reader := bufio.NewReader(os.Stdin)
+
+	client, err := dialServer(serverAddr, acp.ClientCallbacks{
+		OnUpdate: func(notif acp.SessionNotification) {
+			handleSessionUpdate(notif)
+		},
+		OnPermission: func(req acp.RequestPermissionRequest) acp.RequestPermissionResponse {
+			return handlePermission(req, autoApprove, reader)
+		},
+		OnContextSnapshot: func(raw json.RawMessage) {
+			handleContextSnapshot(raw)
+		},
+	})
 	if err != nil {
 		return err
 	}
-	defer grpcConn.Close()
+	defer client.Close()
 
-	agentClient := pb.NewAgentServiceClient(grpcConn)
-	streamCtx := context.Background()
-	stream, err := agentClient.Run(streamCtx)
+	ctx := context.Background()
+
+	_, err = client.Initialize(ctx, acp.InitializeRequest{
+		ProtocolVersion: acp.ProtocolVersion,
+		ClientInfo:      &acp.Implementation{Name: "kontekst-cli"},
+	})
 	if err != nil {
-		printDaemonNotRunning(serverAddr, err)
-		return err
+		return fmt.Errorf("initialize: %w", err)
+	}
+
+	var meta map[string]any
+	if agentName != "" {
+		meta = map[string]any{"agentName": agentName}
 	}
 
 	workingDir, _ := os.Getwd()
-	startCmd := &pb.StartRunCommand{
-		Prompt:     prompt,
-		SessionId:  sessionID,
-		AgentName:  agentName,
-		WorkingDir: workingDir,
-		Skill:      skillInvocation,
-	}
-	if err := stream.Send(&pb.RunCommand{Command: &pb.RunCommand_Start{Start: startCmd}}); err != nil {
-		return err
-	}
 
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		runEvent, err := stream.Recv()
+	var sid acp.SessionID
+	if sessionID != "" {
+		resp, err := client.LoadSession(ctx, acp.LoadSessionRequest{
+			SessionID:  acp.SessionID(sessionID),
+			Cwd:        workingDir,
+			McpServers: []acp.McpServer{},
+		})
 		if err != nil {
-			break
+			sessResp, err := client.NewSession(ctx, acp.NewSessionRequest{
+				Cwd:        workingDir,
+				McpServers: []acp.McpServer{},
+				Meta:       meta,
+			})
+			if err != nil {
+				return fmt.Errorf("new session: %w", err)
+			}
+			sid = sessResp.SessionID
+		} else {
+			sid = resp.SessionID
 		}
-
-		switch e := runEvent.Event.(type) {
-		case *pb.RunEvent_Started:
-			fmt.Println("run started", e.Started.RunId)
-
-			if e.Started.SessionId != "" {
-				_ = saveActiveSession(config.DataDir, e.Started.SessionId)
-			}
-		case *pb.RunEvent_TurnCompleted:
-			if e.TurnCompleted.Reasoning != "" {
-				fmt.Printf("[Reasoning: %s]\n\n", e.TurnCompleted.Reasoning)
-			}
-			if e.TurnCompleted.Content != "" {
-				fmt.Println(e.TurnCompleted.Content)
-			}
-			if snap := e.TurnCompleted.Context; snap != nil {
-				pct := int32(0)
-				if snap.ContextSize > 0 {
-					pct = snap.TotalTokens * 100 / snap.ContextSize
-				}
-				fmt.Printf("[context: %d/%d tokens (%d%%) | system:%d tools:%d history:%d memory:%d | budget remaining:%d]\n",
-					snap.TotalTokens, snap.ContextSize, pct,
-					snap.SystemTokens, snap.ToolTokens, snap.HistoryTokens, snap.MemoryTokens,
-					snap.RemainingTokens)
-			}
-		case *pb.RunEvent_ToolsProposed:
-			for _, c := range e.ToolsProposed.Calls {
-				if autoApprove {
-					_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveTool{ApproveTool: &pb.ApproveToolCommand{CallId: c.CallId}}})
-					continue
-				}
-
-				fmt.Printf("tool: %s(%s)\n", c.Name, c.ArgumentsJson)
-				if c.Preview != "" {
-					fmt.Println("  Preview:")
-					for _, line := range strings.Split(c.Preview, "\n") {
-						fmt.Printf("    %s\n", line)
-					}
-				}
-
-				fmt.Print("approve? [y/N]: ")
-				line, _ := reader.ReadString('\n')
-
-				if len(line) > 0 && (line[0] == 'y' || line[0] == 'Y') {
-					_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_ApproveTool{ApproveTool: &pb.ApproveToolCommand{CallId: c.CallId}}})
-				} else {
-					_ = stream.Send(&pb.RunCommand{Command: &pb.RunCommand_DenyTool{DenyTool: &pb.DenyToolCommand{CallId: c.CallId, Reason: "user denied"}}})
-				}
-			}
-		case *pb.RunEvent_ToolCompleted:
-			fmt.Printf("tool %s completed: %s\n", e.ToolCompleted.CallId, e.ToolCompleted.Output)
-		case *pb.RunEvent_ToolFailed:
-			fmt.Printf("tool %s failed: %s\n", e.ToolFailed.CallId, e.ToolFailed.Error)
-		case *pb.RunEvent_Completed:
-			fmt.Println("\nrun completed")
-			return nil
-		case *pb.RunEvent_Cancelled:
-			fmt.Println("cancelled")
-			return nil
-		case *pb.RunEvent_Failed:
-			fmt.Println("failed:", e.Failed.Error)
-			return nil
+	} else {
+		sessResp, err := client.NewSession(ctx, acp.NewSessionRequest{
+			Cwd:        workingDir,
+			McpServers: []acp.McpServer{},
+			Meta:       meta,
+		})
+		if err != nil {
+			return fmt.Errorf("new session: %w", err)
 		}
+		sid = sessResp.SessionID
 	}
+
+	_ = saveActiveSession(cfg.DataDir, string(sid))
+
+	promptResp, err := client.Prompt(ctx, acp.PromptRequest{
+		SessionID: sid,
+		Prompt:    []acp.ContentBlock{acp.TextBlock(prompt)},
+	})
+	if err != nil {
+		fmt.Println("failed:", err)
+		return nil
+	}
+
+	switch promptResp.StopReason {
+	case acp.StopReasonEndTurn:
+		fmt.Println("\nrun completed")
+	case acp.StopReasonCancelled:
+		fmt.Println("cancelled")
+	default:
+		fmt.Println("stopped:", promptResp.StopReason)
+	}
+
 	return nil
 }
 
-func parseSkillInvocation(input string) (name, args string) {
-	input = strings.TrimPrefix(input, "/")
-	parts := strings.SplitN(input, " ", 2)
-	name = parts[0]
-	if len(parts) > 1 {
-		args = parts[1]
+func handleSessionUpdate(notif acp.SessionNotification) {
+	raw, err := json.Marshal(notif.Update)
+	if err != nil {
+		return
 	}
-	return
+
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return
+	}
+
+	updateType, _ := m["sessionUpdate"].(string)
+	switch updateType {
+	case "agent_message_chunk":
+		if content, ok := m["content"].(map[string]any); ok {
+			if text, ok := content["text"].(string); ok {
+				fmt.Print(text)
+			}
+		}
+	case "agent_thought_chunk":
+		if content, ok := m["content"].(map[string]any); ok {
+			if text, ok := content["text"].(string); ok {
+				fmt.Printf("[Reasoning: %s]\n\n", text)
+			}
+		}
+	case "tool_call":
+		title, _ := m["title"].(string)
+		rawInput := m["rawInput"]
+		inputJSON, _ := json.Marshal(rawInput)
+		fmt.Printf("tool: %s(%s)\n", title, string(inputJSON))
+	case "tool_call_update":
+		status, _ := m["status"].(string)
+		toolCallID, _ := m["toolCallId"].(string)
+
+		switch status {
+		case "completed":
+			if content, ok := m["content"].([]any); ok && len(content) > 0 {
+				if c, ok := content[0].(map[string]any); ok {
+					if inner, ok := c["content"].(map[string]any); ok {
+						text, _ := inner["text"].(string)
+						fmt.Printf("tool %s completed: %s\n", toolCallID, text)
+					}
+				}
+			}
+		case "failed":
+			if content, ok := m["content"].([]any); ok && len(content) > 0 {
+				if c, ok := content[0].(map[string]any); ok {
+					if inner, ok := c["content"].(map[string]any); ok {
+						text, _ := inner["text"].(string)
+						fmt.Printf("tool %s failed: %s\n", toolCallID, text)
+					}
+				}
+			}
+		}
+	}
+}
+
+func handlePermission(req acp.RequestPermissionRequest, autoApprove bool, reader *bufio.Reader) acp.RequestPermissionResponse {
+	if autoApprove {
+		return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("allow")}
+	}
+
+	title := ""
+	if req.ToolCall.Title != nil {
+		title = *req.ToolCall.Title
+	}
+
+	inputJSON, _ := json.Marshal(req.ToolCall.RawInput)
+	fmt.Printf("tool: %s(%s)\n", title, string(inputJSON))
+	fmt.Print("approve? [y/N]: ")
+	line, _ := reader.ReadString('\n')
+
+	if len(line) > 0 && (line[0] == 'y' || line[0] == 'Y') {
+		return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("allow")}
+	}
+
+	return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("reject")}
+}
+
+func handleContextSnapshot(raw json.RawMessage) {
+	var snap core.ContextSnapshot
+	if err := json.Unmarshal(raw, &snap); err != nil {
+		return
+	}
+
+	pct := 0
+	if snap.ContextSize > 0 {
+		pct = snap.TotalTokens * 100 / snap.ContextSize
+	}
+	fmt.Printf("[context: %d/%d tokens (%d%%) | system:%d tools:%d history:%d memory:%d | budget remaining:%d]\n",
+		snap.TotalTokens, snap.ContextSize, pct,
+		snap.SystemTokens, snap.ToolTokens, snap.HistoryTokens, snap.MemoryTokens,
+		snap.RemainingTokens)
 }

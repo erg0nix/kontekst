@@ -15,11 +15,16 @@ import (
 )
 
 type mockRunner struct {
-	events []agent.AgentEvent
-	onCmd  func(agent.AgentCommand)
+	events  []agent.AgentEvent
+	onCmd   func(agent.AgentCommand)
+	onStart func(agent.RunConfig)
 }
 
-func (m *mockRunner) StartRun(_ agent.RunConfig) (chan<- agent.AgentCommand, <-chan agent.AgentEvent, error) {
+func (m *mockRunner) StartRun(cfg agent.RunConfig) (chan<- agent.AgentCommand, <-chan agent.AgentEvent, error) {
+	if m.onStart != nil {
+		m.onStart(cfg)
+	}
+
 	cmdCh := make(chan agent.AgentCommand, 16)
 	evtCh := make(chan agent.AgentEvent, 32)
 
@@ -57,9 +62,7 @@ func setupTestPair(t *testing.T, runner agent.Runner) (*Connection, *Connection)
 	registry := testRegistry(t)
 	handler := NewHandler(runner, registry, nil)
 
-	serverConn := NewConnection(handler.Dispatch, serverW, serverR)
-	handler.SetConnection(serverConn)
-
+	serverConn := handler.Serve(serverW, serverR)
 	clientConn := NewConnection(nil, clientW, clientR)
 
 	t.Cleanup(func() {
@@ -70,7 +73,7 @@ func setupTestPair(t *testing.T, runner agent.Runner) (*Connection, *Connection)
 	return serverConn, clientConn
 }
 
-func initAndCreateSession(t *testing.T, client *Connection) SessionId {
+func initAndCreateSession(t *testing.T, client *Connection) SessionID {
 	t.Helper()
 	ctx := context.Background()
 
@@ -95,11 +98,11 @@ func initAndCreateSession(t *testing.T, client *Connection) SessionId {
 
 	var sessResp NewSessionResponse
 	json.Unmarshal(result, &sessResp)
-	if sessResp.SessionId == "" {
+	if sessResp.SessionID == "" {
 		t.Fatal("session ID is empty")
 	}
 
-	return sessResp.SessionId
+	return sessResp.SessionID
 }
 
 func TestServerSimplePrompt(t *testing.T) {
@@ -124,7 +127,7 @@ func TestServerSimplePrompt(t *testing.T) {
 
 	ctx := context.Background()
 	result, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
-		SessionId: sid,
+		SessionID: sid,
 		Prompt:    []ContentBlock{TextBlock("hello")},
 	})
 	if err != nil {
@@ -187,11 +190,9 @@ func TestServerToolApproval(t *testing.T) {
 	sid := initAndCreateSession(t, client)
 
 	client.handler = func(_ context.Context, method string, _ json.RawMessage) (any, error) {
-		if method == MethodRequestPerm {
+		if method == MethodRequestPermission {
 			return RequestPermissionResponse{
-				Outcome: PermissionOutcome{
-					Selected: &SelectedOutcome{OptionId: "allow"},
-				},
+				Outcome: PermissionSelected("allow"),
 			}, nil
 		}
 		return nil, nil
@@ -199,7 +200,7 @@ func TestServerToolApproval(t *testing.T) {
 
 	ctx := context.Background()
 	result, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
-		SessionId: sid,
+		SessionID: sid,
 		Prompt:    []ContentBlock{TextBlock("read test.go")},
 	})
 	if err != nil {
@@ -244,11 +245,9 @@ func TestServerToolDenied(t *testing.T) {
 	sid := initAndCreateSession(t, client)
 
 	client.handler = func(_ context.Context, method string, _ json.RawMessage) (any, error) {
-		if method == MethodRequestPerm {
+		if method == MethodRequestPermission {
 			return RequestPermissionResponse{
-				Outcome: PermissionOutcome{
-					Selected: &SelectedOutcome{OptionId: "reject"},
-				},
+				Outcome: PermissionSelected("reject"),
 			}, nil
 		}
 		return nil, nil
@@ -256,7 +255,7 @@ func TestServerToolDenied(t *testing.T) {
 
 	ctx := context.Background()
 	_, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
-		SessionId: sid,
+		SessionID: sid,
 		Prompt:    []ContentBlock{TextBlock("write file")},
 	})
 	if err != nil {
@@ -295,7 +294,7 @@ func TestServerCancel(t *testing.T) {
 	promptDone := make(chan struct{})
 	go func() {
 		client.Request(ctx, MethodSessionPrompt, PromptRequest{
-			SessionId: sid,
+			SessionID: sid,
 			Prompt:    []ContentBlock{TextBlock("test")},
 		})
 		close(promptDone)
@@ -303,7 +302,7 @@ func TestServerCancel(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	client.Notify(ctx, MethodSessionCancel, CancelNotification{SessionId: sid})
+	client.Notify(ctx, MethodSessionCancel, CancelNotification{SessionID: sid})
 
 	select {
 	case <-cancelReceived:
@@ -367,7 +366,7 @@ func TestServerSessionNotFound(t *testing.T) {
 	client.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: 1})
 
 	_, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
-		SessionId: "nonexistent",
+		SessionID: "nonexistent",
 		Prompt:    []ContentBlock{TextBlock("hello")},
 	})
 	if err == nil {
@@ -383,8 +382,126 @@ func TestServerSessionNotFound(t *testing.T) {
 	}
 }
 
+func TestServerRunFailed(t *testing.T) {
+	runner := &mockRunner{
+		events: []agent.AgentEvent{
+			{Type: agent.EvtRunStarted, RunID: "run_1"},
+			{Type: agent.EvtRunFailed, RunID: "run_1", Error: "model returned error"},
+		},
+	}
+
+	_, client := setupTestPair(t, runner)
+	sid := initAndCreateSession(t, client)
+
+	client.handler = func(_ context.Context, _ string, _ json.RawMessage) (any, error) {
+		return nil, nil
+	}
+
+	ctx := context.Background()
+	_, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
+		SessionID: sid,
+		Prompt:    []ContentBlock{TextBlock("hello")},
+	})
+	if err == nil {
+		t.Fatal("expected error for failed run")
+	}
+
+	rpcErr, ok := err.(*RPCError)
+	if !ok {
+		t.Fatalf("expected RPCError, got %T", err)
+	}
+	if rpcErr.Code != int(ErrInternalError) {
+		t.Errorf("code = %d, want %d", rpcErr.Code, ErrInternalError)
+	}
+	if rpcErr.Message != "model returned error" {
+		t.Errorf("message = %q, want %q", rpcErr.Message, "model returned error")
+	}
+}
+
+func TestServerConnectionCloseCancel(t *testing.T) {
+	cancelReceived := make(chan struct{})
+	eventCh := make(chan agent.AgentEvent, 32)
+
+	runner := &mockRunnerChan{
+		eventCh:        eventCh,
+		cancelReceived: cancelReceived,
+	}
+
+	serverConn, clientConn := setupTestPair(t, runner)
+	sid := initAndCreateSession(t, clientConn)
+
+	clientConn.handler = func(_ context.Context, _ string, _ json.RawMessage) (any, error) {
+		return nil, nil
+	}
+
+	eventCh <- agent.AgentEvent{Type: agent.EvtRunStarted, RunID: "run_1"}
+
+	promptDone := make(chan struct{})
+	go func() {
+		clientConn.Request(context.Background(), MethodSessionPrompt, PromptRequest{
+			SessionID: sid,
+			Prompt:    []ContentBlock{TextBlock("test")},
+		})
+		close(promptDone)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	serverConn.Close()
+
+	select {
+	case <-cancelReceived:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cancel not received after connection close")
+	}
+
+	eventCh <- agent.AgentEvent{Type: agent.EvtRunCancelled, RunID: "run_1"}
+	close(eventCh)
+
+	select {
+	case <-promptDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("prompt did not return after connection close")
+	}
+}
+
+func TestIsAllowOutcome(t *testing.T) {
+	options := []PermissionOption{
+		{OptionID: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
+		{OptionID: "allow_always", Name: "Allow Always", Kind: PermissionOptionKindAllowAlways},
+		{OptionID: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
+	}
+
+	tests := []struct {
+		outcome PermissionOutcome
+		want    bool
+	}{
+		{PermissionSelected("allow"), true},
+		{PermissionSelected("allow_always"), true},
+		{PermissionSelected("reject"), false},
+		{PermissionSelected("unknown"), false},
+		{PermissionCancelled(), false},
+	}
+
+	for _, tt := range tests {
+		got := isAllowOutcome(tt.outcome, options)
+		if got != tt.want {
+			t.Errorf("isAllowOutcome(%+v) = %v, want %v", tt.outcome, got, tt.want)
+		}
+	}
+}
+
 func TestServerNewSessionWithMeta(t *testing.T) {
-	runner := &mockRunner{}
+	agentNameCh := make(chan string, 1)
+	runner := &mockRunner{
+		events: []agent.AgentEvent{
+			{Type: agent.EvtRunStarted, RunID: "run_1"},
+			{Type: agent.EvtRunCompleted, RunID: "run_1"},
+		},
+	}
+	runner.onStart = func(cfg agent.RunConfig) {
+		agentNameCh <- cfg.AgentName
+	}
 
 	serverR, clientW := io.Pipe()
 	clientR, serverW := io.Pipe()
@@ -402,9 +519,7 @@ model = "test"
 	registry := agent.NewRegistry(tmpDir)
 	handler := NewHandler(runner, registry, nil)
 
-	serverConn := NewConnection(handler.Dispatch, serverW, serverR)
-	handler.SetConnection(serverConn)
-
+	serverConn := handler.Serve(serverW, serverR)
 	clientConn := NewConnection(nil, clientW, clientR)
 
 	t.Cleanup(func() {
@@ -426,7 +541,206 @@ model = "test"
 
 	var resp NewSessionResponse
 	json.Unmarshal(result, &resp)
-	if resp.SessionId == "" {
+	if resp.SessionID == "" {
 		t.Fatal("session ID is empty")
+	}
+
+	clientConn.handler = func(_ context.Context, _ string, _ json.RawMessage) (any, error) {
+		return nil, nil
+	}
+	_, err = clientConn.Request(ctx, MethodSessionPrompt, PromptRequest{
+		SessionID: resp.SessionID,
+		Prompt:    []ContentBlock{TextBlock("test")},
+	})
+	if err != nil {
+		t.Fatalf("prompt failed: %v", err)
+	}
+
+	select {
+	case name := <-agentNameCh:
+		if name != "myagent" {
+			t.Errorf("agent name = %q, want myagent", name)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("agent name not received")
+	}
+}
+
+func TestServerLoadSession(t *testing.T) {
+	runner := &mockRunner{
+		events: []agent.AgentEvent{
+			{Type: agent.EvtRunStarted, RunID: "run_1"},
+			{Type: agent.EvtRunCompleted, RunID: "run_1"},
+		},
+	}
+
+	_, client := setupTestPair(t, runner)
+	ctx := context.Background()
+
+	client.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: 1})
+
+	result, err := client.Request(ctx, MethodSessionLoad, LoadSessionRequest{
+		SessionID:  "existing_sess",
+		Cwd:        "/tmp",
+		McpServers: []McpServer{},
+	})
+	if err != nil {
+		t.Fatalf("load session failed: %v", err)
+	}
+
+	var resp LoadSessionResponse
+	json.Unmarshal(result, &resp)
+	if resp.SessionID != "existing_sess" {
+		t.Errorf("sessionId = %v, want existing_sess", resp.SessionID)
+	}
+
+	client.handler = func(_ context.Context, _ string, _ json.RawMessage) (any, error) {
+		return nil, nil
+	}
+
+	result, err = client.Request(ctx, MethodSessionPrompt, PromptRequest{
+		SessionID: "existing_sess",
+		Prompt:    []ContentBlock{TextBlock("hello")},
+	})
+	if err != nil {
+		t.Fatalf("prompt on loaded session failed: %v", err)
+	}
+
+	var promptResp PromptResponse
+	json.Unmarshal(result, &promptResp)
+	if promptResp.StopReason != StopReasonEndTurn {
+		t.Errorf("stopReason = %v, want end_turn", promptResp.StopReason)
+	}
+}
+
+func TestServerEventForwarding(t *testing.T) {
+	tests := []struct {
+		name       string
+		event      agent.AgentEvent
+		wantUpdate string
+	}{
+		{
+			name:       "EvtTokenDelta",
+			event:      agent.AgentEvent{Type: agent.EvtTokenDelta, RunID: "run_1", Token: "hello"},
+			wantUpdate: "agent_message_chunk",
+		},
+		{
+			name:       "EvtReasoningDelta",
+			event:      agent.AgentEvent{Type: agent.EvtReasoningDelta, RunID: "run_1", Reasoning: "thinking..."},
+			wantUpdate: "agent_thought_chunk",
+		},
+		{
+			name:       "EvtToolStarted",
+			event:      agent.AgentEvent{Type: agent.EvtToolStarted, RunID: "run_1", CallID: "call_1"},
+			wantUpdate: "tool_call_update",
+		},
+		{
+			name:       "EvtToolCompleted",
+			event:      agent.AgentEvent{Type: agent.EvtToolCompleted, RunID: "run_1", CallID: "call_1", Output: "result"},
+			wantUpdate: "tool_call_update",
+		},
+		{
+			name:       "EvtToolFailed",
+			event:      agent.AgentEvent{Type: agent.EvtToolFailed, RunID: "run_1", CallID: "call_1", Error: "oops"},
+			wantUpdate: "tool_call_update",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &mockRunner{
+				events: []agent.AgentEvent{
+					{Type: agent.EvtRunStarted, RunID: "run_1"},
+					tt.event,
+					{Type: agent.EvtRunCompleted, RunID: "run_1"},
+				},
+			}
+
+			_, client := setupTestPair(t, runner)
+			sid := initAndCreateSession(t, client)
+
+			updates := make(chan json.RawMessage, 10)
+			client.handler = func(_ context.Context, method string, params json.RawMessage) (any, error) {
+				if method == MethodSessionUpdate {
+					updates <- params
+				}
+				return nil, nil
+			}
+
+			ctx := context.Background()
+			_, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
+				SessionID: sid,
+				Prompt:    []ContentBlock{TextBlock("test")},
+			})
+			if err != nil {
+				t.Fatalf("prompt failed: %v", err)
+			}
+
+			timeout := time.After(2 * time.Second)
+			for {
+				select {
+				case raw := <-updates:
+					var notif SessionNotification
+					json.Unmarshal(raw, &notif)
+					if m, ok := notif.Update.(map[string]any); ok {
+						if m["sessionUpdate"] == tt.wantUpdate {
+							return
+						}
+					}
+				case <-timeout:
+					t.Fatalf("did not receive %s update", tt.wantUpdate)
+					return
+				}
+			}
+		})
+	}
+}
+
+func TestServerContextSnapshot(t *testing.T) {
+	runner := &mockRunner{
+		events: []agent.AgentEvent{
+			{Type: agent.EvtRunStarted, RunID: "run_1"},
+			{Type: agent.EvtTurnCompleted, RunID: "run_1",
+				Response: core.ChatResponse{Content: "Hi"},
+				Snapshot: &core.ContextSnapshot{ContextSize: 4096, HistoryTokens: 100},
+			},
+			{Type: agent.EvtRunCompleted, RunID: "run_1"},
+		},
+	}
+
+	_, client := setupTestPair(t, runner)
+	sid := initAndCreateSession(t, client)
+
+	contextReceived := make(chan json.RawMessage, 1)
+	client.handler = func(_ context.Context, method string, params json.RawMessage) (any, error) {
+		if method == MethodKontekstContext {
+			contextReceived <- params
+		}
+		return nil, nil
+	}
+
+	ctx := context.Background()
+	_, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
+		SessionID: sid,
+		Prompt:    []ContentBlock{TextBlock("hello")},
+	})
+	if err != nil {
+		t.Fatalf("prompt failed: %v", err)
+	}
+
+	select {
+	case raw := <-contextReceived:
+		var snapshot core.ContextSnapshot
+		if err := json.Unmarshal(raw, &snapshot); err != nil {
+			t.Fatalf("unmarshal snapshot: %v", err)
+		}
+		if snapshot.ContextSize != 4096 {
+			t.Errorf("context_size = %d, want 4096", snapshot.ContextSize)
+		}
+		if snapshot.HistoryTokens != 100 {
+			t.Errorf("history_tokens = %d, want 100", snapshot.HistoryTokens)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("context snapshot not received")
 	}
 }

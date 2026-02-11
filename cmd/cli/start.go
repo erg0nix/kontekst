@@ -7,18 +7,16 @@ import (
 func newStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start the kontekst daemon",
+		Short: "Start the kontekst server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			configPath, _ := cmd.Flags().GetString("config")
-			daemonPath, _ := cmd.Flags().GetString("daemon-bin")
 			foreground, _ := cmd.Flags().GetBool("foreground")
-			config, _ := loadConfig(configPath)
-			return startDaemon(config, configPath, daemonPath, foreground)
+			cfg, _ := loadConfig(configPath)
+			return startServer(cfg, configPath, foreground)
 		},
 	}
 
-	cmd.Flags().String("daemon-bin", "", "path to daemon binary")
-	cmd.Flags().Bool("foreground", false, "run daemon in foreground")
+	cmd.Flags().Bool("foreground", false, "run server in foreground")
 
 	return cmd
 }

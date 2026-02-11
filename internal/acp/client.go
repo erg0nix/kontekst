@@ -11,6 +11,12 @@ type UpdateHandler func(SessionNotification)
 type PermissionHandler func(RequestPermissionRequest) RequestPermissionResponse
 type ContextSnapshotHandler func(json.RawMessage)
 
+type ClientCallbacks struct {
+	OnUpdate          UpdateHandler
+	OnPermission      PermissionHandler
+	OnContextSnapshot ContextSnapshotHandler
+}
+
 type Client struct {
 	conn              *Connection
 	OnUpdate          UpdateHandler
@@ -18,13 +24,17 @@ type Client struct {
 	OnContextSnapshot ContextSnapshotHandler
 }
 
-func Dial(ctx context.Context, addr string) (*Client, error) {
+func Dial(ctx context.Context, addr string, callbacks ClientCallbacks) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("acp: dial %s: %w", addr, err)
 	}
 
-	client := &Client{}
+	client := &Client{
+		OnUpdate:          callbacks.OnUpdate,
+		OnPermission:      callbacks.OnPermission,
+		OnContextSnapshot: callbacks.OnContextSnapshot,
+	}
 	client.conn = NewConnection(client.dispatch, conn, conn)
 
 	go func() {
@@ -36,7 +46,9 @@ func Dial(ctx context.Context, addr string) (*Client, error) {
 }
 
 func NewClient(conn *Connection) *Client {
-	return &Client{conn: conn}
+	c := &Client{conn: conn}
+	conn.handler = c.dispatch
+	return c
 }
 
 func (c *Client) dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
@@ -50,7 +62,7 @@ func (c *Client) dispatch(ctx context.Context, method string, params json.RawMes
 		}
 		return nil, nil
 
-	case MethodRequestPerm:
+	case MethodRequestPermission:
 		if c.OnPermission != nil {
 			var req RequestPermissionRequest
 			if err := json.Unmarshal(params, &req); err != nil {
@@ -59,7 +71,7 @@ func (c *Client) dispatch(ctx context.Context, method string, params json.RawMes
 			return c.OnPermission(req), nil
 		}
 		return RequestPermissionResponse{
-			Outcome: PermissionOutcome{Cancelled: &struct{}{}},
+			Outcome: PermissionCancelled(),
 		}, nil
 
 	case MethodKontekstContext:
@@ -124,22 +136,19 @@ func (c *Client) Prompt(ctx context.Context, req PromptRequest) (PromptResponse,
 	return resp, nil
 }
 
-func (c *Client) Cancel(ctx context.Context, sessionId SessionId) error {
-	return c.conn.Notify(ctx, MethodSessionCancel, CancelNotification{SessionId: sessionId})
+func (c *Client) Cancel(ctx context.Context, sessionID SessionID) error {
+	return c.conn.Notify(ctx, MethodSessionCancel, CancelNotification{SessionID: sessionID})
 }
 
 func (c *Client) Status(ctx context.Context) (StatusResponse, error) {
-	result, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
+	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
 	if err != nil {
-		return StatusResponse{}, err
+		return StatusResponse{}, fmt.Errorf("acp: initialize: %w", err)
 	}
-
-	var initResp InitializeResponse
-	json.Unmarshal(result, &initResp)
 
 	statusResult, err := c.conn.Request(ctx, MethodKontekstStatus, nil)
 	if err != nil {
-		return StatusResponse{}, err
+		return StatusResponse{}, fmt.Errorf("acp: status request: %w", err)
 	}
 
 	var resp StatusResponse
@@ -152,11 +161,14 @@ func (c *Client) Status(ctx context.Context) (StatusResponse, error) {
 func (c *Client) Shutdown(ctx context.Context) error {
 	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
 	if err != nil {
-		return err
+		return fmt.Errorf("acp: initialize: %w", err)
 	}
 
 	_, err = c.conn.Request(ctx, MethodKontekstShutdown, nil)
-	return err
+	if err != nil {
+		return fmt.Errorf("acp: shutdown: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) Done() <-chan struct{} {
