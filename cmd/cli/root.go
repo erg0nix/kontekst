@@ -114,6 +114,14 @@ func loadActiveSession(dataDir string) string {
 	return strings.TrimSpace(string(data))
 }
 
+func clearActiveSession(dataDir string) error {
+	path := filepath.Join(dataDir, "active_session")
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clear active session: %w", err)
+	}
+	return nil
+}
+
 func saveActiveSession(dataDir string, sessionID string) error {
 	if sessionID == "" {
 		return nil

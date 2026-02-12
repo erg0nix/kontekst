@@ -8,6 +8,7 @@ import (
 
 	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/sessions"
 	"github.com/erg0nix/kontekst/internal/skills"
 )
 
@@ -48,6 +49,14 @@ func (m *mockSessionService) GetDefaultAgent(_ core.SessionID) (string, error) {
 func (m *mockSessionService) SetDefaultAgent(_ core.SessionID, _ string) error {
 	return nil
 }
+
+func (m *mockSessionService) List() ([]sessions.SessionInfo, error) { return nil, nil }
+
+func (m *mockSessionService) Get(_ core.SessionID) (sessions.SessionInfo, error) {
+	return sessions.SessionInfo{}, nil
+}
+
+func (m *mockSessionService) Delete(_ core.SessionID) error { return nil }
 
 func drainEvents(events <-chan AgentEvent) {
 	for range events {
