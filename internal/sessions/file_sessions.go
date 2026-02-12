@@ -3,8 +3,12 @@ package sessions
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/erg0nix/kontekst/internal/core"
 )
@@ -95,4 +99,126 @@ func (service *FileSessionService) SetDefaultAgent(sessionID core.SessionID, age
 	}
 
 	return os.WriteFile(metaPath, data, 0o644)
+}
+
+func (service *FileSessionService) List() ([]SessionInfo, error) {
+	dir := service.sessionDir()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+
+	var result []SessionInfo
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+			continue
+		}
+
+		id := core.SessionID(strings.TrimSuffix(entry.Name(), ".jsonl"))
+		info, err := service.Get(id)
+		if err != nil {
+			continue
+		}
+		result = append(result, info)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ModifiedAt.After(result[j].ModifiedAt)
+	})
+
+	return result, nil
+}
+
+func (service *FileSessionService) Get(sessionID core.SessionID) (SessionInfo, error) {
+	path := service.sessionPath(sessionID)
+
+	stat, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return SessionInfo{}, fmt.Errorf("session not found: %s", sessionID)
+		}
+		return SessionInfo{}, fmt.Errorf("stat session: %w", err)
+	}
+
+	agent, _ := service.GetDefaultAgent(sessionID)
+
+	return SessionInfo{
+		ID:           sessionID,
+		DefaultAgent: agent,
+		MessageCount: countLines(path),
+		FileSize:     stat.Size(),
+		CreatedAt:    parseSessionTimestamp(sessionID),
+		ModifiedAt:   stat.ModTime(),
+	}, nil
+}
+
+func (service *FileSessionService) Delete(sessionID core.SessionID) error {
+	path := service.sessionPath(sessionID)
+
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("session not found: %s", sessionID)
+		}
+		return fmt.Errorf("stat session: %w", err)
+	}
+
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("delete session: %w", err)
+	}
+
+	metaPath := service.metaPath(sessionID)
+	if err := os.Remove(metaPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("delete session metadata: %w", err)
+	}
+
+	return nil
+}
+
+func countLines(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	count := 0
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := f.Read(buf)
+		for i := range n {
+			if buf[i] == '\n' {
+				count++
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return count
+		}
+	}
+	return count
+}
+
+func parseSessionTimestamp(id core.SessionID) time.Time {
+	s := string(id)
+	if !strings.HasPrefix(s, "sess_") {
+		return time.Time{}
+	}
+
+	s = strings.TrimPrefix(s, "sess_")
+	parts := strings.SplitN(s, "_", 2)
+	if len(parts) == 0 {
+		return time.Time{}
+	}
+
+	t, err := time.Parse("20060102T150405.000000000", parts[0])
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
