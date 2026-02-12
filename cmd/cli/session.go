@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"text/tabwriter"
 	"time"
+
+	"github.com/charmbracelet/huh"
+	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss/v2/table"
 
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/sessions"
@@ -17,46 +20,11 @@ func newSessionCmd() *cobra.Command {
 		Short: "Session management commands",
 	}
 
-	cmd.AddCommand(newSessionSetAgentCmd())
 	cmd.AddCommand(newSessionListCmd())
 	cmd.AddCommand(newSessionShowCmd())
 	cmd.AddCommand(newSessionDeleteCmd())
 
 	return cmd
-}
-
-func newSessionSetAgentCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "set-agent <agent-name>",
-		Short: "Set the default agent for the current session",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runSessionSetAgentCmd,
-	}
-
-	return cmd
-}
-
-func runSessionSetAgentCmd(cmd *cobra.Command, args []string) error {
-	configPath, _ := cmd.Flags().GetString("config")
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		return err
-	}
-
-	sessionID := loadActiveSession(cfg.DataDir)
-	if sessionID == "" {
-		return fmt.Errorf("no active session; run a prompt first to create a session")
-	}
-
-	agentName := args[0]
-	sessionService := &sessions.FileSessionService{BaseDir: cfg.DataDir}
-
-	if err := sessionService.SetDefaultAgent(core.SessionID(sessionID), agentName); err != nil {
-		return fmt.Errorf("failed to set default agent: %w", err)
-	}
-
-	fmt.Printf("Set default agent for session %s to %q\n", sessionID, agentName)
-	return nil
 }
 
 func newSessionListCmd() *cobra.Command {
@@ -82,32 +50,100 @@ func runSessionListCmd(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(list) == 0 {
-		fmt.Println("No sessions found.")
+		lipgloss.Println(styleDim.Render("No sessions found."))
 		return nil
 	}
 
 	activeID := loadActiveSession(cfg.DataDir)
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "   SESSION ID\tAGENT\tMESSAGES\tSIZE\tMODIFIED")
-
-	for _, info := range list {
-		marker := "  "
-		if string(info.ID) == activeID {
-			marker = "* "
-		}
-
-		agent := info.DefaultAgent
-		if agent == "" {
-			agent = "default"
-		}
-
-		fmt.Fprintf(w, "%s%s\t%s\t%d\t%s\t%s\n",
-			marker, string(info.ID), agent, info.MessageCount,
-			formatSize(info.FileSize), formatTime(info.ModifiedAt))
+	if !isInteractive() {
+		printSessionsTable(list, activeID)
+		return nil
 	}
 
-	w.Flush()
+	return pickSession(cfg.DataDir, list, activeID)
+}
+
+func printSessionsTable(list []sessions.SessionInfo, activeID string) {
+	t := table.New().
+		Headers("", "SESSION ID", "AGENT", "MESSAGES", "SIZE", "MODIFIED").
+		BorderTop(false).
+		BorderBottom(false).
+		BorderLeft(false).
+		BorderRight(false).
+		BorderColumn(false).
+		BorderHeader(true).
+		Border(lipgloss.NormalBorder()).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return styleTableHeader
+			}
+			return lipgloss.NewStyle().PaddingRight(2)
+		})
+
+	for _, info := range list {
+		marker := " "
+		id := string(info.ID)
+		if id == activeID {
+			marker = styleActive.Render("*")
+			id = styleActive.Render(id)
+		}
+
+		agentName := info.DefaultAgent
+		if agentName == "" {
+			agentName = "default"
+		}
+
+		t.Row(marker, id, agentName,
+			fmt.Sprintf("%d", info.MessageCount),
+			formatSize(info.FileSize),
+			formatTime(info.ModifiedAt))
+	}
+
+	lipgloss.Println(t.Render())
+}
+
+func pickSession(dataDir string, list []sessions.SessionInfo, activeID string) error {
+	var opts []huh.Option[string]
+	for _, info := range list {
+		id := string(info.ID)
+		label := id
+		if id == activeID {
+			label = "* " + id
+		}
+
+		agentName := info.DefaultAgent
+		if agentName == "" {
+			agentName = "default"
+		}
+		desc := fmt.Sprintf("agent:%s msgs:%d %s", agentName, info.MessageCount, formatTime(info.ModifiedAt))
+
+		opt := huh.NewOption(label, id)
+		opt.Key = label + "  " + styleDim.Render(desc)
+		if id == activeID {
+			opt = opt.Selected(true)
+		}
+		opts = append(opts, opt)
+	}
+
+	var selected string
+	err := huh.NewSelect[string]().
+		Title("Pick a session").
+		Options(opts...).
+		Value(&selected).
+		Run()
+	if err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return nil
+		}
+		return err
+	}
+
+	if err := saveActiveSession(dataDir, selected); err != nil {
+		return err
+	}
+
+	lipgloss.Printf("%s session %s\n", styleSuccess.Render("Activated"), selected)
 	return nil
 }
 
@@ -144,25 +180,25 @@ func runSessionShowCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	activeID := loadActiveSession(cfg.DataDir)
-	status := "inactive"
+	statusText := styleDim.Render("inactive")
 	if sessionID == activeID {
-		status = "active"
+		statusText = styleSuccess.Render("active")
 	}
 
-	agent := info.DefaultAgent
-	if agent == "" {
-		agent = "default"
+	agentName := info.DefaultAgent
+	if agentName == "" {
+		agentName = "default"
 	}
 
-	fmt.Printf("Session:  %s\n", info.ID)
-	fmt.Printf("Status:   %s\n", status)
-	fmt.Printf("Agent:    %s\n", agent)
-	fmt.Printf("Messages: %d\n", info.MessageCount)
-	fmt.Printf("Size:     %s\n", formatSize(info.FileSize))
+	lipgloss.Println(kvLine("Session", string(info.ID)))
+	lipgloss.Println(kvLine("Status", statusText))
+	lipgloss.Println(kvLine("Agent", agentName))
+	lipgloss.Println(kvLine("Messages", fmt.Sprintf("%d", info.MessageCount)))
+	lipgloss.Println(kvLine("Size", formatSize(info.FileSize)))
 	if !info.CreatedAt.IsZero() {
-		fmt.Printf("Created:  %s\n", info.CreatedAt.Format(time.RFC3339))
+		lipgloss.Println(kvLine("Created", info.CreatedAt.Format(time.RFC3339)))
 	}
-	fmt.Printf("Modified: %s\n", info.ModifiedAt.Format(time.RFC3339))
+	lipgloss.Println(kvLine("Modified", info.ModifiedAt.Format(time.RFC3339)))
 
 	return nil
 }
@@ -206,7 +242,7 @@ func runSessionDeleteCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Printf("Deleted session %s\n", sessionID)
+	lipgloss.Printf("%s session %s\n", styleSuccess.Render("Deleted"), sessionID)
 	return nil
 }
 

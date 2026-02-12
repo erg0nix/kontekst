@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 
+	lipgloss "github.com/charmbracelet/lipgloss/v2"
+
 	"github.com/erg0nix/kontekst/internal/acp"
 	"github.com/erg0nix/kontekst/internal/config"
 
@@ -41,7 +43,7 @@ func execute() {
 	rootCmd.AddCommand(newACPCmd())
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		lipgloss.Println(styleError.Render(err.Error()))
 		os.Exit(1)
 	}
 }
@@ -148,28 +150,28 @@ func dialServer(serverAddr string, cb acp.ClientCallbacks) (*acp.Client, error) 
 }
 
 func printServerNotRunning(addr string, err error) {
-	fmt.Println("server is not running at", addr)
-	fmt.Println("start with: kontekst start")
+	lipgloss.Println(styleError.Render("server is not running at " + addr))
+	lipgloss.Println("start with: " + styleToolName.Render("kontekst start"))
 	if err != nil {
-		fmt.Println("error:", err)
+		lipgloss.Println(styleDim.Render(err.Error()))
 	}
 }
 
 func printStatus(addr string, resp acp.StatusResponse) {
-	fmt.Println("kontekst server")
-	fmt.Println("  address:", addr)
-	fmt.Println("  bind:", resp.Bind)
-	fmt.Println("  uptime:", resp.Uptime)
+	lipgloss.Println(styleServerName.Render("kontekst server"))
+	lipgloss.Println(kvLine("address", addr))
+	lipgloss.Println(kvLine("bind", resp.Bind))
+	lipgloss.Println(kvLine("uptime", resp.Uptime))
 	if resp.StartedAt != "" {
-		fmt.Println("  started:", resp.StartedAt)
+		lipgloss.Println(kvLine("started", resp.StartedAt))
 	}
-	fmt.Println("  data_dir:", resp.DataDir)
+	lipgloss.Println(kvLine("data_dir", resp.DataDir))
 }
 
 func startServer(cfg config.Config, configPath string, foreground bool) error {
 	if alreadyRunning(cfg.DataDir) {
 		serverAddr := resolveServer("", cfg)
-		fmt.Println("server already running at", serverAddr)
+		lipgloss.Println(styleDim.Render("server already running at " + serverAddr))
 		return nil
 	}
 
@@ -202,6 +204,8 @@ func startServer(cfg config.Config, configPath string, foreground bool) error {
 		return err
 	}
 
-	fmt.Println("started server pid", serverCmd.Process.Pid)
+	lipgloss.Println(
+		styleSuccess.Render("started server") + " " +
+			stylePID.Render(fmt.Sprintf("pid %d", serverCmd.Process.Pid)))
 	return nil
 }

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 
+	lipgloss "github.com/charmbracelet/lipgloss/v2"
+
 	"github.com/spf13/cobra"
 )
 
@@ -55,7 +57,9 @@ func newLlamaStartCmd() *cobra.Command {
 					return fmt.Errorf("start llama-server: %w", err)
 				}
 
-				fmt.Println("started llama-server pid", llamaCmd.Process.Pid)
+				lipgloss.Println(
+					styleSuccess.Render("started llama-server") + " " +
+						stylePID.Render(fmt.Sprintf("pid %d", llamaCmd.Process.Pid)))
 				return nil
 			}
 
@@ -96,7 +100,7 @@ func newLlamaStopCmd() *cobra.Command {
 				return fmt.Errorf("stop llama-server: %s", strings.TrimSpace(string(out)))
 			}
 
-			fmt.Println("stopped llama-server")
+			lipgloss.Println(styleSuccess.Render("stopped llama-server"))
 			return nil
 		},
 	}

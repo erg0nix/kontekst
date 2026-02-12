@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"time"
+
+	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
 	"github.com/erg0nix/kontekst/internal/acp"
 
@@ -34,7 +35,7 @@ func newStopCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println("shutting down")
+			lipgloss.Println(styleDim.Render("shutting down"))
 			return nil
 		},
 	}
