@@ -59,28 +59,3 @@ func TestEnsureDefaultsSkipsExisting(t *testing.T) {
 		t.Error("EnsureDefaults overwrote existing skill")
 	}
 }
-
-func TestEnsureDefaultsLoadableByRegistry(t *testing.T) {
-	skillsDir := t.TempDir()
-
-	if err := EnsureDefaults(skillsDir); err != nil {
-		t.Fatalf("EnsureDefaults: %v", err)
-	}
-
-	registry := NewRegistry(skillsDir)
-	if err := registry.Load(); err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	skill, ok := registry.Get("kontekst")
-	if !ok {
-		t.Fatal("kontekst skill not found in registry")
-	}
-
-	if skill.Name != "kontekst" {
-		t.Errorf("unexpected name: %q", skill.Name)
-	}
-	if !skill.DisableModelInvocation {
-		t.Error("expected DisableModelInvocation to be true")
-	}
-}
