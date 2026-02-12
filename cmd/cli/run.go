@@ -8,7 +8,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/glamour/ansi"
+	glamourstyles "github.com/charmbracelet/glamour/styles"
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/x/term"
+	"github.com/muesli/termenv"
 
 	"github.com/erg0nix/kontekst/internal/acp"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
@@ -49,16 +54,21 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
+	var agentOutput strings.Builder
+	var lastSnapshot *core.ContextSnapshot
 
 	client, err := dialServer(serverAddr, acp.ClientCallbacks{
 		OnUpdate: func(notif acp.SessionNotification) {
-			handleSessionUpdate(notif)
+			handleSessionUpdate(notif, &agentOutput)
 		},
 		OnPermission: func(req acp.RequestPermissionRequest) acp.RequestPermissionResponse {
 			return handlePermission(req, autoApprove, reader)
 		},
 		OnContextSnapshot: func(raw json.RawMessage) {
-			handleContextSnapshot(raw)
+			var snap core.ContextSnapshot
+			if err := json.Unmarshal(raw, &snap); err == nil {
+				lastSnapshot = &snap
+			}
 		},
 	})
 	if err != nil {
@@ -118,6 +128,35 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if agentOutput.Len() > 0 {
+		width, _, err := term.GetSize(os.Stdout.Fd())
+		if err != nil {
+			width = 80
+		}
+
+		style := compactStyle()
+		renderer, err := glamour.NewTermRenderer(
+			glamour.WithStyles(style),
+			glamour.WithWordWrap(width),
+		)
+		if err == nil {
+			rendered, err := renderer.Render(agentOutput.String())
+			if err == nil {
+				fmt.Print(rendered)
+			}
+		}
+
+		if err != nil {
+			fmt.Print(agentOutput.String())
+		}
+		agentOutput.Reset()
+	}
+
+	if lastSnapshot != nil {
+		fmt.Println()
+		printContextSnapshot(*lastSnapshot)
+	}
+
 	switch promptResp.StopReason {
 	case acp.StopReasonEndTurn:
 		lipgloss.Print("\n" + styleSuccess.Render("run completed") + "\n")
@@ -130,7 +169,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func handleSessionUpdate(notif acp.SessionNotification) {
+func handleSessionUpdate(notif acp.SessionNotification, agentOutput *strings.Builder) {
 	m, ok := notif.Update.(map[string]any)
 	if !ok {
 		return
@@ -141,7 +180,7 @@ func handleSessionUpdate(notif acp.SessionNotification) {
 	case "agent_message_chunk":
 		if content, ok := m["content"].(map[string]any); ok {
 			if text, ok := content["text"].(string); ok {
-				fmt.Print(text)
+				agentOutput.WriteString(text)
 			}
 		}
 	case "agent_thought_chunk":
@@ -238,12 +277,23 @@ func handlePermission(req acp.RequestPermissionRequest, autoApprove bool, reader
 	return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("reject")}
 }
 
-func handleContextSnapshot(raw json.RawMessage) {
-	var snap core.ContextSnapshot
-	if err := json.Unmarshal(raw, &snap); err != nil {
-		return
+func compactStyle() ansi.StyleConfig {
+	var style ansi.StyleConfig
+	if termenv.HasDarkBackground() {
+		style = glamourstyles.DarkStyleConfig
+	} else {
+		style = glamourstyles.LightStyleConfig
 	}
 
+	style.Document.Margin = uintPtr(0)
+	style.Document.BlockPrefix = ""
+	style.Document.BlockSuffix = ""
+	return style
+}
+
+func uintPtr(u uint) *uint { return &u }
+
+func printContextSnapshot(snap core.ContextSnapshot) {
 	pct := 0
 	if snap.ContextSize > 0 {
 		pct = snap.TotalTokens * 100 / snap.ContextSize
@@ -258,15 +308,13 @@ func handleContextSnapshot(raw json.RawMessage) {
 	}
 
 	pctStr := pctStyle.Render(fmt.Sprintf("%d%%", pct))
-	header := styleDim.Render("ctx") + " " +
+	line := styleDim.Render("ctx") + " " +
 		fmt.Sprintf("%d/%d ", snap.TotalTokens, snap.ContextSize) +
-		pctStr
+		pctStr + "  " +
+		styleDim.Render(fmt.Sprintf(
+			"sys:%d tools:%d hist:%d mem:%d free:%d",
+			snap.SystemTokens, snap.ToolTokens, snap.HistoryTokens,
+			snap.MemoryTokens, snap.RemainingTokens))
 
-	details := styleDim.Render(fmt.Sprintf(
-		"sys:%d tools:%d hist:%d mem:%d free:%d",
-		snap.SystemTokens, snap.ToolTokens, snap.HistoryTokens,
-		snap.MemoryTokens, snap.RemainingTokens))
-
-	lipgloss.Println(header)
-	lipgloss.Println("  " + details)
+	lipgloss.Println(line)
 }
