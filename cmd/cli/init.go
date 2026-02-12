@@ -39,37 +39,61 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 		if err := startServer(cfg, configPath, false); err != nil {
 			return fmt.Errorf("auto-start server: %w", err)
 		}
-		time.Sleep(500 * time.Millisecond)
 	}
 
 	var output strings.Builder
 
-	client, err := dialServer(serverAddr, acp.ClientCallbacks{
-		OnUpdate: func(notif acp.SessionNotification) {
-			m, ok := notif.Update.(map[string]any)
-			if !ok {
-				return
-			}
+	allowedTools := map[string]bool{
+		"read_file":  true,
+		"list_files": true,
+	}
 
-			updateType, _ := m["sessionUpdate"].(string)
-			switch updateType {
-			case "agent_message_chunk":
-				if content, ok := m["content"].(map[string]any); ok {
-					if text, ok := content["text"].(string); ok {
-						output.WriteString(text)
-					}
+	dial := func() (*acp.Client, error) {
+		return dialServer(serverAddr, acp.ClientCallbacks{
+			OnUpdate: func(notif acp.SessionNotification) {
+				m, ok := notif.Update.(map[string]any)
+				if !ok {
+					return
 				}
-			case "tool_call":
-				title, _ := m["title"].(string)
-				rawInput := m["rawInput"]
-				inputJSON, _ := json.Marshal(rawInput)
-				fmt.Printf("  tool: %s(%s)\n", title, string(inputJSON))
-			}
-		},
-		OnPermission: func(_ acp.RequestPermissionRequest) acp.RequestPermissionResponse {
-			return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("allow")}
-		},
-	})
+
+				updateType, _ := m["sessionUpdate"].(string)
+				switch updateType {
+				case "agent_message_chunk":
+					if content, ok := m["content"].(map[string]any); ok {
+						if text, ok := content["text"].(string); ok {
+							output.WriteString(text)
+						}
+					}
+				case "tool_call":
+					title, _ := m["title"].(string)
+					rawInput := m["rawInput"]
+					inputJSON, _ := json.Marshal(rawInput)
+					fmt.Printf("  tool: %s(%s)\n", title, string(inputJSON))
+				}
+			},
+			OnPermission: func(req acp.RequestPermissionRequest) acp.RequestPermissionResponse {
+				toolName := ""
+				if req.ToolCall.Title != nil {
+					toolName = *req.ToolCall.Title
+				}
+
+				if allowedTools[toolName] {
+					return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("allow")}
+				}
+				return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("reject")}
+			},
+		})
+	}
+
+	var client *acp.Client
+	var err error
+	for range 10 {
+		client, err = dial()
+		if err == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 	if err != nil {
 		return err
 	}

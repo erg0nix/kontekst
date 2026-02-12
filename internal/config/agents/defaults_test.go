@@ -13,7 +13,7 @@ func TestEnsureDefaultsCreatesAllAgents(t *testing.T) {
 		t.Fatalf("EnsureDefaults: %v", err)
 	}
 
-	for _, name := range []string{"default", "coder", "fantasy"} {
+	for _, name := range []string{"default", "coder", "fantasy", "init"} {
 		agentDir := filepath.Join(baseDir, "agents", name)
 
 		configPath := filepath.Join(agentDir, "config.toml")

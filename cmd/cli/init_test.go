@@ -18,7 +18,11 @@ func TestInitRefusesOverwrite(t *testing.T) {
 	t.Cleanup(func() { os.Chdir(origDir) })
 	os.Chdir(dir)
 
-	err := runInitCmd(nil, nil)
+	cmd := newInitCmd()
+	cmd.Root().PersistentFlags().StringP("config", "c", "", "")
+	cmd.Root().PersistentFlags().String("server", "", "")
+
+	err := runInitCmd(cmd, nil)
 	if err == nil {
 		t.Fatal("expected error when AGENTS.md exists")
 	}
