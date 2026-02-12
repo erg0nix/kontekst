@@ -23,12 +23,15 @@ type setupResult struct {
 }
 
 func setupServices(cfg config.Config) setupResult {
-	if err := agentConfig.EnsureDefault(cfg.DataDir); err != nil {
-		slog.Warn("failed to ensure default agent", "error", err)
+	if err := agentConfig.EnsureDefaults(cfg.DataDir); err != nil {
+		slog.Warn("failed to ensure default agents", "error", err)
 	}
 
 	skillsDir := filepath.Join(cfg.DataDir, "skills")
 	os.MkdirAll(skillsDir, 0o755)
+	if err := skills.EnsureDefaults(skillsDir); err != nil {
+		slog.Warn("failed to ensure default skills", "error", err)
+	}
 	skillsRegistry := skills.NewRegistry(skillsDir)
 	if err := skillsRegistry.Load(); err != nil {
 		slog.Warn("failed to load skills", "error", err)
@@ -36,6 +39,9 @@ func setupServices(cfg config.Config) setupResult {
 
 	commandsDir := filepath.Join(cfg.DataDir, "commands")
 	os.MkdirAll(commandsDir, 0o755)
+	if err := commands.EnsureDefaults(commandsDir); err != nil {
+		slog.Warn("failed to ensure default commands", "error", err)
+	}
 	commandsRegistry := commands.NewRegistry(commandsDir)
 	if err := commandsRegistry.Load(); err != nil {
 		slog.Warn("failed to load commands", "error", err)

@@ -49,7 +49,7 @@ func (m *mockRunner) StartRun(cfg agent.RunConfig) (chan<- agent.AgentCommand, <
 func testRegistry(t *testing.T) *agent.Registry {
 	t.Helper()
 	tmpDir := t.TempDir()
-	agentConfig.EnsureDefault(tmpDir)
+	agentConfig.EnsureDefaults(tmpDir)
 	return agent.NewRegistry(tmpDir)
 }
 

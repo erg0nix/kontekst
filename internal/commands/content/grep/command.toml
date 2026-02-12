@@ -1,0 +1,24 @@
+name = "grep"
+description = "Search file contents for a pattern. Prefers ripgrep (rg) if available, falls back to grep."
+runtime = "bash"
+working_dir = "agent"
+timeout = 30
+
+[[arguments]]
+name = "pattern"
+type = "string"
+description = "Search pattern (regex)"
+required = true
+
+[[arguments]]
+name = "path"
+type = "string"
+description = "Directory or file to search"
+required = false
+default = "."
+
+[[arguments]]
+name = "include"
+type = "string"
+description = "Glob filter for file names (e.g. '*.go', '*.py')"
+required = false
