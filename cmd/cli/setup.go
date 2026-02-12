@@ -9,6 +9,8 @@ import (
 	"github.com/erg0nix/kontekst/internal/commands"
 	"github.com/erg0nix/kontekst/internal/config"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
+	commandsConfig "github.com/erg0nix/kontekst/internal/config/commands"
+	skillsConfig "github.com/erg0nix/kontekst/internal/config/skills"
 	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/sessions"
 	"github.com/erg0nix/kontekst/internal/skills"
@@ -29,7 +31,7 @@ func setupServices(cfg config.Config) setupResult {
 
 	skillsDir := filepath.Join(cfg.DataDir, "skills")
 	os.MkdirAll(skillsDir, 0o755)
-	if err := skills.EnsureDefaults(skillsDir); err != nil {
+	if err := skillsConfig.EnsureDefaults(skillsDir); err != nil {
 		slog.Warn("failed to ensure default skills", "error", err)
 	}
 	skillsRegistry := skills.NewRegistry(skillsDir)
@@ -39,7 +41,7 @@ func setupServices(cfg config.Config) setupResult {
 
 	commandsDir := filepath.Join(cfg.DataDir, "commands")
 	os.MkdirAll(commandsDir, 0o755)
-	if err := commands.EnsureDefaults(commandsDir); err != nil {
+	if err := commandsConfig.EnsureDefaults(commandsDir); err != nil {
 		slog.Warn("failed to ensure default commands", "error", err)
 	}
 	commandsRegistry := commands.NewRegistry(commandsDir)
