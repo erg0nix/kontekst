@@ -28,7 +28,6 @@ func setupServices(cfg config.Config) setupResult {
 	if err := agentConfig.EnsureDefaults(cfg.DataDir); err != nil {
 		slog.Warn("failed to ensure default agents", "error", err)
 	}
-
 	skillsDir := filepath.Join(cfg.DataDir, "skills")
 	os.MkdirAll(skillsDir, 0o755)
 	if err := skillsConfig.EnsureDefaults(skillsDir); err != nil {
