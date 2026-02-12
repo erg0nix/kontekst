@@ -1,30 +1,22 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-
-	"github.com/charmbracelet/huh"
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 	"github.com/charmbracelet/lipgloss/v2/table"
 
 	"github.com/erg0nix/kontekst/internal/agent"
-	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/sessions"
 	"github.com/spf13/cobra"
 )
 
 func newAgentsCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "agents",
 		Short: "List available agents",
 		RunE:  runAgentsCmd,
 	}
-
-	return cmd
 }
 
-func runAgentsCmd(cmd *cobra.Command, args []string) error {
+func runAgentsCmd(cmd *cobra.Command, _ []string) error {
 	configPath, _ := cmd.Flags().GetString("config")
 	cfg, err := loadConfig(configPath)
 	if err != nil {
@@ -43,12 +35,8 @@ func runAgentsCmd(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if !isInteractive() {
-		printAgentsTable(agentList)
-		return nil
-	}
-
-	return pickAgent(cfg.DataDir, agentList)
+	printAgentsTable(agentList)
+	return nil
 }
 
 func printAgentsTable(agentList []agent.AgentSummary) {
@@ -81,58 +69,4 @@ func printAgentsTable(agentList []agent.AgentSummary) {
 	}
 
 	lipgloss.Println(t.Render())
-}
-
-func pickAgent(dataDir string, agentList []agent.AgentSummary) error {
-	currentAgent := ""
-	sessionID := loadActiveSession(dataDir)
-	if sessionID != "" {
-		svc := &sessions.FileSessionService{BaseDir: dataDir}
-		if name, err := svc.GetDefaultAgent(core.SessionID(sessionID)); err == nil {
-			currentAgent = name
-		}
-	}
-
-	var opts []huh.Option[string]
-	for _, a := range agentList {
-		label := a.DisplayName
-		if label != a.Name {
-			label = fmt.Sprintf("%s (%s)", a.DisplayName, a.Name)
-		}
-		if a.Name == currentAgent {
-			label = "* " + label
-		}
-		opt := huh.NewOption(label, a.Name)
-		if a.Name == currentAgent {
-			opt = opt.Selected(true)
-		}
-		opts = append(opts, opt)
-	}
-
-	var selected string
-	err := huh.NewSelect[string]().
-		Title("Pick an agent").
-		Options(opts...).
-		Value(&selected).
-		Run()
-	if err != nil {
-		if errors.Is(err, huh.ErrUserAborted) {
-			return nil
-		}
-		return err
-	}
-
-	if sessionID == "" {
-		lipgloss.Printf("%s %s\n", styleSuccess.Render("Selected"), selected)
-		return nil
-	}
-
-	svc := &sessions.FileSessionService{BaseDir: dataDir}
-	if err := svc.SetDefaultAgent(core.SessionID(sessionID), selected); err != nil {
-		return fmt.Errorf("set default agent: %w", err)
-	}
-
-	lipgloss.Printf("%s default agent for session %s to %q\n",
-		styleSuccess.Render("Set"), sessionID, selected)
-	return nil
 }

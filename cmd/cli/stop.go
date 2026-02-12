@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"os/exec"
+	"strings"
 	"time"
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
@@ -12,33 +14,48 @@ import (
 )
 
 func newStopCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "stop",
-		Short: "Stop the kontekst server",
+		Short: "Stop kontekst server and llama-server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			configPath, _ := cmd.Flags().GetString("config")
 			serverOverride, _ := cmd.Flags().GetString("server")
 			cfg, _ := loadConfig(configPath)
 			serverAddr := resolveServer(serverOverride, cfg)
 
-			client, err := dialServer(serverAddr, acp.ClientCallbacks{})
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			if err := client.Shutdown(ctx); err != nil {
-				printServerNotRunning(serverAddr, err)
-				return err
-			}
-
-			lipgloss.Println(styleDim.Render("shutting down"))
+			stopKontekstServer(serverAddr)
+			stopLlamaServer()
 			return nil
 		},
 	}
+}
 
-	return cmd
+func stopKontekstServer(serverAddr string) {
+	client, err := acp.Dial(context.Background(), serverAddr, acp.ClientCallbacks{})
+	if err != nil {
+		lipgloss.Println(styleDim.Render("kontekst server not running"))
+		return
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := client.Shutdown(ctx); err != nil {
+		lipgloss.Println(styleError.Render("kontekst server: " + err.Error()))
+		return
+	}
+
+	lipgloss.Println(styleSuccess.Render("stopped kontekst server"))
+}
+
+func stopLlamaServer() {
+	out, err := exec.Command("pkill", "-f", "llama-server").CombinedOutput()
+	if err != nil {
+		lipgloss.Println(styleDim.Render("llama-server not running") + " " +
+			styleDim.Render(strings.TrimSpace(string(out))))
+		return
+	}
+
+	lipgloss.Println(styleSuccess.Render("stopped llama-server"))
 }

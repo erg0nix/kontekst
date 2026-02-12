@@ -1,11 +1,7 @@
 package main
 
-import (
-	"os"
+import "os/exec"
 
-	"github.com/charmbracelet/x/term"
-)
-
-func isInteractive() bool {
-	return term.IsTerminal(os.Stdout.Fd())
+func pidofCommand(name string) ([]byte, error) {
+	return exec.Command("pgrep", "-f", name).Output()
 }

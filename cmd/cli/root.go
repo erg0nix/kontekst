@@ -33,14 +33,11 @@ func execute() {
 	rootCmd.PersistentFlags().String("session", "", "session id to reuse")
 	rootCmd.PersistentFlags().String("agent", "", "agent to use for this run")
 
-	rootCmd.AddCommand(newStartCmd())
+	rootCmd.AddCommand(newServeCmd())
 	rootCmd.AddCommand(newAgentsCmd())
-	rootCmd.AddCommand(newSessionCmd())
+	rootCmd.AddCommand(newSessionsCmd())
 	rootCmd.AddCommand(newStopCmd())
 	rootCmd.AddCommand(newPsCmd())
-	rootCmd.AddCommand(newLlamaCmd())
-	rootCmd.AddCommand(newServerCmd())
-	rootCmd.AddCommand(newACPCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		lipgloss.Println(styleError.Render(err.Error()))
@@ -116,14 +113,6 @@ func loadActiveSession(dataDir string) string {
 	return strings.TrimSpace(string(data))
 }
 
-func clearActiveSession(dataDir string) error {
-	path := filepath.Join(dataDir, "active_session")
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("clear active session: %w", err)
-	}
-	return nil
-}
-
 func saveActiveSession(dataDir string, sessionID string) error {
 	if sessionID == "" {
 		return nil
@@ -151,21 +140,10 @@ func dialServer(serverAddr string, cb acp.ClientCallbacks) (*acp.Client, error) 
 
 func printServerNotRunning(addr string, err error) {
 	lipgloss.Println(styleError.Render("server is not running at " + addr))
-	lipgloss.Println("start with: " + styleToolName.Render("kontekst start"))
+	lipgloss.Println("start with: " + styleToolName.Render("kontekst serve"))
 	if err != nil {
 		lipgloss.Println(styleDim.Render(err.Error()))
 	}
-}
-
-func printStatus(addr string, resp acp.StatusResponse) {
-	lipgloss.Println(styleServerName.Render("kontekst server"))
-	lipgloss.Println(kvLine("address", addr))
-	lipgloss.Println(kvLine("bind", resp.Bind))
-	lipgloss.Println(kvLine("uptime", resp.Uptime))
-	if resp.StartedAt != "" {
-		lipgloss.Println(kvLine("started", resp.StartedAt))
-	}
-	lipgloss.Println(kvLine("data_dir", resp.DataDir))
 }
 
 func startServer(cfg config.Config, configPath string, foreground bool) error {
@@ -175,7 +153,7 @@ func startServer(cfg config.Config, configPath string, foreground bool) error {
 		return nil
 	}
 
-	serverCmd := exec.Command(os.Args[0], "server")
+	serverCmd := exec.Command(os.Args[0], "serve", "--foreground")
 	if configPath != "" {
 		serverCmd.Args = append(serverCmd.Args, "--config", configPath)
 	}
