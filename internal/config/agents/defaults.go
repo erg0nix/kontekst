@@ -121,4 +121,3 @@ func ensureAgent(baseDir string, a bundledAgent) error {
 	promptPath := filepath.Join(agentDir, "agent.md")
 	return os.WriteFile(promptPath, []byte(a.prompt), 0o644)
 }
-
