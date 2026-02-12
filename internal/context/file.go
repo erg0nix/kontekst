@@ -1,7 +1,6 @@
 package context
 
 import (
-	"bufio"
 	"encoding/json"
 	"io"
 	"os"
@@ -125,39 +124,6 @@ func (sf *SessionFile) LoadTail(tokenBudget int) ([]core.Message, error) {
 	slices.Reverse(messages)
 
 	return messages, nil
-}
-
-func (sf *SessionFile) LoadAll() ([]core.Message, error) {
-	sf.mu.Lock()
-	defer sf.mu.Unlock()
-
-	file, err := os.Open(sf.path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer file.Close()
-
-	var messages []core.Message
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-
-		var msg core.Message
-		if err := json.Unmarshal(line, &msg); err != nil {
-			continue
-		}
-
-		messages = append(messages, msg)
-	}
-
-	return messages, scanner.Err()
 }
 
 const chunkSize = 8 * 1024

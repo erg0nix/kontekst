@@ -37,10 +37,6 @@ func (m *mockContext) ActiveSkill() *core.SkillMetadata {
 	return nil
 }
 
-func (m *mockContext) RenderUserMessage(prompt string) (string, error) {
-	return prompt, nil
-}
-
 func (m *mockContext) SetAgentSystemPrompt(prompt string) {}
 
 func (m *mockContext) Snapshot() core.ContextSnapshot {

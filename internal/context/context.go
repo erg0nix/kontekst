@@ -23,7 +23,6 @@ type ContextWindow interface {
 	CompleteRun()
 	AddMessage(msg core.Message) error
 	BuildContext() ([]core.Message, error)
-	RenderUserMessage(prompt string) (string, error)
 	SetAgentSystemPrompt(prompt string)
 	SetActiveSkill(skill *core.SkillMetadata)
 	ActiveSkill() *core.SkillMetadata
@@ -143,10 +142,6 @@ func (cw *contextWindow) BuildContext() ([]core.Message, error) {
 	out = append(out, cw.memory...)
 
 	return out, nil
-}
-
-func (cw *contextWindow) RenderUserMessage(prompt string) (string, error) {
-	return prompt, nil
 }
 
 func (cw *contextWindow) SetAgentSystemPrompt(prompt string) {

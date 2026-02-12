@@ -1,6 +1,7 @@
 package context
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -277,14 +278,24 @@ func TestSessionFile_Append_ConcurrentWrites(t *testing.T) {
 
 	wg.Wait()
 
-	msgs, err := sf.LoadAll()
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	count := 0
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		if len(line) > 0 {
+			var msg core.Message
+			if err := json.Unmarshal(line, &msg); err == nil {
+				count++
+			}
+		}
+	}
+
 	expected := numWriters * messagesPerWriter
-	if len(msgs) != expected {
-		t.Errorf("expected %d messages, got %d", expected, len(msgs))
+	if count != expected {
+		t.Errorf("expected %d messages, got %d", expected, count)
 	}
 }
 

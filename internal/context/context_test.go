@@ -114,9 +114,9 @@ func TestContextWindow_AddMessageGoesToMemoryAndFile(t *testing.T) {
 		t.Errorf("expected memory message, got %q", msgs[1].Content)
 	}
 
-	fileMsgs, err := sf.LoadAll()
+	fileMsgs, err := sf.LoadTail(100000)
 	if err != nil {
-		t.Fatalf("LoadAll failed: %v", err)
+		t.Fatalf("LoadTail failed: %v", err)
 	}
 
 	if len(fileMsgs) != 1 || fileMsgs[0].Content != "new message" {
@@ -374,19 +374,6 @@ func TestContextWindow_VeryLargeContextSize(t *testing.T) {
 
 	if len(msgs) != 11 {
 		t.Errorf("expected all 10 history + system, got %d", len(msgs))
-	}
-}
-
-func TestContextWindow_RenderUserMessage(t *testing.T) {
-	cw := newTestContextWindow(t)
-
-	rendered, err := cw.RenderUserMessage("test prompt")
-	if err != nil {
-		t.Fatalf("RenderUserMessage failed: %v", err)
-	}
-
-	if rendered != "test prompt" {
-		t.Errorf("expected 'test prompt', got %q", rendered)
 	}
 }
 

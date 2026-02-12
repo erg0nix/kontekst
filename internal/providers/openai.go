@@ -52,17 +52,6 @@ func NewOpenAIProvider(cfg OpenAIConfig, debugCfg config.DebugConfig) *OpenAIPro
 	return provider
 }
 
-func (p *OpenAIProvider) IsHealthy() bool {
-	endpointURL := p.endpoint + "/v1/models"
-	resp, err := p.client.Get(endpointURL)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
-}
-
 func (p *OpenAIProvider) CountTokens(text string) (int, error) {
 	endpointURL := p.endpoint + "/tokenize"
 	requestBody, _ := json.Marshal(map[string]any{"content": text})
@@ -332,21 +321,9 @@ func parseUsage(response map[string]any) *core.Usage {
 	}
 
 	return &core.Usage{
-		PromptTokens:     intFromAny(usageMap["prompt_tokens"]),
-		CompletionTokens: intFromAny(usageMap["completion_tokens"]),
-		TotalTokens:      intFromAny(usageMap["total_tokens"]),
+		PromptTokens:     core.IntFromAny(usageMap["prompt_tokens"]),
+		CompletionTokens: core.IntFromAny(usageMap["completion_tokens"]),
+		TotalTokens:      core.IntFromAny(usageMap["total_tokens"]),
 	}
 }
 
-func intFromAny(v any) int {
-	switch n := v.(type) {
-	case float64:
-		return int(n)
-	case int:
-		return n
-	case int64:
-		return int(n)
-	default:
-		return 0
-	}
-}

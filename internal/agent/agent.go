@@ -46,16 +46,24 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 	eventChannel <- AgentEvent{Type: EvtRunStarted, RunID: runID}
 
 	systemContent := agent.context.SystemContent()
-	systemTokens, _ := agent.provider.CountTokens(systemContent)
+	systemTokens, err := agent.provider.CountTokens(systemContent)
+	if err != nil {
+		slog.Warn("failed to count system tokens", "error", err)
+	}
 
 	toolJSON, _ := json.Marshal(agent.tools.ToolDefinitions())
-	toolTokens, _ := agent.provider.CountTokens(string(toolJSON))
+	toolTokens, err := agent.provider.CountTokens(string(toolJSON))
+	if err != nil {
+		slog.Warn("failed to count tool tokens", "error", err)
+	}
 
-	var userMessage string
+	userMessage := prompt
 	var userPromptTokens int
-	if prompt != "" {
-		userMessage, _ = agent.context.RenderUserMessage(prompt)
-		userPromptTokens, _ = agent.provider.CountTokens(userMessage)
+	if userMessage != "" {
+		userPromptTokens, err = agent.provider.CountTokens(userMessage)
+		if err != nil {
+			slog.Warn("failed to count user prompt tokens", "error", err)
+		}
 	}
 
 	if err := agent.context.StartRun(ctx.BudgetParams{

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/erg0nix/kontekst/internal/config"
+	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
@@ -58,14 +59,9 @@ func getIntArg(key string, args map[string]any) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-
-	switch v := value.(type) {
-	case int:
-		return v, true
-	case int64:
-		return int(v), true
-	case float64:
-		return int(v), true
+	switch value.(type) {
+	case int, int64, float64:
+		return core.IntFromAny(value), true
 	default:
 		return 0, false
 	}

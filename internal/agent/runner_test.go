@@ -16,9 +16,11 @@ type capturingContext struct {
 	capturedPrompt string
 }
 
-func (c *capturingContext) RenderUserMessage(prompt string) (string, error) {
-	c.capturedPrompt = prompt
-	return prompt, nil
+func (c *capturingContext) AddMessage(msg core.Message) error {
+	if msg.Role == core.RoleUser && c.capturedPrompt == "" {
+		c.capturedPrompt = msg.Content
+	}
+	return c.mockContext.AddMessage(msg)
 }
 
 type mockContextService struct {
