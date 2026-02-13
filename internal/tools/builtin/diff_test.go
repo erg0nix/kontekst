@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -133,5 +134,238 @@ func TestSplitLines(t *testing.T) {
 		if len(got) != tt.want {
 			t.Errorf("splitLines(%q) = %d lines, want %d", tt.input, len(got), tt.want)
 		}
+	}
+}
+
+func TestGenerateStructuredDiff(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		oldContent string
+		newContent string
+		wantBlocks int
+		wantAdded  int
+		wantRemoved int
+	}{
+		{
+			name:       "single line change",
+			path:       "test.txt",
+			oldContent: "line1\nline2\nline3\n",
+			newContent: "line1\nmodified\nline3\n",
+			wantBlocks: 1,
+			wantAdded:  1,
+			wantRemoved: 1,
+		},
+		{
+			name:       "add line",
+			path:       "test.txt",
+			oldContent: "line1\nline2\n",
+			newContent: "line1\nline2\nline3\n",
+			wantBlocks: 1,
+			wantAdded:  1,
+			wantRemoved: 0,
+		},
+		{
+			name:       "remove line",
+			path:       "test.txt",
+			oldContent: "line1\nline2\nline3\n",
+			newContent: "line1\nline3\n",
+			wantBlocks: 1,
+			wantAdded:  0,
+			wantRemoved: 1,
+		},
+		{
+			name:       "no change",
+			path:       "test.txt",
+			oldContent: "same\n",
+			newContent: "same\n",
+			wantBlocks: 0,
+			wantAdded:  0,
+			wantRemoved: 0,
+		},
+		{
+			name:       "empty to content",
+			path:       "test.txt",
+			oldContent: "",
+			newContent: "new content\n",
+			wantBlocks: 1,
+			wantAdded:  1,
+			wantRemoved: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateStructuredDiff(tt.path, tt.oldContent, tt.newContent)
+
+			if got.Path != tt.path {
+				t.Errorf("path = %q, want %q", got.Path, tt.path)
+			}
+
+			if len(got.Blocks) != tt.wantBlocks {
+				t.Errorf("blocks count = %d, want %d", len(got.Blocks), tt.wantBlocks)
+			}
+
+			if got.Summary.LinesAdded != tt.wantAdded {
+				t.Errorf("lines added = %d, want %d", got.Summary.LinesAdded, tt.wantAdded)
+			}
+
+			if got.Summary.LinesRemoved != tt.wantRemoved {
+				t.Errorf("lines removed = %d, want %d", got.Summary.LinesRemoved, tt.wantRemoved)
+			}
+
+			wantNetChange := tt.wantAdded - tt.wantRemoved
+			if got.Summary.NetChange != wantNetChange {
+				t.Errorf("net change = %d, want %d", got.Summary.NetChange, wantNetChange)
+			}
+		})
+	}
+}
+
+func TestGenerateStructuredDiffWithHashes(t *testing.T) {
+	oldContent := "line1\nline2\nline3\n"
+	newContent := "line1\nmodified\nline3\n"
+
+	oldLines := splitLines(oldContent)
+	newLines := splitLines(newContent)
+
+	oldHashes := make(map[int]string)
+	for i, line := range oldLines {
+		oldHashes[i] = computeLineHash(line)
+	}
+
+	newHashes := make(map[int]string)
+	for i, line := range newLines {
+		newHashes[i] = computeLineHash(line)
+	}
+
+	diff := generateStructuredDiffWithHashes("test.txt", oldContent, newContent, oldHashes, newHashes)
+
+	if len(diff.Blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(diff.Blocks))
+	}
+
+	block := diff.Blocks[0]
+	hasHashedLine := false
+	for _, line := range block.Lines {
+		if line.Hash != nil {
+			hasHashedLine = true
+			break
+		}
+	}
+
+	if !hasHashedLine {
+		t.Error("expected at least one line with hash annotation")
+	}
+
+	contextLines := 0
+	insertLines := 0
+	deleteLines := 0
+	for _, line := range block.Lines {
+		switch line.Type {
+		case "context":
+			contextLines++
+			if line.Hash == nil {
+				t.Error("context line missing hash")
+			}
+		case "insert":
+			insertLines++
+		case "delete":
+			deleteLines++
+			if line.Hash == nil {
+				t.Error("delete line missing hash")
+			}
+		}
+	}
+
+	if insertLines != 1 {
+		t.Errorf("expected 1 insert line, got %d", insertLines)
+	}
+
+	if deleteLines != 1 {
+		t.Errorf("expected 1 delete line, got %d", deleteLines)
+	}
+}
+
+func TestStructuredDiffJSON(t *testing.T) {
+	oldContent := "line1\nline2\nline3\n"
+	newContent := "line1\nmodified\nline3\n"
+
+	diff := generateStructuredDiff("test.txt", oldContent, newContent)
+
+	data, err := json.Marshal(diff)
+	if err != nil {
+		t.Fatalf("failed to marshal diff: %v", err)
+	}
+
+	var unmarshaled DiffPreview
+	if err := json.Unmarshal(data, &unmarshaled); err != nil {
+		t.Fatalf("failed to unmarshal diff: %v", err)
+	}
+
+	if unmarshaled.Path != diff.Path {
+		t.Errorf("path mismatch: got %q, want %q", unmarshaled.Path, diff.Path)
+	}
+
+	if len(unmarshaled.Blocks) != len(diff.Blocks) {
+		t.Errorf("blocks count mismatch: got %d, want %d", len(unmarshaled.Blocks), len(diff.Blocks))
+	}
+
+	if unmarshaled.Summary.LinesAdded != diff.Summary.LinesAdded {
+		t.Errorf("lines added mismatch: got %d, want %d", unmarshaled.Summary.LinesAdded, diff.Summary.LinesAdded)
+	}
+}
+
+func TestStructuredDiffSummary(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldContent  string
+		newContent  string
+		wantAdded   int
+		wantRemoved int
+		wantNet     int
+	}{
+		{
+			name:        "balanced change",
+			oldContent:  "a\nb\nc\n",
+			newContent:  "x\ny\nz\n",
+			wantAdded:   3,
+			wantRemoved: 3,
+			wantNet:     0,
+		},
+		{
+			name:        "net addition",
+			oldContent:  "a\n",
+			newContent:  "a\nb\nc\n",
+			wantAdded:   2,
+			wantRemoved: 0,
+			wantNet:     2,
+		},
+		{
+			name:        "net removal",
+			oldContent:  "a\nb\nc\n",
+			newContent:  "a\n",
+			wantAdded:   0,
+			wantRemoved: 2,
+			wantNet:     -2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diff := generateStructuredDiff("test.txt", tt.oldContent, tt.newContent)
+
+			if diff.Summary.LinesAdded != tt.wantAdded {
+				t.Errorf("lines added = %d, want %d", diff.Summary.LinesAdded, tt.wantAdded)
+			}
+
+			if diff.Summary.LinesRemoved != tt.wantRemoved {
+				t.Errorf("lines removed = %d, want %d", diff.Summary.LinesRemoved, tt.wantRemoved)
+			}
+
+			if diff.Summary.NetChange != tt.wantNet {
+				t.Errorf("net change = %d, want %d", diff.Summary.NetChange, tt.wantNet)
+			}
+		})
 	}
 }

@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -74,19 +75,33 @@ func (tool *EditFile) Parameters() map[string]any {
 func (tool *EditFile) RequiresApproval() bool { return true }
 
 func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string, error) {
-	path, err := validatePath(args)
+	preview, err := tool.PreviewStructured(args, ctx)
+	if err != nil {
+		return "", err
+	}
+
+	data, err := json.Marshal(preview)
 	if err != nil {
 		return "", nil
+	}
+
+	return string(data), nil
+}
+
+func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context) (*DiffPreview, error) {
+	path, err := validatePath(args)
+	if err != nil {
+		return nil, err
 	}
 
 	editsRaw, ok := args["edits"]
 	if !ok {
-		return "", nil
+		return nil, errors.New("missing edits parameter")
 	}
 
 	edits, err := parseEdits(editsRaw)
 	if err != nil {
-		return "", nil
+		return nil, err
 	}
 
 	baseDir := resolveBaseDir(ctx, tool.BaseDir)
@@ -94,7 +109,7 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
-		return "", nil
+		return nil, err
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -103,12 +118,22 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 	}
 
 	if err := validateEdits(edits, lines); err != nil {
-		return "", nil
+		return nil, err
+	}
+
+	oldHashes := make(map[int]string)
+	for i, line := range lines {
+		oldHashes[i] = computeLineHash(line)
 	}
 
 	newLines, err := applyEdits(lines, edits)
 	if err != nil {
-		return "", nil
+		return nil, err
+	}
+
+	newHashes := make(map[int]string)
+	for i, line := range newLines {
+		newHashes[i] = computeLineHash(line)
 	}
 
 	oldContent := string(data)
@@ -117,7 +142,16 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 		newContent += "\n"
 	}
 
-	return generateUnifiedDiff(path, oldContent, newContent), nil
+	preview := generateStructuredDiffWithHashes(path, oldContent, newContent, oldHashes, newHashes)
+
+	opCounts := make(map[string]int)
+	for _, edit := range edits {
+		opCounts[edit.Operation]++
+	}
+	preview.Summary.Operations = opCounts
+	preview.Summary.TotalEdits = len(edits)
+
+	return &preview, nil
 }
 
 func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string, error) {

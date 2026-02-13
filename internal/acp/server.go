@@ -354,6 +354,14 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 
 func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call agent.ProposedToolCall, kind ToolKind, options []PermissionOption) (RequestPermissionResponse, error) {
 	status := ToolCallStatusPending
+
+	var previewData any
+	if call.Preview != "" {
+		if err := json.Unmarshal([]byte(call.Preview), &previewData); err != nil {
+			previewData = nil
+		}
+	}
+
 	req := RequestPermissionRequest{
 		SessionID: sid,
 		ToolCall: ToolCallDetail{
@@ -362,6 +370,7 @@ func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call age
 			Kind:       &kind,
 			Status:     &status,
 			RawInput:   parseRawInput(call.ArgumentsJSON),
+			Preview:    previewData,
 		},
 		Options: options,
 	}

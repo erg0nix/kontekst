@@ -260,8 +260,19 @@ working_dir = "agent"
 	if err != nil {
 		t.Fatalf("Execute error: %v", err)
 	}
-	if strings.TrimSpace(result) != agentDir {
-		t.Errorf("working dir = %q, want %q", strings.TrimSpace(result), agentDir)
+
+	gotPath := strings.TrimSpace(result)
+	wantPath := agentDir
+
+	gotResolved, err1 := filepath.EvalSymlinks(gotPath)
+	wantResolved, err2 := filepath.EvalSymlinks(wantPath)
+
+	if err1 == nil && err2 == nil {
+		if gotResolved != wantResolved {
+			t.Errorf("working dir = %q, want %q (resolved: %q vs %q)", gotPath, wantPath, gotResolved, wantResolved)
+		}
+	} else if gotPath != wantPath {
+		t.Errorf("working dir = %q, want %q", gotPath, wantPath)
 	}
 }
 

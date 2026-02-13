@@ -7,6 +7,36 @@ import (
 
 const contextLines = 3
 
+type DiffPreview struct {
+	Path    string      `json:"path"`
+	Summary DiffSummary `json:"summary"`
+	Blocks  []DiffBlock `json:"blocks"`
+}
+
+type DiffSummary struct {
+	TotalEdits   int            `json:"total_edits"`
+	Operations   map[string]int `json:"operations"`
+	LinesAdded   int            `json:"lines_added"`
+	LinesRemoved int            `json:"lines_removed"`
+	NetChange    int            `json:"net_change"`
+}
+
+type DiffBlock struct {
+	Header       string     `json:"header"`
+	OldStartLine int        `json:"old_start_line"`
+	NewStartLine int        `json:"new_start_line"`
+	Lines        []DiffLine `json:"lines"`
+	Operation    *string    `json:"operation,omitempty"`
+}
+
+type DiffLine struct {
+	Type      string  `json:"type"`
+	Content   string  `json:"content"`
+	OldNumber *int    `json:"old_number,omitempty"`
+	NewNumber *int    `json:"new_number,omitempty"`
+	Hash      *string `json:"hash,omitempty"`
+}
+
 func generateUnifiedDiff(path, oldContent, newContent string) string {
 	oldLines := splitLines(oldContent)
 	newLines := splitLines(newContent)
@@ -293,4 +323,204 @@ func splitLines(s string) []string {
 		lines = lines[:len(lines)-1]
 	}
 	return lines
+}
+
+func generateStructuredDiff(path, oldContent, newContent string) DiffPreview {
+	return generateStructuredDiffWithHashes(path, oldContent, newContent, nil, nil)
+}
+
+func generateStructuredDiffWithHashes(path, oldContent, newContent string, oldHashes, newHashes map[int]string) DiffPreview {
+	oldLines := splitLines(oldContent)
+	newLines := splitLines(newContent)
+
+	preview := DiffPreview{
+		Path: path,
+		Summary: DiffSummary{
+			Operations: make(map[string]int),
+		},
+		Blocks: []DiffBlock{},
+	}
+
+	if len(oldLines) == 0 && len(newLines) == 0 {
+		return preview
+	}
+
+	if len(oldLines) == 0 {
+		block := generateNewFileBlock(newLines, newHashes)
+		preview.Blocks = append(preview.Blocks, block)
+		preview.Summary.LinesAdded = len(newLines)
+		preview.Summary.NetChange = len(newLines)
+		preview.Summary.TotalEdits = 1
+		preview.Summary.Operations["insert"] = 1
+		return preview
+	}
+
+	changes := findChanges(oldLines, newLines)
+	if len(changes) == 0 {
+		return preview
+	}
+
+	var hunkStart, hunkEnd int
+	hunkStart = -1
+
+	for _, change := range changes {
+		if hunkStart == -1 {
+			hunkStart = max(0, change.oldStart-contextLines)
+			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
+		} else if change.oldStart-contextLines <= hunkEnd {
+			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
+		} else {
+			block := formatStructuredHunk(oldLines, newLines, changes, hunkStart, hunkEnd, oldHashes, newHashes)
+			if len(block.Lines) > 0 {
+				preview.Blocks = append(preview.Blocks, block)
+			}
+			hunkStart = max(0, change.oldStart-contextLines)
+			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
+		}
+	}
+
+	if hunkStart != -1 {
+		block := formatStructuredHunk(oldLines, newLines, changes, hunkStart, hunkEnd, oldHashes, newHashes)
+		if len(block.Lines) > 0 {
+			preview.Blocks = append(preview.Blocks, block)
+		}
+	}
+
+	for _, block := range preview.Blocks {
+		for _, line := range block.Lines {
+			switch line.Type {
+			case "insert":
+				preview.Summary.LinesAdded++
+			case "delete":
+				preview.Summary.LinesRemoved++
+			}
+		}
+	}
+
+	preview.Summary.NetChange = preview.Summary.LinesAdded - preview.Summary.LinesRemoved
+	preview.Summary.TotalEdits = len(changes)
+
+	return preview
+}
+
+func generateNewFileBlock(lines []string, hashes map[int]string) DiffBlock {
+	block := DiffBlock{
+		Header:       fmt.Sprintf("@@ -0,0 +1,%d @@", len(lines)),
+		OldStartLine: 0,
+		NewStartLine: 1,
+		Lines:        make([]DiffLine, 0, len(lines)),
+	}
+
+	for i, line := range lines {
+		lineNum := i + 1
+		diffLine := DiffLine{
+			Type:      "insert",
+			Content:   line,
+			NewNumber: &lineNum,
+		}
+		if hashes != nil {
+			if hash, ok := hashes[i]; ok {
+				diffLine.Hash = &hash
+			}
+		}
+		block.Lines = append(block.Lines, diffLine)
+	}
+
+	return block
+}
+
+func formatStructuredHunk(oldLines, newLines []string, changes []change, hunkStart, hunkEnd int, oldHashes, newHashes map[int]string) DiffBlock {
+	relevantChanges := filterChangesInRange(changes, hunkStart, hunkEnd)
+	if len(relevantChanges) == 0 {
+		return DiffBlock{}
+	}
+
+	oldCount := hunkEnd - hunkStart
+	addedLines, removedLines := 0, 0
+	for _, c := range relevantChanges {
+		removedLines += c.oldEnd - c.oldStart
+		addedLines += c.newEnd - c.newStart
+	}
+	newCount := oldCount - removedLines + addedLines
+	newStart := computeNewStart(oldLines, newLines, relevantChanges, hunkStart)
+
+	block := DiffBlock{
+		Header:       fmt.Sprintf("@@ -%d,%d +%d,%d @@", hunkStart+1, oldCount, newStart+1, newCount),
+		OldStartLine: hunkStart + 1,
+		NewStartLine: newStart + 1,
+		Lines:        []DiffLine{},
+	}
+
+	oldPos := hunkStart
+	newPos := newStart
+	changeIndex := 0
+
+	for oldPos < hunkEnd || changeIndex < len(relevantChanges) {
+		if changeIndex < len(relevantChanges) {
+			c := relevantChanges[changeIndex]
+
+			if oldPos == c.oldStart || (c.oldStart == c.oldEnd && oldPos >= c.oldStart && changeIndex < len(relevantChanges)) {
+				for i := c.oldStart; i < c.oldEnd; i++ {
+					oldNum := i + 1
+					diffLine := DiffLine{
+						Type:      "delete",
+						Content:   oldLines[i],
+						OldNumber: &oldNum,
+					}
+					if oldHashes != nil {
+						if hash, ok := oldHashes[i]; ok {
+							diffLine.Hash = &hash
+						}
+					}
+					block.Lines = append(block.Lines, diffLine)
+					oldPos++
+				}
+
+				for i := c.newStart; i < c.newEnd; i++ {
+					newNum := newPos + 1
+					diffLine := DiffLine{
+						Type:      "insert",
+						Content:   newLines[i],
+						NewNumber: &newNum,
+					}
+					if newHashes != nil {
+						if hash, ok := newHashes[i]; ok {
+							diffLine.Hash = &hash
+						}
+					}
+					block.Lines = append(block.Lines, diffLine)
+					newPos++
+				}
+
+				changeIndex++
+
+				if c.oldStart == c.oldEnd {
+					continue
+				}
+			}
+		}
+
+		if oldPos < hunkEnd {
+			oldNum := oldPos + 1
+			newNum := newPos + 1
+			diffLine := DiffLine{
+				Type:      "context",
+				Content:   oldLines[oldPos],
+				OldNumber: &oldNum,
+				NewNumber: &newNum,
+			}
+			if oldHashes != nil {
+				if hash, ok := oldHashes[oldPos]; ok {
+					diffLine.Hash = &hash
+				}
+			}
+			block.Lines = append(block.Lines, diffLine)
+			oldPos++
+			newPos++
+		} else {
+			break
+		}
+	}
+
+	return block
 }

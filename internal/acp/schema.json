@@ -2986,6 +2986,9 @@
         "rawOutput": {
           "description": "Raw output returned by the tool."
         },
+        "preview": {
+          "description": "Preview data for the tool call, typically structured diff information."
+        },
         "status": {
           "allOf": [
             {
@@ -3155,6 +3158,9 @@
         },
         "rawOutput": {
           "description": "Update the raw output."
+        },
+        "preview": {
+          "description": "Update the preview data."
         },
         "status": {
           "anyOf": [

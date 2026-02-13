@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -443,11 +444,31 @@ func TestEditFilePreview(t *testing.T) {
 		t.Fatalf("Preview failed: %v", err)
 	}
 
-	if !strings.Contains(preview, "-line2") {
-		t.Errorf("preview should show removed line, got: %s", preview)
+	var diffPreview DiffPreview
+	if err := json.Unmarshal([]byte(preview), &diffPreview); err != nil {
+		t.Fatalf("failed to unmarshal preview: %v", err)
 	}
-	if !strings.Contains(preview, "+modified line2") {
-		t.Errorf("preview should show added line, got: %s", preview)
+
+	if len(diffPreview.Blocks) != 1 {
+		t.Errorf("expected 1 block, got %d", len(diffPreview.Blocks))
+	}
+
+	hasDeleteLine := false
+	hasInsertLine := false
+	for _, line := range diffPreview.Blocks[0].Lines {
+		if line.Type == "delete" && strings.Contains(line.Content, "line2") {
+			hasDeleteLine = true
+		}
+		if line.Type == "insert" && strings.Contains(line.Content, "modified line2") {
+			hasInsertLine = true
+		}
+	}
+
+	if !hasDeleteLine {
+		t.Error("preview should show deleted line2")
+	}
+	if !hasInsertLine {
+		t.Error("preview should show inserted modified line2")
 	}
 }
 
@@ -541,5 +562,193 @@ func TestEditFileCollisionHandling(t *testing.T) {
 	expected := "modified first dup\ndup\nunique\n"
 	if string(newContent) != expected {
 		t.Errorf("content = %q, want %q", string(newContent), expected)
+	}
+}
+
+func TestEditFilePreviewStructured(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	content := "line1\nline2\nline3\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &EditFile{BaseDir: tempDir}
+
+	hash := computeLineHash("line2")
+	args := map[string]any{
+		"path": "test.txt",
+		"edits": []any{
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(2),
+				"hash":      hash,
+				"content":   "modified",
+			},
+		},
+	}
+
+	preview, err := tool.PreviewStructured(args, context.Background())
+	if err != nil {
+		t.Fatalf("PreviewStructured failed: %v", err)
+	}
+
+	if preview == nil {
+		t.Fatal("preview is nil")
+	}
+
+	if preview.Path != "test.txt" {
+		t.Errorf("path = %q, want %q", preview.Path, "test.txt")
+	}
+
+	if len(preview.Blocks) != 1 {
+		t.Errorf("blocks count = %d, want 1", len(preview.Blocks))
+	}
+
+	if preview.Summary.LinesAdded != 1 {
+		t.Errorf("lines added = %d, want 1", preview.Summary.LinesAdded)
+	}
+
+	if preview.Summary.LinesRemoved != 1 {
+		t.Errorf("lines removed = %d, want 1", preview.Summary.LinesRemoved)
+	}
+
+	if preview.Summary.Operations["replace"] != 1 {
+		t.Errorf("replace operations = %d, want 1", preview.Summary.Operations["replace"])
+	}
+}
+
+func TestEditFilePreviewWithHashes(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	content := "line1\nline2\nline3\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &EditFile{BaseDir: tempDir}
+
+	hash := computeLineHash("line2")
+	args := map[string]any{
+		"path": "test.txt",
+		"edits": []any{
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(2),
+				"hash":      hash,
+				"content":   "modified",
+			},
+		},
+	}
+
+	preview, err := tool.PreviewStructured(args, context.Background())
+	if err != nil {
+		t.Fatalf("PreviewStructured failed: %v", err)
+	}
+
+	if len(preview.Blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(preview.Blocks))
+	}
+
+	block := preview.Blocks[0]
+	hasHashedLine := false
+	for _, line := range block.Lines {
+		if line.Hash != nil {
+			hasHashedLine = true
+			break
+		}
+	}
+
+	if !hasHashedLine {
+		t.Error("expected at least one line with hash annotation")
+	}
+}
+
+func TestEditFilePreviewJSON(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	content := "line1\nline2\nline3\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &EditFile{BaseDir: tempDir}
+
+	hash := computeLineHash("line2")
+	args := map[string]any{
+		"path": "test.txt",
+		"edits": []any{
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(2),
+				"hash":      hash,
+				"content":   "modified",
+			},
+		},
+	}
+
+	previewStr, err := tool.Preview(args, context.Background())
+	if err != nil {
+		t.Fatalf("Preview failed: %v", err)
+	}
+
+	var preview DiffPreview
+	if err := json.Unmarshal([]byte(previewStr), &preview); err != nil {
+		t.Fatalf("failed to unmarshal preview JSON: %v", err)
+	}
+
+	if preview.Path != "test.txt" {
+		t.Errorf("path = %q, want %q", preview.Path, "test.txt")
+	}
+
+	if len(preview.Blocks) != 1 {
+		t.Errorf("blocks count = %d, want 1", len(preview.Blocks))
+	}
+}
+
+func TestEditFilePreviewMultipleEdits(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	content := "line1\nline2\nline3\nline4\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &EditFile{BaseDir: tempDir}
+
+	hash2 := computeLineHash("line2")
+	hash3 := computeLineHash("line3")
+	args := map[string]any{
+		"path": "test.txt",
+		"edits": []any{
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(2),
+				"hash":      hash2,
+				"content":   "modified2",
+			},
+			map[string]any{
+				"operation": "delete",
+				"line":      float64(3),
+				"hash":      hash3,
+			},
+		},
+	}
+
+	preview, err := tool.PreviewStructured(args, context.Background())
+	if err != nil {
+		t.Fatalf("PreviewStructured failed: %v", err)
+	}
+
+	if preview.Summary.Operations["replace"] != 1 {
+		t.Errorf("replace operations = %d, want 1", preview.Summary.Operations["replace"])
+	}
+
+	if preview.Summary.Operations["delete"] != 1 {
+		t.Errorf("delete operations = %d, want 1", preview.Summary.Operations["delete"])
+	}
+
+	if preview.Summary.TotalEdits != 2 {
+		t.Errorf("total edits = %d, want 2", preview.Summary.TotalEdits)
 	}
 }
