@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -29,21 +30,7 @@ func newPsCmd() *cobra.Command {
 			cfg, _ := loadConfig(configPath)
 			serverAddr := resolveServer(serverOverride, cfg)
 
-			t := table.New().
-				Headers("NAME", "STATUS", "PID", "ENDPOINT", "UPTIME").
-				BorderTop(false).
-				BorderBottom(false).
-				BorderLeft(false).
-				BorderRight(false).
-				BorderColumn(false).
-				BorderHeader(true).
-				Border(lipgloss.NormalBorder()).
-				StyleFunc(func(row, col int) lipgloss.Style {
-					if row == table.HeaderRow {
-						return styleTableHeader
-					}
-					return lipgloss.NewStyle().PaddingRight(2)
-				})
+			t := newTable("NAME", "STATUS", "PID", "ENDPOINT", "UPTIME")
 
 			addServerRow(t, cfg.DataDir, serverAddr)
 			addLlamaRow(t)
@@ -141,3 +128,6 @@ func findProcessPID(name string) int {
 	return pid
 }
 
+func pidofCommand(name string) ([]byte, error) {
+	return exec.Command("pgrep", "-f", name).Output()
+}

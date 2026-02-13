@@ -2,7 +2,6 @@ package main
 
 import (
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
-	"github.com/charmbracelet/lipgloss/v2/table"
 
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/spf13/cobra"
@@ -40,21 +39,7 @@ func runAgentsCmd(cmd *cobra.Command, _ []string) error {
 }
 
 func printAgentsTable(agentList []agent.AgentSummary) {
-	t := table.New().
-		Headers("NAME", "DISPLAY NAME", "PROMPT", "CONFIG").
-		BorderTop(false).
-		BorderBottom(false).
-		BorderLeft(false).
-		BorderRight(false).
-		BorderColumn(false).
-		BorderHeader(true).
-		Border(lipgloss.NormalBorder()).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == table.HeaderRow {
-				return styleTableHeader
-			}
-			return lipgloss.NewStyle().PaddingRight(2)
-		})
+	t := newTable("NAME", "DISPLAY NAME", "PROMPT", "CONFIG")
 
 	for _, a := range agentList {
 		prompt := styleDim.Render("-")

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss/v2/table"
 )
 
 var (
@@ -17,13 +17,10 @@ var (
 )
 
 var (
-	styleDim = lipgloss.NewStyle().Foreground(colorDim)
+	styleDim     = lipgloss.NewStyle().Foreground(colorDim)
 	styleError   = lipgloss.NewStyle().Foreground(colorError)
 	styleSuccess = lipgloss.NewStyle().Foreground(colorSuccess)
 	styleWarning = lipgloss.NewStyle().Foreground(colorWarning)
-
-	styleLabel = styleDim
-	styleValue = lipgloss.NewStyle()
 
 	styleToolName = lipgloss.NewStyle().Bold(true).Foreground(colorAccent)
 	styleToolArgs = styleDim
@@ -35,9 +32,8 @@ var (
 
 	styleTableHeader = lipgloss.NewStyle().Bold(true).Foreground(colorPrimary)
 
-	styleActive     = lipgloss.NewStyle().Bold(true).Foreground(colorSuccess)
-	stylePID        = lipgloss.NewStyle().Foreground(colorAccent)
-	styleServerName = lipgloss.NewStyle().Bold(true).Foreground(colorPrimary)
+	styleActive = lipgloss.NewStyle().Bold(true).Foreground(colorSuccess)
+	stylePID    = lipgloss.NewStyle().Foreground(colorAccent)
 )
 
 var toolKindColors = map[string]color.Color{
@@ -72,8 +68,22 @@ func toolKindLabel(kind string) string {
 	return "tool"
 }
 
-func kvLine(key, value string) string {
-	return fmt.Sprintf("  %s %s", styleLabel.Render(key+":"), styleValue.Render(value))
+func newTable(headers ...string) *table.Table {
+	return table.New().
+		Headers(headers...).
+		BorderTop(false).
+		BorderBottom(false).
+		BorderLeft(false).
+		BorderRight(false).
+		BorderColumn(false).
+		BorderHeader(true).
+		Border(lipgloss.NormalBorder()).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return styleTableHeader
+			}
+			return lipgloss.NewStyle().PaddingRight(2)
+		})
 }
 
 func styledError(msg string, hints ...string) string {

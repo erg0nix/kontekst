@@ -7,9 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"syscall"
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
@@ -85,23 +83,7 @@ func netSplitHostPort(addr string) (string, string, error) {
 }
 
 func alreadyRunning(dataDir string) bool {
-	pidFile := filepath.Join(dataDir, "server.pid")
-	data, err := os.ReadFile(pidFile)
-	if err != nil {
-		return false
-	}
-
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil {
-		return false
-	}
-
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	return process.Signal(syscall.Signal(0)) == nil
+	return readPID(filepath.Join(dataDir, "server.pid")) != 0
 }
 
 func loadActiveSession(dataDir string) string {

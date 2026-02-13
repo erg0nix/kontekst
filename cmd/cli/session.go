@@ -5,7 +5,6 @@ import (
 	"time"
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
-	"github.com/charmbracelet/lipgloss/v2/table"
 
 	"github.com/erg0nix/kontekst/internal/sessions"
 	"github.com/spf13/cobra"
@@ -44,21 +43,7 @@ func runSessionsCmd(cmd *cobra.Command, _ []string) error {
 }
 
 func printSessionsTable(list []sessions.SessionInfo, activeID string) {
-	t := table.New().
-		Headers("", "SESSION ID", "AGENT", "MESSAGES", "SIZE", "MODIFIED").
-		BorderTop(false).
-		BorderBottom(false).
-		BorderLeft(false).
-		BorderRight(false).
-		BorderColumn(false).
-		BorderHeader(true).
-		Border(lipgloss.NormalBorder()).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == table.HeaderRow {
-				return styleTableHeader
-			}
-			return lipgloss.NewStyle().PaddingRight(2)
-		})
+	t := newTable("", "SESSION ID", "AGENT", "MESSAGES", "SIZE", "MODIFIED")
 
 	for _, info := range list {
 		marker := " "
