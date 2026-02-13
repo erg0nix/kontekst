@@ -1,25 +1,21 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"text/tabwriter"
+	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/spf13/cobra"
 )
 
 func newAgentsCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "agents",
 		Short: "List available agents",
 		RunE:  runAgentsCmd,
 	}
-
-	return cmd
 }
 
-func runAgentsCmd(cmd *cobra.Command, args []string) error {
+func runAgentsCmd(cmd *cobra.Command, _ []string) error {
 	configPath, _ := cmd.Flags().GetString("config")
 	cfg, err := loadConfig(configPath)
 	if err != nil {
@@ -33,26 +29,29 @@ func runAgentsCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(agentList) == 0 {
-		fmt.Println("No agents found.")
-		fmt.Println("Create an agent by adding a directory to ~/.kontekst/agents/")
+		lipgloss.Println(styleDim.Render("No agents found."))
+		lipgloss.Println("Create an agent by adding a directory to " + styleToolName.Render("~/.kontekst/agents/"))
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tDISPLAY NAME\tPROMPT\tCONFIG")
+	printAgentsTable(agentList)
+	return nil
+}
 
-	for _, agent := range agentList {
-		prompt := "-"
-		if agent.HasPrompt {
-			prompt = "✓"
+func printAgentsTable(agentList []agent.AgentSummary) {
+	t := newTable("NAME", "DISPLAY NAME", "PROMPT", "CONFIG")
+
+	for _, a := range agentList {
+		prompt := styleDim.Render("-")
+		if a.HasPrompt {
+			prompt = styleSuccess.Render("✓")
 		}
-		config := "-"
-		if agent.HasConfig {
-			config = "✓"
+		config := styleDim.Render("-")
+		if a.HasConfig {
+			config = styleSuccess.Render("✓")
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", agent.Name, agent.DisplayName, prompt, config)
+		t.Row(a.Name, a.DisplayName, prompt, config)
 	}
 
-	w.Flush()
-	return nil
+	lipgloss.Println(t.Render())
 }

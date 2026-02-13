@@ -8,6 +8,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/glamour/ansi"
+	glamourstyles "github.com/charmbracelet/glamour/styles"
+	lipgloss "github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/x/term"
+	"github.com/muesli/termenv"
+
 	"github.com/erg0nix/kontekst/internal/acp"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
 	"github.com/erg0nix/kontekst/internal/core"
@@ -47,16 +54,21 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
+	renderer := newMarkdownRenderer()
+	var lastSnapshot *core.ContextSnapshot
 
 	client, err := dialServer(serverAddr, acp.ClientCallbacks{
 		OnUpdate: func(notif acp.SessionNotification) {
-			handleSessionUpdate(notif)
+			handleSessionUpdate(notif, renderer)
 		},
 		OnPermission: func(req acp.RequestPermissionRequest) acp.RequestPermissionResponse {
 			return handlePermission(req, autoApprove, reader)
 		},
 		OnContextSnapshot: func(raw json.RawMessage) {
-			handleContextSnapshot(raw)
+			var snap core.ContextSnapshot
+			if err := json.Unmarshal(raw, &snap); err == nil {
+				lastSnapshot = &snap
+			}
 		},
 	})
 	if err != nil {
@@ -112,23 +124,28 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		Prompt:    []acp.ContentBlock{acp.TextBlock(prompt)},
 	})
 	if err != nil {
-		fmt.Println("failed:", err)
+		lipgloss.Println(styledError("prompt failed", err.Error()))
 		return nil
+	}
+
+	if lastSnapshot != nil {
+		fmt.Println()
+		printContextSnapshot(*lastSnapshot)
 	}
 
 	switch promptResp.StopReason {
 	case acp.StopReasonEndTurn:
-		fmt.Println("\nrun completed")
+		lipgloss.Print("\n" + styleSuccess.Render("run completed") + "\n")
 	case acp.StopReasonCancelled:
-		fmt.Println("cancelled")
+		lipgloss.Println(styleWarning.Render("cancelled"))
 	default:
-		fmt.Println("stopped:", promptResp.StopReason)
+		lipgloss.Println(styleWarning.Render("stopped: " + string(promptResp.StopReason)))
 	}
 
 	return nil
 }
 
-func handleSessionUpdate(notif acp.SessionNotification) {
+func handleSessionUpdate(notif acp.SessionNotification, renderer *glamour.TermRenderer) {
 	m, ok := notif.Update.(map[string]any)
 	if !ok {
 		return
@@ -139,45 +156,74 @@ func handleSessionUpdate(notif acp.SessionNotification) {
 	case "agent_message_chunk":
 		if content, ok := m["content"].(map[string]any); ok {
 			if text, ok := content["text"].(string); ok {
+				if renderer != nil {
+					if rendered, err := renderer.Render(text); err == nil {
+						fmt.Print(rendered)
+						return
+					}
+				}
 				fmt.Print(text)
 			}
 		}
 	case "agent_thought_chunk":
 		if content, ok := m["content"].(map[string]any); ok {
 			if text, ok := content["text"].(string); ok {
-				fmt.Printf("[Reasoning: %s]\n\n", text)
+				lipgloss.Print(styleReasoning.Render(text) + "\n\n")
 			}
 		}
 	case "tool_call":
 		title, _ := m["title"].(string)
+		kind, _ := m["kind"].(string)
 		rawInput := m["rawInput"]
 		inputJSON, _ := json.Marshal(rawInput)
-		fmt.Printf("tool: %s(%s)\n", title, string(inputJSON))
+
+		label := toolKindLabel(kind)
+		labelStyled := toolKindStyle(kind).Render(label)
+		nameStyled := styleToolName.Render(title)
+		argsStyled := styleToolArgs.Render("(" + string(inputJSON) + ")")
+		lipgloss.Println(labelStyled + " " + nameStyled + argsStyled)
 	case "tool_call_update":
 		status, _ := m["status"].(string)
-		toolCallID, _ := m["toolCallId"].(string)
+		text := extractToolResultText(m)
 
 		switch status {
 		case "completed":
-			if content, ok := m["content"].([]any); ok && len(content) > 0 {
-				if c, ok := content[0].(map[string]any); ok {
-					if inner, ok := c["content"].(map[string]any); ok {
-						text, _ := inner["text"].(string)
-						fmt.Printf("tool %s completed: %s\n", toolCallID, text)
-					}
-				}
-			}
+			lipgloss.Println("  " + styleSuccess.Render("done") + " " + styleDim.Render(truncate(text, 120)))
 		case "failed":
-			if content, ok := m["content"].([]any); ok && len(content) > 0 {
-				if c, ok := content[0].(map[string]any); ok {
-					if inner, ok := c["content"].(map[string]any); ok {
-						text, _ := inner["text"].(string)
-						fmt.Printf("tool %s failed: %s\n", toolCallID, text)
-					}
-				}
-			}
+			lipgloss.Println("  " + styleError.Render("fail") + " " + styleDim.Render(truncate(text, 120)))
 		}
 	}
+}
+
+func extractToolResultText(m map[string]any) string {
+	content, ok := m["content"].([]any)
+	if !ok || len(content) == 0 {
+		return ""
+	}
+
+	c, ok := content[0].(map[string]any)
+	if !ok {
+		return ""
+	}
+
+	inner, ok := c["content"].(map[string]any)
+	if !ok {
+		return ""
+	}
+
+	text, _ := inner["text"].(string)
+	return text
+}
+
+func truncate(s string, max int) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-3] + "..."
 }
 
 func handlePermission(req acp.RequestPermissionRequest, autoApprove bool, reader *bufio.Reader) acp.RequestPermissionResponse {
@@ -190,9 +236,20 @@ func handlePermission(req acp.RequestPermissionRequest, autoApprove bool, reader
 		title = *req.ToolCall.Title
 	}
 
+	kind := ""
+	if req.ToolCall.Kind != nil {
+		kind = string(*req.ToolCall.Kind)
+	}
+
 	inputJSON, _ := json.Marshal(req.ToolCall.RawInput)
-	fmt.Printf("tool: %s(%s)\n", title, string(inputJSON))
-	fmt.Print("approve? [y/N]: ")
+
+	label := toolKindLabel(kind)
+	labelStyled := toolKindStyle(kind).Render(label)
+	nameStyled := styleToolName.Render(title)
+	argsStyled := styleToolArgs.Render("(" + string(inputJSON) + ")")
+	lipgloss.Println(labelStyled + " " + nameStyled + argsStyled)
+
+	lipgloss.Print(stylePromptAction.Render("approve?") + " " + stylePromptHint.Render("[y/N]") + ": ")
 	line, _ := reader.ReadString('\n')
 
 	if len(line) > 0 && (line[0] == 'y' || line[0] == 'Y') {
@@ -202,18 +259,59 @@ func handlePermission(req acp.RequestPermissionRequest, autoApprove bool, reader
 	return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("reject")}
 }
 
-func handleContextSnapshot(raw json.RawMessage) {
-	var snap core.ContextSnapshot
-	if err := json.Unmarshal(raw, &snap); err != nil {
-		return
+func compactStyle() ansi.StyleConfig {
+	var style ansi.StyleConfig
+	if termenv.HasDarkBackground() {
+		style = glamourstyles.DarkStyleConfig
+	} else {
+		style = glamourstyles.LightStyleConfig
 	}
 
+	zero := uint(0)
+	style.Document.Margin = &zero
+	style.Document.BlockPrefix = ""
+	style.Document.BlockSuffix = ""
+	return style
+}
+
+func newMarkdownRenderer() *glamour.TermRenderer {
+	width, _, err := term.GetSize(os.Stdout.Fd())
+	if err != nil {
+		width = 80
+	}
+
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStyles(compactStyle()),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return nil
+	}
+	return r
+}
+
+func printContextSnapshot(snap core.ContextSnapshot) {
 	pct := 0
 	if snap.ContextSize > 0 {
 		pct = snap.TotalTokens * 100 / snap.ContextSize
 	}
-	fmt.Printf("[context: %d/%d tokens (%d%%) | system:%d tools:%d history:%d memory:%d | budget remaining:%d]\n",
-		snap.TotalTokens, snap.ContextSize, pct,
-		snap.SystemTokens, snap.ToolTokens, snap.HistoryTokens, snap.MemoryTokens,
-		snap.RemainingTokens)
+
+	pctStyle := styleDim
+	switch {
+	case pct > 95:
+		pctStyle = styleError
+	case pct > 80:
+		pctStyle = styleWarning
+	}
+
+	pctStr := pctStyle.Render(fmt.Sprintf("%d%%", pct))
+	line := styleDim.Render("ctx") + " " +
+		fmt.Sprintf("%d/%d ", snap.TotalTokens, snap.ContextSize) +
+		pctStr + "  " +
+		styleDim.Render(fmt.Sprintf(
+			"sys:%d tools:%d hist:%d mem:%d free:%d",
+			snap.SystemTokens, snap.ToolTokens, snap.HistoryTokens,
+			snap.MemoryTokens, snap.RemainingTokens))
+
+	lipgloss.Println(line)
 }

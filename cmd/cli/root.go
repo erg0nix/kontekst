@@ -7,9 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"syscall"
+
+	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
 	"github.com/erg0nix/kontekst/internal/acp"
 	"github.com/erg0nix/kontekst/internal/config"
@@ -31,17 +31,14 @@ func execute() {
 	rootCmd.PersistentFlags().String("session", "", "session id to reuse")
 	rootCmd.PersistentFlags().String("agent", "", "agent to use for this run")
 
-	rootCmd.AddCommand(newStartCmd())
+	rootCmd.AddCommand(newServeCmd())
 	rootCmd.AddCommand(newAgentsCmd())
-	rootCmd.AddCommand(newSessionCmd())
+	rootCmd.AddCommand(newSessionsCmd())
 	rootCmd.AddCommand(newStopCmd())
 	rootCmd.AddCommand(newPsCmd())
-	rootCmd.AddCommand(newLlamaCmd())
-	rootCmd.AddCommand(newServerCmd())
-	rootCmd.AddCommand(newACPCmd())
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		lipgloss.Println(styleError.Render(err.Error()))
 		os.Exit(1)
 	}
 }
@@ -86,23 +83,7 @@ func netSplitHostPort(addr string) (string, string, error) {
 }
 
 func alreadyRunning(dataDir string) bool {
-	pidFile := filepath.Join(dataDir, "server.pid")
-	data, err := os.ReadFile(pidFile)
-	if err != nil {
-		return false
-	}
-
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil {
-		return false
-	}
-
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	return process.Signal(syscall.Signal(0)) == nil
+	return readPID(filepath.Join(dataDir, "server.pid")) != 0
 }
 
 func loadActiveSession(dataDir string) string {
@@ -112,14 +93,6 @@ func loadActiveSession(dataDir string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(data))
-}
-
-func clearActiveSession(dataDir string) error {
-	path := filepath.Join(dataDir, "active_session")
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("clear active session: %w", err)
-	}
-	return nil
 }
 
 func saveActiveSession(dataDir string, sessionID string) error {
@@ -148,32 +121,21 @@ func dialServer(serverAddr string, cb acp.ClientCallbacks) (*acp.Client, error) 
 }
 
 func printServerNotRunning(addr string, err error) {
-	fmt.Println("server is not running at", addr)
-	fmt.Println("start with: kontekst start")
+	lipgloss.Println(styleError.Render("server is not running at " + addr))
+	lipgloss.Println("start with: " + styleToolName.Render("kontekst serve"))
 	if err != nil {
-		fmt.Println("error:", err)
+		lipgloss.Println(styleDim.Render(err.Error()))
 	}
-}
-
-func printStatus(addr string, resp acp.StatusResponse) {
-	fmt.Println("kontekst server")
-	fmt.Println("  address:", addr)
-	fmt.Println("  bind:", resp.Bind)
-	fmt.Println("  uptime:", resp.Uptime)
-	if resp.StartedAt != "" {
-		fmt.Println("  started:", resp.StartedAt)
-	}
-	fmt.Println("  data_dir:", resp.DataDir)
 }
 
 func startServer(cfg config.Config, configPath string, foreground bool) error {
 	if alreadyRunning(cfg.DataDir) {
 		serverAddr := resolveServer("", cfg)
-		fmt.Println("server already running at", serverAddr)
+		lipgloss.Println(styleDim.Render("server already running at " + serverAddr))
 		return nil
 	}
 
-	serverCmd := exec.Command(os.Args[0], "server")
+	serverCmd := exec.Command(os.Args[0], "serve", "--foreground")
 	if configPath != "" {
 		serverCmd.Args = append(serverCmd.Args, "--config", configPath)
 	}
@@ -202,6 +164,8 @@ func startServer(cfg config.Config, configPath string, foreground bool) error {
 		return err
 	}
 
-	fmt.Println("started server pid", serverCmd.Process.Pid)
+	lipgloss.Println(
+		styleSuccess.Render("started server") + " " +
+			stylePID.Render(fmt.Sprintf("pid %d", serverCmd.Process.Pid)))
 	return nil
 }
