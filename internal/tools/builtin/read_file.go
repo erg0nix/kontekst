@@ -98,13 +98,18 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 		}
 	}
 
-	hashMap, _ := hashline.GenerateHashMap(allLines)
+	hashMap, warning := hashline.GenerateHashMap(allLines)
 
-	return formatWithLineNumbers(allLines[startLine-1:end], startLine, hashMap), nil
+	return formatWithLineNumbers(allLines[startLine-1:end], startLine, hashMap, warning), nil
 }
 
-func formatWithLineNumbers(lines []string, startLine int, hashMap map[int]string) string {
+func formatWithLineNumbers(lines []string, startLine int, hashMap map[int]string, warning string) string {
 	var builder strings.Builder
+
+	if warning != "" {
+		builder.WriteString(warning + "\n\n")
+	}
+
 	maxLineNum := startLine + len(lines) - 1
 	width := len(fmt.Sprintf("%d", maxLineNum))
 
