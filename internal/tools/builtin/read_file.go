@@ -66,24 +66,13 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 	defer file.Close()
 
-	var lines []string
+	var allLines []string
 	scanner := bufio.NewScanner(file)
-	lineNumber := 0
 
 	for scanner.Scan() {
-		lineNumber++
+		allLines = append(allLines, scanner.Text())
 
-		if lineNumber < startLine {
-			continue
-		}
-
-		if hasEndLine && lineNumber > endLine {
-			break
-		}
-
-		lines = append(lines, scanner.Text())
-
-		if !hasEndLine && len(lines) >= maxLinesDefault {
+		if !hasEndLine && len(allLines) >= maxLinesDefault+startLine-1 {
 			return "", fmt.Errorf("file has more than %d lines; specify start_line and end_line to read a range", maxLinesDefault)
 		}
 	}
@@ -92,30 +81,36 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 		return "", err
 	}
 
-	if len(lines) == 0 {
-		if hasEndLine {
-			return "", fmt.Errorf("no lines in range %d-%d (file has %d lines)", startLine, endLine, lineNumber)
-		}
-		return "", fmt.Errorf("no lines starting from line %d (file has %d lines)", startLine, lineNumber)
+	totalLines := len(allLines)
+
+	if startLine > totalLines {
+		return "", fmt.Errorf("no lines starting from line %d (file has %d lines)", startLine, totalLines)
 	}
 
-	return formatWithLineNumbers(lines, startLine), nil
+	end := totalLines
+	if hasEndLine {
+		end = endLine
+		if end > totalLines {
+			end = totalLines
+		}
+		if startLine > end {
+			return "", fmt.Errorf("no lines in range %d-%d (file has %d lines)", startLine, endLine, totalLines)
+		}
+	}
+
+	hashMap, _ := hashline.GenerateHashMap(allLines)
+
+	return formatWithLineNumbers(allLines[startLine-1:end], startLine, hashMap), nil
 }
 
-func formatWithLineNumbers(lines []string, startLine int) string {
+func formatWithLineNumbers(lines []string, startLine int, hashMap map[int]string) string {
 	var builder strings.Builder
 	maxLineNum := startLine + len(lines) - 1
 	width := len(fmt.Sprintf("%d", maxLineNum))
 
-	hashMap, warning := hashline.GenerateHashMap(lines)
-
-	if warning != "" {
-		builder.WriteString(warning + "\n\n")
-	}
-
 	for i, line := range lines {
 		lineNum := startLine + i
-		hash := hashMap[i+1]
+		hash := hashMap[lineNum]
 		builder.WriteString(fmt.Sprintf("%*d:%s|%s\n", width, lineNum, hash, line))
 	}
 

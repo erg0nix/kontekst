@@ -127,12 +127,48 @@ func TestReadFileLineNumberWidth(t *testing.T) {
 
 func TestFormatWithLineNumbers(t *testing.T) {
 	lines := []string{"first", "second", "third"}
-	result := formatWithLineNumbers(lines, 1)
+	hashMap := map[int]string{1: "aaa", 2: "bbb", 3: "ccc"}
+	result := formatWithLineNumbers(lines, 1, hashMap)
 
-	if !strings.Contains(result, "1:") || !strings.Contains(result, "|first") {
+	if !strings.Contains(result, "1:aaa|first") {
 		t.Error("should start with line 1 with hash format")
 	}
-	if !strings.Contains(result, "3:") || !strings.Contains(result, "|third") {
+	if !strings.Contains(result, "3:ccc|third") {
 		t.Error("should end with line 3 with hash format")
+	}
+}
+
+func TestReadFileRangeHashConsistency(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "dup.txt")
+	content := "dup\nunique\ndup\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &ReadFile{BaseDir: tempDir}
+
+	full, err := tool.Execute(map[string]any{"path": "dup.txt"}, context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ranged, err := tool.Execute(map[string]any{"path": "dup.txt", "start_line": 3, "end_line": 3}, context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fullLine3 := ""
+	for _, line := range strings.Split(full, "\n") {
+		if strings.HasPrefix(line, "3:") {
+			fullLine3 = line
+			break
+		}
+	}
+
+	rangedLine3 := strings.TrimSpace(ranged)
+
+	if fullLine3 != rangedLine3 {
+		t.Errorf("hash mismatch between full and ranged read:\nfull:   %s\nranged: %s", fullLine3, rangedLine3)
 	}
 }
