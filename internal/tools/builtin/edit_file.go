@@ -12,6 +12,8 @@ import (
 
 	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/tools"
+	tooldiff "github.com/erg0nix/kontekst/internal/tools/diff"
+	"github.com/erg0nix/kontekst/internal/tools/hashline"
 )
 
 type EditFile struct {
@@ -88,7 +90,7 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 	return string(data), nil
 }
 
-func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context) (*DiffPreview, error) {
+func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context) (*tooldiff.DiffPreview, error) {
 	path, err := validatePath(args)
 	if err != nil {
 		return nil, err
@@ -123,7 +125,7 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 
 	oldHashes := make(map[int]string)
 	for i, line := range lines {
-		oldHashes[i] = computeLineHash(line)
+		oldHashes[i] = hashline.ComputeLineHash(line)
 	}
 
 	newLines, err := applyEdits(lines, edits)
@@ -133,7 +135,7 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 
 	newHashes := make(map[int]string)
 	for i, line := range newLines {
-		newHashes[i] = computeLineHash(line)
+		newHashes[i] = hashline.ComputeLineHash(line)
 	}
 
 	oldContent := string(data)
@@ -142,7 +144,7 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 		newContent += "\n"
 	}
 
-	preview := generateStructuredDiffWithHashes(path, oldContent, newContent, oldHashes, newHashes)
+	preview := tooldiff.GenerateStructuredDiffWithHashes(path, oldContent, newContent, oldHashes, newHashes)
 
 	opCounts := make(map[string]int)
 	for _, edit := range edits {
@@ -270,7 +272,7 @@ func validateEdits(edits []Edit, lines []string) error {
 		}
 
 		actualLine := lines[edit.Line-1]
-		actualHash := computeLineHash(actualLine)
+		actualHash := hashline.ComputeLineHash(actualLine)
 
 		if actualHash != edit.Hash {
 			return fmt.Errorf(

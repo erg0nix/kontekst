@@ -9,6 +9,7 @@ import (
 
 	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/tools"
+	"github.com/erg0nix/kontekst/internal/tools/diff"
 )
 
 const maxPreviewLines = 50
@@ -57,12 +58,12 @@ func (tool *WriteFile) Preview(args map[string]any, ctx context.Context) (string
 	existingData, err := os.ReadFile(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return generateNewFileDiff(path, content, maxPreviewLines), nil
+			return diff.GenerateNewFileDiff(path, content, maxPreviewLines), nil
 		}
 		return "", nil
 	}
 
-	return generateUnifiedDiff(path, string(existingData), content), nil
+	return diff.GenerateUnifiedDiff(path, string(existingData), content), nil
 }
 
 func (tool *WriteFile) Execute(args map[string]any, ctx context.Context) (string, error) {

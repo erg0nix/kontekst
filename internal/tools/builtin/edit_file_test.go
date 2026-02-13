@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/erg0nix/kontekst/internal/config"
+	"github.com/erg0nix/kontekst/internal/tools/diff"
+	"github.com/erg0nix/kontekst/internal/tools/hashline"
 )
 
 func TestEditFileReplace(t *testing.T) {
@@ -21,7 +23,7 @@ func TestEditFileReplace(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -64,7 +66,7 @@ func TestEditFileInsertAfter(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -103,7 +105,7 @@ func TestEditFileInsertBefore(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -142,7 +144,7 @@ func TestEditFileDelete(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -180,8 +182,8 @@ func TestEditFileMultipleEdits(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash2 := computeLineHash("line2")
-	hash4 := computeLineHash("line4")
+	hash2 := hashline.ComputeLineHash("line2")
+	hash4 := hashline.ComputeLineHash("line4")
 
 	args := map[string]any{
 		"path": "test.txt",
@@ -298,7 +300,7 @@ func TestEditFileInvalidOperation(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line1")
+	hash := hashline.ComputeLineHash("line1")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -356,7 +358,7 @@ func TestEditFileMissingContent(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line1")
+	hash := hashline.ComputeLineHash("line1")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -393,7 +395,7 @@ func TestEditFileMaxSize(t *testing.T) {
 		},
 	}
 
-	hash := computeLineHash("line1")
+	hash := hashline.ComputeLineHash("line1")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -426,7 +428,7 @@ func TestEditFilePreview(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -444,7 +446,7 @@ func TestEditFilePreview(t *testing.T) {
 		t.Fatalf("Preview failed: %v", err)
 	}
 
-	var diffPreview DiffPreview
+	var diffPreview diff.DiffPreview
 	if err := json.Unmarshal([]byte(preview), &diffPreview); err != nil {
 		t.Fatalf("failed to unmarshal preview: %v", err)
 	}
@@ -482,8 +484,8 @@ func TestEditFileSorting(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash2 := computeLineHash("line2")
-	hash4 := computeLineHash("line4")
+	hash2 := hashline.ComputeLineHash("line2")
+	hash4 := hashline.ComputeLineHash("line4")
 
 	args := map[string]any{
 		"path": "test.txt",
@@ -529,7 +531,7 @@ func TestEditFileCollisionHandling(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hashMap, _ := generateHashMap([]string{"dup", "dup", "unique"})
+	hashMap, _ := hashline.GenerateHashMap([]string{"dup", "dup", "unique"})
 	hash1 := hashMap[1]
 	hash2 := hashMap[2]
 
@@ -575,7 +577,7 @@ func TestEditFilePreviewStructured(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -628,7 +630,7 @@ func TestEditFilePreviewWithHashes(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -674,7 +676,7 @@ func TestEditFilePreviewJSON(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash := computeLineHash("line2")
+	hash := hashline.ComputeLineHash("line2")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{
@@ -692,7 +694,7 @@ func TestEditFilePreviewJSON(t *testing.T) {
 		t.Fatalf("Preview failed: %v", err)
 	}
 
-	var preview DiffPreview
+	var preview diff.DiffPreview
 	if err := json.Unmarshal([]byte(previewStr), &preview); err != nil {
 		t.Fatalf("failed to unmarshal preview JSON: %v", err)
 	}
@@ -716,8 +718,8 @@ func TestEditFilePreviewMultipleEdits(t *testing.T) {
 
 	tool := &EditFile{BaseDir: tempDir}
 
-	hash2 := computeLineHash("line2")
-	hash3 := computeLineHash("line3")
+	hash2 := hashline.ComputeLineHash("line2")
+	hash3 := hashline.ComputeLineHash("line3")
 	args := map[string]any{
 		"path": "test.txt",
 		"edits": []any{

@@ -1,4 +1,4 @@
-package builtin
+package hashline
 
 import (
 	"encoding/base64"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-func computeLineHash(line string) string {
+func ComputeLineHash(line string) string {
 	crc := crc32.ChecksumIEEE([]byte(line))
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, crc)
@@ -22,7 +22,7 @@ func detectCollisions(lines []string) map[string][]int {
 	hashToLines := make(map[string][]int)
 
 	for i, line := range lines {
-		hash := computeLineHash(line)
+		hash := ComputeLineHash(line)
 		hashToLines[hash] = append(hashToLines[hash], i)
 	}
 
@@ -43,7 +43,7 @@ func disambiguateHash(hash string, occurrence int) string {
 	return hash + "." + strconv.Itoa(occurrence)
 }
 
-func generateHashMap(lines []string) (map[int]string, string) {
+func GenerateHashMap(lines []string) (map[int]string, string) {
 	collisions := detectCollisions(lines)
 	hashMap := make(map[int]string)
 
@@ -51,7 +51,7 @@ func generateHashMap(lines []string) (map[int]string, string) {
 
 	for i, line := range lines {
 		lineNum := i + 1
-		baseHash := computeLineHash(line)
+		baseHash := ComputeLineHash(line)
 
 		if _, hasCollision := collisions[baseHash]; hasCollision {
 			occurrence := occurrenceCount[baseHash]

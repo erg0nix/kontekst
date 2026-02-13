@@ -1,9 +1,10 @@
-package builtin
+package diff
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/erg0nix/kontekst/internal/tools/hashline"
 )
 
 func TestGenerateUnifiedDiff(t *testing.T) {
@@ -61,7 +62,7 @@ func TestGenerateUnifiedDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := generateUnifiedDiff(tt.path, tt.oldContent, tt.newContent)
+			got := GenerateUnifiedDiff(tt.path, tt.oldContent, tt.newContent)
 
 			if tt.wantEmpty {
 				if got != "" {
@@ -105,7 +106,7 @@ func TestGenerateNewFileDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := generateNewFileDiff(tt.path, tt.content, tt.maxLines)
+			got := GenerateNewFileDiff(tt.path, tt.content, tt.maxLines)
 
 			for _, want := range tt.wantHas {
 				if !strings.Contains(got, want) {
@@ -113,27 +114,6 @@ func TestGenerateNewFileDiff(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestSplitLines(t *testing.T) {
-	tests := []struct {
-		input string
-		want  int
-	}{
-		{"", 0},
-		{"a", 1},
-		{"a\n", 1},
-		{"a\nb", 2},
-		{"a\nb\n", 2},
-		{"a\nb\nc", 3},
-	}
-
-	for _, tt := range tests {
-		got := splitLines(tt.input)
-		if len(got) != tt.want {
-			t.Errorf("splitLines(%q) = %d lines, want %d", tt.input, len(got), tt.want)
-		}
 	}
 }
 
@@ -196,7 +176,7 @@ func TestGenerateStructuredDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := generateStructuredDiff(tt.path, tt.oldContent, tt.newContent)
+			got := GenerateStructuredDiff(tt.path, tt.oldContent, tt.newContent)
 
 			if got.Path != tt.path {
 				t.Errorf("path = %q, want %q", got.Path, tt.path)
@@ -231,15 +211,15 @@ func TestGenerateStructuredDiffWithHashes(t *testing.T) {
 
 	oldHashes := make(map[int]string)
 	for i, line := range oldLines {
-		oldHashes[i] = computeLineHash(line)
+		oldHashes[i] = hashline.ComputeLineHash(line)
 	}
 
 	newHashes := make(map[int]string)
 	for i, line := range newLines {
-		newHashes[i] = computeLineHash(line)
+		newHashes[i] = hashline.ComputeLineHash(line)
 	}
 
-	diff := generateStructuredDiffWithHashes("test.txt", oldContent, newContent, oldHashes, newHashes)
+	diff := GenerateStructuredDiffWithHashes("test.txt", oldContent, newContent, oldHashes, newHashes)
 
 	if len(diff.Blocks) != 1 {
 		t.Fatalf("expected 1 block, got %d", len(diff.Blocks))
@@ -287,35 +267,6 @@ func TestGenerateStructuredDiffWithHashes(t *testing.T) {
 	}
 }
 
-func TestStructuredDiffJSON(t *testing.T) {
-	oldContent := "line1\nline2\nline3\n"
-	newContent := "line1\nmodified\nline3\n"
-
-	diff := generateStructuredDiff("test.txt", oldContent, newContent)
-
-	data, err := json.Marshal(diff)
-	if err != nil {
-		t.Fatalf("failed to marshal diff: %v", err)
-	}
-
-	var unmarshaled DiffPreview
-	if err := json.Unmarshal(data, &unmarshaled); err != nil {
-		t.Fatalf("failed to unmarshal diff: %v", err)
-	}
-
-	if unmarshaled.Path != diff.Path {
-		t.Errorf("path mismatch: got %q, want %q", unmarshaled.Path, diff.Path)
-	}
-
-	if len(unmarshaled.Blocks) != len(diff.Blocks) {
-		t.Errorf("blocks count mismatch: got %d, want %d", len(unmarshaled.Blocks), len(diff.Blocks))
-	}
-
-	if unmarshaled.Summary.LinesAdded != diff.Summary.LinesAdded {
-		t.Errorf("lines added mismatch: got %d, want %d", unmarshaled.Summary.LinesAdded, diff.Summary.LinesAdded)
-	}
-}
-
 func TestStructuredDiffSummary(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -353,7 +304,7 @@ func TestStructuredDiffSummary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			diff := generateStructuredDiff("test.txt", tt.oldContent, tt.newContent)
+			diff := GenerateStructuredDiff("test.txt", tt.oldContent, tt.newContent)
 
 			if diff.Summary.LinesAdded != tt.wantAdded {
 				t.Errorf("lines added = %d, want %d", diff.Summary.LinesAdded, tt.wantAdded)

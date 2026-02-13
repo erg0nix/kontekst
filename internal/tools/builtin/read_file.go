@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/erg0nix/kontekst/internal/tools"
+	"github.com/erg0nix/kontekst/internal/tools/hashline"
 )
 
 const maxLinesDefault = 10000
@@ -106,7 +107,7 @@ func formatWithLineNumbers(lines []string, startLine int) string {
 	maxLineNum := startLine + len(lines) - 1
 	width := len(fmt.Sprintf("%d", maxLineNum))
 
-	hashMap, warning := generateHashMap(lines)
+	hashMap, warning := hashline.GenerateHashMap(lines)
 
 	if warning != "" {
 		builder.WriteString(warning + "\n\n")

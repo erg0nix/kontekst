@@ -1,4 +1,4 @@
-package builtin
+package diff
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ type DiffLine struct {
 	Hash      *string `json:"hash,omitempty"`
 }
 
-func generateUnifiedDiff(path, oldContent, newContent string) string {
+func GenerateUnifiedDiff(path, oldContent, newContent string) string {
 	oldLines := splitLines(oldContent)
 	newLines := splitLines(newContent)
 
@@ -46,7 +46,7 @@ func generateUnifiedDiff(path, oldContent, newContent string) string {
 	}
 
 	if len(oldLines) == 0 {
-		return generateNewFileDiff(path, newContent, 1000)
+		return GenerateNewFileDiff(path, newContent, 1000)
 	}
 
 	hunks := computeHunks(oldLines, newLines)
@@ -65,7 +65,7 @@ func generateUnifiedDiff(path, oldContent, newContent string) string {
 	return builder.String()
 }
 
-func generateNewFileDiff(path, content string, maxLines int) string {
+func GenerateNewFileDiff(path, content string, maxLines int) string {
 	lines := splitLines(content)
 	totalLines := len(lines)
 
@@ -325,11 +325,11 @@ func splitLines(s string) []string {
 	return lines
 }
 
-func generateStructuredDiff(path, oldContent, newContent string) DiffPreview {
-	return generateStructuredDiffWithHashes(path, oldContent, newContent, nil, nil)
+func GenerateStructuredDiff(path, oldContent, newContent string) DiffPreview {
+	return GenerateStructuredDiffWithHashes(path, oldContent, newContent, nil, nil)
 }
 
-func generateStructuredDiffWithHashes(path, oldContent, newContent string, oldHashes, newHashes map[int]string) DiffPreview {
+func GenerateStructuredDiffWithHashes(path, oldContent, newContent string, oldHashes, newHashes map[int]string) DiffPreview {
 	oldLines := splitLines(oldContent)
 	newLines := splitLines(newContent)
 
