@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/erg0nix/kontekst/internal/config"
@@ -17,10 +18,19 @@ type EditFile struct {
 	FileConfig config.FileToolsConfig
 }
 
-func (tool *EditFile) Name() string { return "edit_file" }
-func (tool *EditFile) Description() string {
-	return "Edits a file by replacing occurrences of old_str with new_str. File must exist and old_str must be found."
+type Edit struct {
+	Operation string `json:"operation"`
+	Line      int    `json:"line"`
+	Hash      string `json:"hash"`
+	Content   string `json:"content,omitempty"`
 }
+
+func (tool *EditFile) Name() string { return "edit_file" }
+
+func (tool *EditFile) Description() string {
+	return "Edits a file using hashline references. Operations: 'replace' (replace line content), 'insert_after' (insert new line after specified line), 'insert_before' (insert new line before specified line), 'delete' (delete line). All operations validate the hash before applying changes. Use hashes from read_file output."
+}
+
 func (tool *EditFile) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",
@@ -29,22 +39,38 @@ func (tool *EditFile) Parameters() map[string]any {
 				"type":        "string",
 				"description": "Relative path to the file to edit",
 			},
-			"old_str": map[string]any{
-				"type":        "string",
-				"description": "The text to find and replace",
-			},
-			"new_str": map[string]any{
-				"type":        "string",
-				"description": "The replacement text",
-			},
-			"occurrence": map[string]any{
-				"type":        "integer",
-				"description": "Which occurrence to replace: 0 for all, 1 for first, 2 for second, etc. (default: 0)",
+			"edits": map[string]any{
+				"type":        "array",
+				"description": "Array of edit operations to apply atomically",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"operation": map[string]any{
+							"type":        "string",
+							"description": "Edit operation: 'replace', 'insert_after', 'insert_before', or 'delete'",
+							"enum":        []string{"replace", "insert_after", "insert_before", "delete"},
+						},
+						"line": map[string]any{
+							"type":        "integer",
+							"description": "Line number (1-indexed) to edit or use as anchor",
+						},
+						"hash": map[string]any{
+							"type":        "string",
+							"description": "Hash of the line for validation (from read_file output)",
+						},
+						"content": map[string]any{
+							"type":        "string",
+							"description": "New content (required for replace/insert operations, omitted for delete)",
+						},
+					},
+					"required": []string{"operation", "line", "hash"},
+				},
 			},
 		},
-		"required": []string{"path", "old_str", "new_str"},
+		"required": []string{"path", "edits"},
 	}
 }
+
 func (tool *EditFile) RequiresApproval() bool { return true }
 
 func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string, error) {
@@ -53,17 +79,15 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 		return "", nil
 	}
 
-	oldStr, ok := getStringArg("old_str", args)
+	editsRaw, ok := args["edits"]
 	if !ok {
 		return "", nil
 	}
 
-	newStr, ok := getStringArg("new_str", args)
-	if !ok {
+	edits, err := parseEdits(editsRaw)
+	if err != nil {
 		return "", nil
 	}
-
-	occurrence, _ := getIntArg("occurrence", args)
 
 	baseDir := resolveBaseDir(ctx, tool.BaseDir)
 	fullPath := filepath.Join(baseDir, path)
@@ -73,23 +97,27 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 		return "", nil
 	}
 
-	content := string(data)
-	if !strings.Contains(content, oldStr) {
+	lines := strings.Split(string(data), "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	if err := validateEdits(edits, lines); err != nil {
 		return "", nil
 	}
 
-	var newContent string
-	if occurrence == 0 {
-		newContent = strings.ReplaceAll(content, oldStr, newStr)
-	} else {
-		replaced, ok := replaceNth(content, oldStr, newStr, occurrence)
-		if !ok {
-			return "", nil
-		}
-		newContent = replaced
+	newLines, err := applyEdits(lines, edits)
+	if err != nil {
+		return "", nil
 	}
 
-	return generateUnifiedDiff(path, content, newContent), nil
+	oldContent := string(data)
+	newContent := strings.Join(newLines, "\n")
+	if len(newLines) > 0 {
+		newContent += "\n"
+	}
+
+	return generateUnifiedDiff(path, oldContent, newContent), nil
 }
 
 func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string, error) {
@@ -98,17 +126,19 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 		return "", err
 	}
 
-	oldStr, ok := getStringArg("old_str", args)
+	editsRaw, ok := args["edits"]
 	if !ok {
-		return "", errors.New("missing old_str")
+		return "", errors.New("missing edits parameter")
 	}
 
-	newStr, ok := getStringArg("new_str", args)
-	if !ok {
-		return "", errors.New("missing new_str")
+	edits, err := parseEdits(editsRaw)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse edits: %w", err)
 	}
 
-	occurrence, _ := getIntArg("occurrence", args)
+	if len(edits) == 0 {
+		return "", errors.New("edits array is empty")
+	}
 
 	baseDir := resolveBaseDir(ctx, tool.BaseDir)
 	fullPath := filepath.Join(baseDir, path)
@@ -121,25 +151,23 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 		return "", err
 	}
 
-	content := string(data)
-
-	if !strings.Contains(content, oldStr) {
-		return "", errors.New("old_str not found in file")
+	lines := strings.Split(string(data), "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
 	}
 
-	var newContent string
-	var replacementCount int
+	if err := validateEdits(edits, lines); err != nil {
+		return "", err
+	}
 
-	if occurrence == 0 {
-		newContent = strings.ReplaceAll(content, oldStr, newStr)
-		replacementCount = strings.Count(content, oldStr)
-	} else {
-		replaced, ok := replaceNth(content, oldStr, newStr, occurrence)
-		if !ok {
-			return "", fmt.Errorf("occurrence %d of old_str not found (only %d occurrences exist)", occurrence, strings.Count(content, oldStr))
-		}
-		newContent = replaced
-		replacementCount = 1
+	newLines, err := applyEdits(lines, edits)
+	if err != nil {
+		return "", err
+	}
+
+	newContent := strings.Join(newLines, "\n")
+	if len(newLines) > 0 {
+		newContent += "\n"
 	}
 
 	if tool.FileConfig.MaxSizeBytes > 0 && int64(len(newContent)) > tool.FileConfig.MaxSizeBytes {
@@ -150,30 +178,125 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 		return "", err
 	}
 
-	if occurrence == 0 {
-		return fmt.Sprintf("Replaced %d occurrence(s) in %s", replacementCount, path), nil
-	}
-	return fmt.Sprintf("Replaced occurrence %d in %s", occurrence, path), nil
+	return fmt.Sprintf("Applied %d edit(s) to %s", len(edits), path), nil
 }
 
-func replaceNth(s, old, new string, n int) (string, bool) {
-	if n <= 0 {
-		return s, false
+func parseEdits(editsRaw any) ([]Edit, error) {
+	editsSlice, ok := editsRaw.([]any)
+	if !ok {
+		return nil, errors.New("edits must be an array")
 	}
 
-	index := 0
-	for i := 1; i <= n; i++ {
-		pos := strings.Index(s[index:], old)
-		if pos == -1 {
-			return s, false
+	var edits []Edit
+	for i, editRaw := range editsSlice {
+		editMap, ok := editRaw.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("edit %d is not an object", i)
 		}
-		if i == n {
-			return s[:index+pos] + new + s[index+pos+len(old):], true
+
+		operation, ok := editMap["operation"].(string)
+		if !ok {
+			return nil, fmt.Errorf("edit %d missing operation", i)
 		}
-		index += pos + len(old)
+
+		lineFloat, ok := editMap["line"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("edit %d missing line number", i)
+		}
+		line := int(lineFloat)
+
+		hash, ok := editMap["hash"].(string)
+		if !ok {
+			return nil, fmt.Errorf("edit %d missing hash", i)
+		}
+
+		content := ""
+		if operation != "delete" {
+			content, ok = editMap["content"].(string)
+			if !ok {
+				return nil, fmt.Errorf("edit %d missing content for operation %s", i, operation)
+			}
+		}
+
+		edits = append(edits, Edit{
+			Operation: operation,
+			Line:      line,
+			Hash:      hash,
+			Content:   content,
+		})
 	}
 
-	return s, false
+	return edits, nil
+}
+
+func validateEdits(edits []Edit, lines []string) error {
+	for i, edit := range edits {
+		if edit.Line < 1 || edit.Line > len(lines) {
+			return fmt.Errorf("edit %d: line %d out of range (file has %d lines)", i, edit.Line, len(lines))
+		}
+
+		actualLine := lines[edit.Line-1]
+		actualHash := computeLineHash(actualLine)
+
+		if actualHash != edit.Hash {
+			return fmt.Errorf(
+				"edit %d: hash mismatch on line %d: expected %s, found %s\n"+
+					"Actual content: %q\n"+
+					"File may have been modified since read",
+				i, edit.Line, edit.Hash, actualHash, actualLine)
+		}
+
+		validOps := map[string]bool{"replace": true, "insert_after": true, "insert_before": true, "delete": true}
+		if !validOps[edit.Operation] {
+			return fmt.Errorf("edit %d: invalid operation %q", i, edit.Operation)
+		}
+
+		if edit.Operation != "delete" && edit.Content == "" {
+			return fmt.Errorf("edit %d: content required for operation %s", i, edit.Operation)
+		}
+	}
+
+	return nil
+}
+
+func applyEdits(lines []string, edits []Edit) ([]string, error) {
+	sortedEdits := make([]Edit, len(edits))
+	copy(sortedEdits, edits)
+	sort.Slice(sortedEdits, func(i, j int) bool {
+		return sortedEdits[i].Line > sortedEdits[j].Line
+	})
+
+	result := make([]string, len(lines))
+	copy(result, lines)
+
+	for _, edit := range sortedEdits {
+		switch edit.Operation {
+		case "replace":
+			result[edit.Line-1] = edit.Content
+
+		case "delete":
+			result = append(result[:edit.Line-1], result[edit.Line:]...)
+
+		case "insert_after":
+			newResult := make([]string, 0, len(result)+1)
+			newResult = append(newResult, result[:edit.Line]...)
+			newResult = append(newResult, edit.Content)
+			newResult = append(newResult, result[edit.Line:]...)
+			result = newResult
+
+		case "insert_before":
+			newResult := make([]string, 0, len(result)+1)
+			newResult = append(newResult, result[:edit.Line-1]...)
+			newResult = append(newResult, edit.Content)
+			newResult = append(newResult, result[edit.Line-1:]...)
+			result = newResult
+
+		default:
+			return nil, fmt.Errorf("unknown operation: %s", edit.Operation)
+		}
+	}
+
+	return result, nil
 }
 
 func RegisterEditFile(registry *tools.Registry, baseDir string, fileConfig config.FileToolsConfig) {

@@ -19,7 +19,7 @@ type ReadFile struct {
 
 func (tool *ReadFile) Name() string { return "read_file" }
 func (tool *ReadFile) Description() string {
-	return "Reads a file and returns its content with line numbers. Supports optional line range (1-indexed, inclusive)."
+	return "Reads a file and returns its content with line numbers and hashes. Format: 'linenum:hash|content'. Supports optional line range (1-indexed, inclusive). Use the hash values when editing files with edit_file."
 }
 func (tool *ReadFile) Parameters() map[string]any {
 	return map[string]any{
@@ -106,9 +106,16 @@ func formatWithLineNumbers(lines []string, startLine int) string {
 	maxLineNum := startLine + len(lines) - 1
 	width := len(fmt.Sprintf("%d", maxLineNum))
 
+	hashMap, warning := generateHashMap(lines)
+
+	if warning != "" {
+		builder.WriteString(warning + "\n\n")
+	}
+
 	for i, line := range lines {
 		lineNum := startLine + i
-		builder.WriteString(fmt.Sprintf("%*d: %s\n", width, lineNum, line))
+		hash := hashMap[i+1]
+		builder.WriteString(fmt.Sprintf("%*d:%s|%s\n", width, lineNum, hash, line))
 	}
 
 	return strings.TrimSuffix(builder.String(), "\n")
