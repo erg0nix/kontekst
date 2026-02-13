@@ -22,10 +22,10 @@ type EditFile struct {
 }
 
 type Edit struct {
-	Operation string `json:"operation"`
-	Line      int    `json:"line"`
-	Hash      string `json:"hash"`
-	Content   string `json:"content,omitempty"`
+	Operation string
+	Line      int
+	Hash      string
+	Content   string
 }
 
 func (tool *EditFile) Name() string { return "edit_file" }
@@ -123,9 +123,10 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 		return nil, err
 	}
 
-	oldHashes := make(map[int]string)
-	for i, line := range lines {
-		oldHashes[i] = hashline.ComputeLineHash(line)
+	oldHashMap, _ := hashline.GenerateHashMap(lines)
+	oldHashes := make(map[int]string, len(oldHashMap))
+	for lineNum, hash := range oldHashMap {
+		oldHashes[lineNum-1] = hash
 	}
 
 	newLines, err := applyEdits(lines, edits)
@@ -133,9 +134,10 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 		return nil, err
 	}
 
-	newHashes := make(map[int]string)
-	for i, line := range newLines {
-		newHashes[i] = hashline.ComputeLineHash(line)
+	newHashMap, _ := hashline.GenerateHashMap(newLines)
+	newHashes := make(map[int]string, len(newHashMap))
+	for lineNum, hash := range newHashMap {
+		newHashes[lineNum-1] = hash
 	}
 
 	oldContent := string(data)
@@ -266,25 +268,18 @@ func parseEdits(editsRaw any) ([]Edit, error) {
 }
 
 func validateEdits(edits []Edit, lines []string) error {
+	hashMap, _ := hashline.GenerateHashMap(lines)
+
 	for i, edit := range edits {
 		if edit.Line < 1 || edit.Line > len(lines) {
 			return fmt.Errorf("edit %d: line %d out of range (file has %d lines)", i, edit.Line, len(lines))
 		}
 
-		actualLine := lines[edit.Line-1]
-		actualHash := hashline.ComputeLineHash(actualLine)
-
+		actualHash := hashMap[edit.Line]
 		if actualHash != edit.Hash {
 			return fmt.Errorf(
-				"edit %d: hash mismatch on line %d: expected %s, found %s\n"+
-					"Actual content: %q\n"+
-					"File may have been modified since read",
-				i, edit.Line, edit.Hash, actualHash, actualLine)
-		}
-
-		validOps := map[string]bool{"replace": true, "insert_after": true, "insert_before": true, "delete": true}
-		if !validOps[edit.Operation] {
-			return fmt.Errorf("edit %d: invalid operation %q", i, edit.Operation)
+				"edit %d: hash mismatch on line %d: expected %s, found %s (content: %q)",
+				i, edit.Line, edit.Hash, actualHash, lines[edit.Line-1])
 		}
 
 		if edit.Operation != "delete" && edit.Content == "" {

@@ -318,8 +318,8 @@ func TestEditFileInvalidOperation(t *testing.T) {
 		t.Fatal("expected error for invalid operation")
 	}
 
-	if !strings.Contains(err.Error(), "invalid operation") {
-		t.Errorf("error should mention invalid operation, got: %v", err)
+	if !strings.Contains(err.Error(), "unknown operation") {
+		t.Errorf("error should mention unknown operation, got: %v", err)
 	}
 }
 
@@ -523,15 +523,10 @@ func TestEditFileSorting(t *testing.T) {
 
 func TestEditFileCollisionHandling(t *testing.T) {
 	tempDir := t.TempDir()
-	testFile := filepath.Join(tempDir, "test.txt")
-	content := "dup\ndup\nunique\n"
-	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
 	tool := &EditFile{BaseDir: tempDir}
+	lines := []string{"dup", "dup", "unique"}
 
-	hashMap, _ := hashline.GenerateHashMap([]string{"dup", "dup", "unique"})
+	hashMap, _ := hashline.GenerateHashMap(lines)
 	hash1 := hashMap[1]
 	hash2 := hashMap[2]
 
@@ -539,32 +534,63 @@ func TestEditFileCollisionHandling(t *testing.T) {
 		t.Fatal("collision detection should produce different hashes")
 	}
 
-	args := map[string]any{
-		"path": "test.txt",
-		"edits": []any{
-			map[string]any{
-				"operation": "replace",
-				"line":      float64(1),
-				"hash":      hash1,
-				"content":   "modified first dup",
+	t.Run("edit first duplicate", func(t *testing.T) {
+		testFile := filepath.Join(tempDir, "first.txt")
+		if err := os.WriteFile(testFile, []byte("dup\ndup\nunique\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		args := map[string]any{
+			"path": "first.txt",
+			"edits": []any{
+				map[string]any{
+					"operation": "replace",
+					"line":      float64(1),
+					"hash":      hash1,
+					"content":   "modified first dup",
+				},
 			},
-		},
-	}
+		}
 
-	_, err := tool.Execute(args, context.Background())
-	if err != nil {
-		t.Fatalf("Execute failed: %v", err)
-	}
+		_, err := tool.Execute(args, context.Background())
+		if err != nil {
+			t.Fatalf("Execute failed: %v", err)
+		}
 
-	newContent, err := os.ReadFile(testFile)
-	if err != nil {
-		t.Fatal(err)
-	}
+		got, _ := os.ReadFile(testFile)
+		if string(got) != "modified first dup\ndup\nunique\n" {
+			t.Errorf("content = %q, want %q", got, "modified first dup\ndup\nunique\n")
+		}
+	})
 
-	expected := "modified first dup\ndup\nunique\n"
-	if string(newContent) != expected {
-		t.Errorf("content = %q, want %q", string(newContent), expected)
-	}
+	t.Run("edit second duplicate", func(t *testing.T) {
+		testFile := filepath.Join(tempDir, "second.txt")
+		if err := os.WriteFile(testFile, []byte("dup\ndup\nunique\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		args := map[string]any{
+			"path": "second.txt",
+			"edits": []any{
+				map[string]any{
+					"operation": "replace",
+					"line":      float64(2),
+					"hash":      hash2,
+					"content":   "modified second dup",
+				},
+			},
+		}
+
+		_, err := tool.Execute(args, context.Background())
+		if err != nil {
+			t.Fatalf("Execute failed: %v", err)
+		}
+
+		got, _ := os.ReadFile(testFile)
+		if string(got) != "dup\nmodified second dup\nunique\n" {
+			t.Errorf("content = %q, want %q", got, "dup\nmodified second dup\nunique\n")
+		}
+	})
 }
 
 func TestEditFilePreviewStructured(t *testing.T) {
