@@ -36,6 +36,7 @@ func execute() {
 	rootCmd.AddCommand(newSessionsCmd())
 	rootCmd.AddCommand(newStopCmd())
 	rootCmd.AddCommand(newPsCmd())
+	rootCmd.AddCommand(newInitCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		lipgloss.Println(styleError.Render(err.Error()))

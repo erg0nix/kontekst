@@ -6,6 +6,7 @@ import (
 )
 
 const DefaultAgentName = "default"
+const InitAgentName = "init"
 
 type bundledAgent struct {
 	name   string
@@ -67,6 +68,25 @@ model = "gpt-oss-20b-Q4_K_M.gguf"
 temperature = 0.9
 top_p = 0.9
 top_k = 60
+repeat_penalty = 1.1
+max_tokens = 4096
+`,
+	},
+	{
+		name:   InitAgentName,
+		prompt: InitSystemPrompt,
+		config: `name = "Project Initializer"
+context_size = 16384
+tool_role = false
+
+[provider]
+endpoint = "http://127.0.0.1:8080"
+model = "gpt-oss-20b-Q4_K_M.gguf"
+
+[sampling]
+temperature = 0.3
+top_p = 0.9
+top_k = 40
 repeat_penalty = 1.1
 max_tokens = 4096
 `,

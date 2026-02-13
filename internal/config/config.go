@@ -8,6 +8,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+const FallbackContextSize = 4096
+
 type FileToolsConfig struct {
 	MaxSizeBytes int64 `toml:"max_size_bytes"`
 }

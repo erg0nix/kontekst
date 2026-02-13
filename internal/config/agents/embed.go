@@ -12,3 +12,6 @@ var CoderSystemPrompt string
 
 //go:embed prompts/fantasy-prompt.md
 var FantasySystemPrompt string
+
+//go:embed prompts/init-prompt.md
+var InitSystemPrompt string

@@ -18,7 +18,9 @@ import (
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
 	"github.com/erg0nix/kontekst/internal/acp"
+	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/config"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
 
 	"github.com/spf13/cobra"
 )
@@ -184,14 +186,44 @@ func writePIDFile(path string) error {
 	return nil
 }
 
+func maxAgentContextSize(dataDir string) int {
+	if err := agentConfig.EnsureDefaults(dataDir); err != nil {
+		slog.Warn("failed to ensure default agents", "error", err)
+	}
+
+	registry := agent.NewRegistry(dataDir)
+	agents, err := registry.List()
+	if err != nil {
+		return 0
+	}
+
+	maxSize := 0
+	for _, a := range agents {
+		cfg, err := registry.Load(a.Name)
+		if err != nil {
+			continue
+		}
+		if cfg.ContextSize > maxSize {
+			maxSize = cfg.ContextSize
+		}
+	}
+	return maxSize
+}
+
 func startLlamaServer(binPath string) {
 	homeDir, _ := os.UserHomeDir()
 	modelDir := filepath.Join(homeDir, "models")
+	dataDir := config.Default().DataDir
+
+	ctxSize := maxAgentContextSize(dataDir)
+	if ctxSize == 0 {
+		ctxSize = config.FallbackContextSize
+	}
 
 	args := []string{
 		"--host", "127.0.0.1",
 		"--port", "8080",
-		"--ctx-size", "4096",
+		"--ctx-size", strconv.Itoa(ctxSize),
 		"--n-gpu-layers", "99",
 		"--models-dir", modelDir,
 		"--reasoning-format", "deepseek",
