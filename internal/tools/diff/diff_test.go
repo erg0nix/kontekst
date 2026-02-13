@@ -211,12 +211,12 @@ func TestGenerateStructuredDiffWithHashes(t *testing.T) {
 
 	oldHashes := make(map[int]string)
 	for i, line := range oldLines {
-		oldHashes[i] = hashline.ComputeLineHash(line)
+		oldHashes[i+1] = hashline.ComputeLineHash(line)
 	}
 
 	newHashes := make(map[int]string)
 	for i, line := range newLines {
-		newHashes[i] = hashline.ComputeLineHash(line)
+		newHashes[i+1] = hashline.ComputeLineHash(line)
 	}
 
 	diff := GenerateStructuredDiffWithHashes("test.txt", oldContent, newContent, oldHashes, newHashes)
@@ -316,6 +316,54 @@ func TestStructuredDiffSummary(t *testing.T) {
 
 			if diff.Summary.NetChange != tt.wantNet {
 				t.Errorf("net change = %d, want %d", diff.Summary.NetChange, tt.wantNet)
+			}
+		})
+	}
+}
+
+func TestSplitLines(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			name:  "empty string",
+			input: "",
+			want:  nil,
+		},
+		{
+			name:  "trailing newline",
+			input: "a\nb\nc\n",
+			want:  []string{"a", "b", "c"},
+		},
+		{
+			name:  "no trailing newline",
+			input: "a\nb\nc",
+			want:  []string{"a", "b", "c"},
+		},
+		{
+			name:  "single line with newline",
+			input: "hello\n",
+			want:  []string{"hello"},
+		},
+		{
+			name:  "single line without newline",
+			input: "hello",
+			want:  []string{"hello"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitLines(tt.input)
+			if len(got) != len(tt.want) {
+				t.Fatalf("splitLines(%q) = %v (len %d), want %v (len %d)", tt.input, got, len(got), tt.want, len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("splitLines(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+				}
 			}
 		})
 	}

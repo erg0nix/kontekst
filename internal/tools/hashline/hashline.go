@@ -12,10 +12,7 @@ func ComputeLineHash(line string) string {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, crc)
 	encoded := base64.RawURLEncoding.EncodeToString(buf)
-	if len(encoded) >= 3 {
-		return encoded[:3]
-	}
-	return encoded
+	return encoded[:3]
 }
 
 func detectCollisions(lines []string) map[string][]int {

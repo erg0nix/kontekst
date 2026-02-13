@@ -84,7 +84,7 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 
 	data, err := json.Marshal(preview)
 	if err != nil {
-		return "", nil
+		return "", fmt.Errorf("edit_file: marshal preview: %w", err)
 	}
 
 	return string(data), nil
@@ -123,22 +123,14 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 		return nil, err
 	}
 
-	oldHashMap, _ := hashline.GenerateHashMap(lines)
-	oldHashes := make(map[int]string, len(oldHashMap))
-	for lineNum, hash := range oldHashMap {
-		oldHashes[lineNum-1] = hash
-	}
+	oldHashes, _ := hashline.GenerateHashMap(lines)
 
 	newLines, err := applyEdits(lines, edits)
 	if err != nil {
 		return nil, err
 	}
 
-	newHashMap, _ := hashline.GenerateHashMap(newLines)
-	newHashes := make(map[int]string, len(newHashMap))
-	for lineNum, hash := range newHashMap {
-		newHashes[lineNum-1] = hash
-	}
+	newHashes, _ := hashline.GenerateHashMap(newLines)
 
 	oldContent := string(data)
 	newContent := strings.Join(newLines, "\n")
@@ -237,6 +229,11 @@ func parseEdits(editsRaw any) ([]Edit, error) {
 			return nil, fmt.Errorf("edit %d missing operation", i)
 		}
 
+		validOps := map[string]bool{"replace": true, "insert_after": true, "insert_before": true, "delete": true}
+		if !validOps[operation] {
+			return nil, fmt.Errorf("edit %d: invalid operation %q", i, operation)
+		}
+
 		lineFloat, ok := editMap["line"].(float64)
 		if !ok {
 			return nil, fmt.Errorf("edit %d missing line number", i)
@@ -270,7 +267,13 @@ func parseEdits(editsRaw any) ([]Edit, error) {
 func validateEdits(edits []Edit, lines []string) error {
 	hashMap, _ := hashline.GenerateHashMap(lines)
 
+	seen := make(map[int]bool, len(edits))
 	for i, edit := range edits {
+		if seen[edit.Line] {
+			return fmt.Errorf("edit %d: duplicate edit on line %d", i, edit.Line)
+		}
+		seen[edit.Line] = true
+
 		if edit.Line < 1 || edit.Line > len(lines) {
 			return fmt.Errorf("edit %d: line %d out of range (file has %d lines)", i, edit.Line, len(lines))
 		}
@@ -306,7 +309,10 @@ func applyEdits(lines []string, edits []Edit) ([]string, error) {
 			result[edit.Line-1] = edit.Content
 
 		case "delete":
-			result = append(result[:edit.Line-1], result[edit.Line:]...)
+			newResult := make([]string, 0, len(result)-1)
+			newResult = append(newResult, result[:edit.Line-1]...)
+			newResult = append(newResult, result[edit.Line:]...)
+			result = newResult
 
 		case "insert_after":
 			newResult := make([]string, 0, len(result)+1)

@@ -318,8 +318,8 @@ func TestEditFileInvalidOperation(t *testing.T) {
 		t.Fatal("expected error for invalid operation")
 	}
 
-	if !strings.Contains(err.Error(), "unknown operation") {
-		t.Errorf("error should mention unknown operation, got: %v", err)
+	if !strings.Contains(err.Error(), "invalid operation") {
+		t.Errorf("error should mention invalid operation, got: %v", err)
 	}
 }
 
@@ -778,5 +778,141 @@ func TestEditFilePreviewMultipleEdits(t *testing.T) {
 
 	if preview.Summary.TotalEdits != 2 {
 		t.Errorf("total edits = %d, want 2", preview.Summary.TotalEdits)
+	}
+}
+
+func TestEditFileDuplicateLineTarget(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	content := "line1\nline2\nline3\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &EditFile{BaseDir: tempDir}
+
+	hash := hashline.ComputeLineHash("line2")
+	args := map[string]any{
+		"path": "test.txt",
+		"edits": []any{
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(2),
+				"hash":      hash,
+				"content":   "first edit",
+			},
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(2),
+				"hash":      hash,
+				"content":   "second edit",
+			},
+		},
+	}
+
+	_, err := tool.Execute(args, context.Background())
+	if err == nil {
+		t.Fatal("expected error for duplicate line target")
+	}
+
+	if !strings.Contains(err.Error(), "duplicate edit on line 2") {
+		t.Errorf("error should mention duplicate edit, got: %v", err)
+	}
+}
+
+func TestEditFileNoTrailingNewline(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	content := "line1\nline2"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tool := &EditFile{BaseDir: tempDir}
+
+	hash := hashline.ComputeLineHash("line1")
+	args := map[string]any{
+		"path": "test.txt",
+		"edits": []any{
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(1),
+				"hash":      hash,
+				"content":   "modified",
+			},
+		},
+	}
+
+	_, err := tool.Execute(args, context.Background())
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	newContent, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "modified\nline2\n"
+	if string(newContent) != expected {
+		t.Errorf("content = %q, want %q", string(newContent), expected)
+	}
+}
+
+func TestEditFileRoundTrip(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	content := "line1\nline2\nline3\n"
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	readTool := &ReadFile{BaseDir: tempDir}
+	readResult, err := readTool.Execute(map[string]any{"path": "test.txt"}, context.Background())
+	if err != nil {
+		t.Fatalf("read_file failed: %v", err)
+	}
+
+	var line2Hash string
+	for _, outputLine := range strings.Split(readResult, "\n") {
+		if strings.Contains(outputLine, "|line2") {
+			parts := strings.SplitN(outputLine, ":", 2)
+			if len(parts) == 2 {
+				hashAndContent := strings.SplitN(parts[1], "|", 2)
+				line2Hash = hashAndContent[0]
+			}
+		}
+	}
+
+	if line2Hash == "" {
+		t.Fatalf("could not extract hash for line2 from read output: %s", readResult)
+	}
+
+	editTool := &EditFile{BaseDir: tempDir}
+	args := map[string]any{
+		"path": "test.txt",
+		"edits": []any{
+			map[string]any{
+				"operation": "replace",
+				"line":      float64(2),
+				"hash":      line2Hash,
+				"content":   "modified line2",
+			},
+		},
+	}
+
+	_, err = editTool.Execute(args, context.Background())
+	if err != nil {
+		t.Fatalf("edit_file failed: %v", err)
+	}
+
+	newContent, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "line1\nmodified line2\nline3\n"
+	if string(newContent) != expected {
+		t.Errorf("content = %q, want %q", string(newContent), expected)
 	}
 }

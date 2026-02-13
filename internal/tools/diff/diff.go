@@ -26,7 +26,6 @@ type DiffBlock struct {
 	OldStartLine int        `json:"old_start_line"`
 	NewStartLine int        `json:"new_start_line"`
 	Lines        []DiffLine `json:"lines"`
-	Operation    *string    `json:"operation,omitempty"`
 }
 
 type DiffLine struct {
@@ -419,7 +418,7 @@ func generateNewFileBlock(lines []string, hashes map[int]string) DiffBlock {
 			NewNumber: &lineNum,
 		}
 		if hashes != nil {
-			if hash, ok := hashes[i]; ok {
+			if hash, ok := hashes[lineNum]; ok {
 				diffLine.Hash = &hash
 			}
 		}
@@ -468,7 +467,7 @@ func formatStructuredHunk(oldLines, newLines []string, changes []change, hunkSta
 						OldNumber: &oldNum,
 					}
 					if oldHashes != nil {
-						if hash, ok := oldHashes[i]; ok {
+						if hash, ok := oldHashes[i+1]; ok {
 							diffLine.Hash = &hash
 						}
 					}
@@ -484,7 +483,7 @@ func formatStructuredHunk(oldLines, newLines []string, changes []change, hunkSta
 						NewNumber: &newNum,
 					}
 					if newHashes != nil {
-						if hash, ok := newHashes[i]; ok {
+						if hash, ok := newHashes[i+1]; ok {
 							diffLine.Hash = &hash
 						}
 					}
@@ -510,7 +509,7 @@ func formatStructuredHunk(oldLines, newLines []string, changes []change, hunkSta
 				NewNumber: &newNum,
 			}
 			if oldHashes != nil {
-				if hash, ok := oldHashes[oldPos]; ok {
+				if hash, ok := oldHashes[oldPos+1]; ok {
 					diffLine.Hash = &hash
 				}
 			}
