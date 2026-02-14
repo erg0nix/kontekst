@@ -56,6 +56,9 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 
 	endLine, hasEndLine := getIntArg("end_line", args)
+	if hasEndLine && startLine > endLine {
+		return "", fmt.Errorf("no lines in range %d-%d", startLine, endLine)
+	}
 
 	baseDir := resolveBaseDir(ctx, tool.BaseDir)
 	fullPath := filepath.Join(baseDir, path)
@@ -66,13 +69,27 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 	defer file.Close()
 
-	var allLines []string
+	var lines []string
+	hashMap := make(map[int]string)
 	scanner := bufio.NewScanner(file)
+	lineNum := 0
 
 	for scanner.Scan() {
-		allLines = append(allLines, scanner.Text())
+		lineNum++
 
-		if !hasEndLine && len(allLines) >= maxLinesDefault+startLine-1 {
+		if lineNum < startLine {
+			continue
+		}
+
+		if hasEndLine && lineNum > endLine {
+			break
+		}
+
+		line := scanner.Text()
+		lines = append(lines, line)
+		hashMap[lineNum] = hashline.ComputeLineHash(line)
+
+		if !hasEndLine && len(lines) >= maxLinesDefault {
 			return "", fmt.Errorf("file has more than %d lines; specify start_line and end_line to read a range", maxLinesDefault)
 		}
 	}
@@ -81,34 +98,15 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 		return "", err
 	}
 
-	totalLines := len(allLines)
-
-	if startLine > totalLines {
-		return "", fmt.Errorf("no lines starting from line %d (file has %d lines)", startLine, totalLines)
+	if len(lines) == 0 {
+		return "", fmt.Errorf("no lines starting from line %d (file has %d lines)", startLine, lineNum)
 	}
 
-	end := totalLines
-	if hasEndLine {
-		end = endLine
-		if end > totalLines {
-			end = totalLines
-		}
-		if startLine > end {
-			return "", fmt.Errorf("no lines in range %d-%d (file has %d lines)", startLine, endLine, totalLines)
-		}
-	}
-
-	hashMap, warning := hashline.GenerateHashMap(allLines)
-
-	return formatWithLineNumbers(allLines[startLine-1:end], startLine, hashMap, warning), nil
+	return formatWithLineNumbers(lines, startLine, hashMap), nil
 }
 
-func formatWithLineNumbers(lines []string, startLine int, hashMap map[int]string, warning string) string {
+func formatWithLineNumbers(lines []string, startLine int, hashMap map[int]string) string {
 	var builder strings.Builder
-
-	if warning != "" {
-		builder.WriteString(warning + "\n\n")
-	}
 
 	maxLineNum := startLine + len(lines) - 1
 	width := len(fmt.Sprintf("%d", maxLineNum))

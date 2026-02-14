@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"hash/crc32"
-	"strconv"
 )
 
 func ComputeLineHash(line string) string {
@@ -15,54 +14,12 @@ func ComputeLineHash(line string) string {
 	return encoded[:3]
 }
 
-func detectCollisions(lines []string) map[string][]int {
-	hashToLines := make(map[string][]int)
+func GenerateHashMap(lines []string) map[int]string {
+	hashMap := make(map[int]string, len(lines))
 
 	for i, line := range lines {
-		hash := ComputeLineHash(line)
-		hashToLines[hash] = append(hashToLines[hash], i)
+		hashMap[i+1] = ComputeLineHash(line)
 	}
 
-	collisions := make(map[string][]int)
-	for hash, lineIndices := range hashToLines {
-		if len(lineIndices) > 1 {
-			collisions[hash] = lineIndices
-		}
-	}
-
-	return collisions
-}
-
-func disambiguateHash(hash string, occurrence int) string {
-	if occurrence == 0 {
-		return hash
-	}
-	return hash + "." + strconv.Itoa(occurrence)
-}
-
-func GenerateHashMap(lines []string) (map[int]string, string) {
-	collisions := detectCollisions(lines)
-	hashMap := make(map[int]string)
-
-	occurrenceCount := make(map[string]int)
-
-	for i, line := range lines {
-		lineNum := i + 1
-		baseHash := ComputeLineHash(line)
-
-		if _, hasCollision := collisions[baseHash]; hasCollision {
-			occurrence := occurrenceCount[baseHash]
-			hashMap[lineNum] = disambiguateHash(baseHash, occurrence)
-			occurrenceCount[baseHash]++
-		} else {
-			hashMap[lineNum] = baseHash
-		}
-	}
-
-	var warning string
-	if len(collisions) > 0 {
-		warning = "Warning: Hash collisions detected and disambiguated with suffixes"
-	}
-
-	return hashMap, warning
+	return hashMap
 }

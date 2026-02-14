@@ -37,8 +37,8 @@ type DiffLine struct {
 }
 
 func GenerateUnifiedDiff(path, oldContent, newContent string) string {
-	oldLines := splitLines(oldContent)
-	newLines := splitLines(newContent)
+	oldLines := SplitLines(oldContent)
+	newLines := SplitLines(newContent)
 
 	if len(oldLines) == 0 && len(newLines) == 0 {
 		return ""
@@ -65,7 +65,7 @@ func GenerateUnifiedDiff(path, oldContent, newContent string) string {
 }
 
 func GenerateNewFileDiff(path, content string, maxLines int) string {
-	lines := splitLines(content)
+	lines := SplitLines(content)
 	totalLines := len(lines)
 
 	if totalLines == 0 {
@@ -313,7 +313,7 @@ func filterChangesInRange(changes []change, start, end int) []change {
 	return result
 }
 
-func splitLines(s string) []string {
+func SplitLines(s string) []string {
 	if s == "" {
 		return nil
 	}
@@ -329,8 +329,8 @@ func GenerateStructuredDiff(path, oldContent, newContent string) DiffPreview {
 }
 
 func GenerateStructuredDiffWithHashes(path, oldContent, newContent string, oldHashes, newHashes map[int]string) DiffPreview {
-	oldLines := splitLines(oldContent)
-	newLines := splitLines(newContent)
+	oldLines := SplitLines(oldContent)
+	newLines := SplitLines(newContent)
 
 	preview := DiffPreview{
 		Path: path,

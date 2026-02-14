@@ -21,11 +21,11 @@ type EditFile struct {
 	FileConfig config.FileToolsConfig
 }
 
-type Edit struct {
-	Operation string
-	Line      int
-	Hash      string
-	Content   string
+type edit struct {
+	operation string
+	line      int
+	hash      string
+	content   string
 }
 
 func (tool *EditFile) Name() string { return "edit_file" }
@@ -114,23 +114,20 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 		return nil, err
 	}
 
-	lines := strings.Split(string(data), "\n")
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
+	lines := tooldiff.SplitLines(string(data))
 
 	if err := validateEdits(edits, lines); err != nil {
 		return nil, err
 	}
 
-	oldHashes, _ := hashline.GenerateHashMap(lines)
+	oldHashes := hashline.GenerateHashMap(lines)
 
 	newLines, err := applyEdits(lines, edits)
 	if err != nil {
 		return nil, err
 	}
 
-	newHashes, _ := hashline.GenerateHashMap(newLines)
+	newHashes := hashline.GenerateHashMap(newLines)
 
 	oldContent := string(data)
 	newContent := strings.Join(newLines, "\n")
@@ -141,8 +138,8 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 	preview := tooldiff.GenerateStructuredDiffWithHashes(path, oldContent, newContent, oldHashes, newHashes)
 
 	opCounts := make(map[string]int)
-	for _, edit := range edits {
-		opCounts[edit.Operation]++
+	for _, e := range edits {
+		opCounts[e.operation]++
 	}
 	preview.Summary.Operations = opCounts
 	preview.Summary.TotalEdits = len(edits)
@@ -181,10 +178,7 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 		return "", err
 	}
 
-	lines := strings.Split(string(data), "\n")
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
+	lines := tooldiff.SplitLines(string(data))
 
 	if err := validateEdits(edits, lines); err != nil {
 		return "", err
@@ -211,34 +205,34 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 	return fmt.Sprintf("Applied %d edit(s) to %s", len(edits), path), nil
 }
 
-func parseEdits(editsRaw any) ([]Edit, error) {
+func parseEdits(editsRaw any) ([]edit, error) {
 	editsSlice, ok := editsRaw.([]any)
 	if !ok {
 		return nil, errors.New("edits must be an array")
 	}
 
-	var edits []Edit
+	var edits []edit
 	for i, editRaw := range editsSlice {
 		editMap, ok := editRaw.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("edit %d is not an object", i)
 		}
 
-		operation, ok := editMap["operation"].(string)
+		op, ok := editMap["operation"].(string)
 		if !ok {
 			return nil, fmt.Errorf("edit %d missing operation", i)
 		}
 
-		validOps := map[string]bool{"replace": true, "insert_after": true, "insert_before": true, "delete": true}
-		if !validOps[operation] {
-			return nil, fmt.Errorf("edit %d: invalid operation %q", i, operation)
+		switch op {
+		case "replace", "insert_after", "insert_before", "delete":
+		default:
+			return nil, fmt.Errorf("edit %d: invalid operation %q", i, op)
 		}
 
 		lineFloat, ok := editMap["line"].(float64)
 		if !ok {
 			return nil, fmt.Errorf("edit %d missing line number", i)
 		}
-		line := int(lineFloat)
 
 		hash, ok := editMap["hash"].(string)
 		if !ok {
@@ -246,90 +240,86 @@ func parseEdits(editsRaw any) ([]Edit, error) {
 		}
 
 		content := ""
-		if operation != "delete" {
+		if op != "delete" {
 			content, ok = editMap["content"].(string)
 			if !ok {
-				return nil, fmt.Errorf("edit %d missing content for operation %s", i, operation)
+				return nil, fmt.Errorf("edit %d missing content for operation %s", i, op)
 			}
 		}
 
-		edits = append(edits, Edit{
-			Operation: operation,
-			Line:      line,
-			Hash:      hash,
-			Content:   content,
+		edits = append(edits, edit{
+			operation: op,
+			line:      int(lineFloat),
+			hash:      hash,
+			content:   content,
 		})
 	}
 
 	return edits, nil
 }
 
-func validateEdits(edits []Edit, lines []string) error {
-	hashMap, _ := hashline.GenerateHashMap(lines)
+func validateEdits(edits []edit, lines []string) error {
+	hashMap := hashline.GenerateHashMap(lines)
 
 	seen := make(map[int]bool, len(edits))
-	for i, edit := range edits {
-		if seen[edit.Line] {
-			return fmt.Errorf("edit %d: duplicate edit on line %d", i, edit.Line)
+	for i, e := range edits {
+		if seen[e.line] {
+			return fmt.Errorf("edit %d: duplicate edit on line %d", i, e.line)
 		}
-		seen[edit.Line] = true
+		seen[e.line] = true
 
-		if edit.Line < 1 || edit.Line > len(lines) {
-			return fmt.Errorf("edit %d: line %d out of range (file has %d lines)", i, edit.Line, len(lines))
+		if e.line < 1 || e.line > len(lines) {
+			return fmt.Errorf("edit %d: line %d out of range (file has %d lines)", i, e.line, len(lines))
 		}
 
-		actualHash := hashMap[edit.Line]
-		if actualHash != edit.Hash {
+		actualHash := hashMap[e.line]
+		if actualHash != e.hash {
 			return fmt.Errorf(
 				"edit %d: hash mismatch on line %d: expected %s, found %s (content: %q)",
-				i, edit.Line, edit.Hash, actualHash, lines[edit.Line-1])
-		}
-
-		if edit.Operation != "delete" && edit.Content == "" {
-			return fmt.Errorf("edit %d: content required for operation %s", i, edit.Operation)
+				i, e.line, e.hash, actualHash, lines[e.line-1])
 		}
 	}
 
 	return nil
 }
 
-func applyEdits(lines []string, edits []Edit) ([]string, error) {
-	sortedEdits := make([]Edit, len(edits))
+func applyEdits(lines []string, edits []edit) ([]string, error) {
+	sortedEdits := make([]edit, len(edits))
 	copy(sortedEdits, edits)
 	sort.Slice(sortedEdits, func(i, j int) bool {
-		return sortedEdits[i].Line > sortedEdits[j].Line
+		return sortedEdits[i].line > sortedEdits[j].line
 	})
 
 	result := make([]string, len(lines))
 	copy(result, lines)
 
-	for _, edit := range sortedEdits {
-		switch edit.Operation {
+	for _, e := range sortedEdits {
+		switch e.operation {
 		case "replace":
-			result[edit.Line-1] = edit.Content
+			result[e.line-1] = e.content
 
 		case "delete":
 			newResult := make([]string, 0, len(result)-1)
-			newResult = append(newResult, result[:edit.Line-1]...)
-			newResult = append(newResult, result[edit.Line:]...)
+			newResult = append(newResult, result[:e.line-1]...)
+			newResult = append(newResult, result[e.line:]...)
 			result = newResult
 
 		case "insert_after":
 			newResult := make([]string, 0, len(result)+1)
-			newResult = append(newResult, result[:edit.Line]...)
-			newResult = append(newResult, edit.Content)
-			newResult = append(newResult, result[edit.Line:]...)
+			newResult = append(newResult, result[:e.line]...)
+			newResult = append(newResult, e.content)
+			newResult = append(newResult, result[e.line:]...)
 			result = newResult
 
 		case "insert_before":
 			newResult := make([]string, 0, len(result)+1)
-			newResult = append(newResult, result[:edit.Line-1]...)
-			newResult = append(newResult, edit.Content)
-			newResult = append(newResult, result[edit.Line-1:]...)
+			newResult = append(newResult, result[:e.line-1]...)
+			newResult = append(newResult, e.content)
+			newResult = append(newResult, result[e.line-1:]...)
 			result = newResult
 
 		default:
-			return nil, fmt.Errorf("unknown operation: %s", edit.Operation)
+			return nil, fmt.Errorf("unknown operation: %s", e.operation)
 		}
 	}
 

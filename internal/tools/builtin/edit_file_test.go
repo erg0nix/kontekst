@@ -521,18 +521,11 @@ func TestEditFileSorting(t *testing.T) {
 	}
 }
 
-func TestEditFileCollisionHandling(t *testing.T) {
+func TestEditFileDuplicateLines(t *testing.T) {
 	tempDir := t.TempDir()
 	tool := &EditFile{BaseDir: tempDir}
-	lines := []string{"dup", "dup", "unique"}
 
-	hashMap, _ := hashline.GenerateHashMap(lines)
-	hash1 := hashMap[1]
-	hash2 := hashMap[2]
-
-	if hash1 == hash2 {
-		t.Fatal("collision detection should produce different hashes")
-	}
+	dupHash := hashline.ComputeLineHash("dup")
 
 	t.Run("edit first duplicate", func(t *testing.T) {
 		testFile := filepath.Join(tempDir, "first.txt")
@@ -546,7 +539,7 @@ func TestEditFileCollisionHandling(t *testing.T) {
 				map[string]any{
 					"operation": "replace",
 					"line":      float64(1),
-					"hash":      hash1,
+					"hash":      dupHash,
 					"content":   "modified first dup",
 				},
 			},
@@ -575,7 +568,7 @@ func TestEditFileCollisionHandling(t *testing.T) {
 				map[string]any{
 					"operation": "replace",
 					"line":      float64(2),
-					"hash":      hash2,
+					"hash":      dupHash,
 					"content":   "modified second dup",
 				},
 			},

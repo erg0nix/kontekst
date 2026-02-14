@@ -128,18 +128,13 @@ func TestReadFileLineNumberWidth(t *testing.T) {
 func TestFormatWithLineNumbers(t *testing.T) {
 	lines := []string{"first", "second", "third"}
 	hashMap := map[int]string{1: "aaa", 2: "bbb", 3: "ccc"}
-	result := formatWithLineNumbers(lines, 1, hashMap, "")
+	result := formatWithLineNumbers(lines, 1, hashMap)
 
 	if !strings.Contains(result, "1:aaa|first") {
 		t.Error("should start with line 1 with hash format")
 	}
 	if !strings.Contains(result, "3:ccc|third") {
 		t.Error("should end with line 3 with hash format")
-	}
-
-	resultWithWarning := formatWithLineNumbers(lines, 1, hashMap, "Warning: collisions")
-	if !strings.HasPrefix(resultWithWarning, "Warning: collisions\n\n") {
-		t.Error("warning should be prepended to output")
 	}
 }
 

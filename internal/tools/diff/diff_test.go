@@ -206,8 +206,8 @@ func TestGenerateStructuredDiffWithHashes(t *testing.T) {
 	oldContent := "line1\nline2\nline3\n"
 	newContent := "line1\nmodified\nline3\n"
 
-	oldLines := splitLines(oldContent)
-	newLines := splitLines(newContent)
+	oldLines := SplitLines(oldContent)
+	newLines := SplitLines(newContent)
 
 	oldHashes := make(map[int]string)
 	for i, line := range oldLines {
@@ -356,13 +356,13 @@ func TestSplitLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := splitLines(tt.input)
+			got := SplitLines(tt.input)
 			if len(got) != len(tt.want) {
-				t.Fatalf("splitLines(%q) = %v (len %d), want %v (len %d)", tt.input, got, len(got), tt.want, len(tt.want))
+				t.Fatalf("SplitLines(%q) = %v (len %d), want %v (len %d)", tt.input, got, len(got), tt.want, len(tt.want))
 			}
 			for i := range got {
 				if got[i] != tt.want[i] {
-					t.Errorf("splitLines(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+					t.Errorf("SplitLines(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
 				}
 			}
 		})
