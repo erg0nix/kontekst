@@ -846,7 +846,7 @@ func TestEditFileNoTrailingNewline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "modified\nline2\n"
+	expected := "modified\nline2"
 	if string(newContent) != expected {
 		t.Errorf("content = %q, want %q", string(newContent), expected)
 	}

@@ -242,7 +242,7 @@ func formatHunk(oldLines, newLines []string, changes []change, hunkStart, hunkEn
 	}
 	newCount := oldCount - removedLines + addedLines
 
-	newStart := computeNewStart(oldLines, newLines, relevantChanges, hunkStart)
+	newStart := computeNewStart(relevantChanges, hunkStart)
 
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("@@ -%d,%d +%d,%d @@\n", hunkStart+1, oldCount, newStart+1, newCount))
@@ -289,7 +289,7 @@ func formatHunk(oldLines, newLines []string, changes []change, hunkStart, hunkEn
 	return builder.String()
 }
 
-func computeNewStart(oldLines, newLines []string, changes []change, hunkStart int) int {
+func computeNewStart(changes []change, hunkStart int) int {
 	offset := 0
 	for _, c := range changes {
 		if c.oldStart < hunkStart {
@@ -441,7 +441,7 @@ func formatStructuredHunk(oldLines, newLines []string, changes []change, hunkSta
 		addedLines += c.newEnd - c.newStart
 	}
 	newCount := oldCount - removedLines + addedLines
-	newStart := computeNewStart(oldLines, newLines, relevantChanges, hunkStart)
+	newStart := computeNewStart(relevantChanges, hunkStart)
 
 	block := DiffBlock{
 		Header:       fmt.Sprintf("@@ -%d,%d +%d,%d @@", hunkStart+1, oldCount, newStart+1, newCount),

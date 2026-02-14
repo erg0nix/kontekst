@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/erg0nix/kontekst/internal/config"
@@ -26,6 +26,15 @@ type edit struct {
 	line      int
 	hash      string
 	content   string
+}
+
+type editPlan struct {
+	path            string
+	fullPath        string
+	oldLines        []string
+	newLines        []string
+	edits           []edit
+	trailingNewline bool
 }
 
 func (tool *EditFile) Name() string { return "edit_file" }
@@ -76,21 +85,7 @@ func (tool *EditFile) Parameters() map[string]any {
 
 func (tool *EditFile) RequiresApproval() bool { return true }
 
-func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string, error) {
-	preview, err := tool.PreviewStructured(args, ctx)
-	if err != nil {
-		return "", err
-	}
-
-	data, err := json.Marshal(preview)
-	if err != nil {
-		return "", fmt.Errorf("edit_file: marshal preview: %w", err)
-	}
-
-	return string(data), nil
-}
-
-func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context) (*tooldiff.DiffPreview, error) {
+func (tool *EditFile) prepareEdits(args map[string]any, ctx context.Context) (*editPlan, error) {
 	path, err := validatePath(args)
 	if err != nil {
 		return nil, err
@@ -106,65 +101,8 @@ func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context
 		return nil, err
 	}
 
-	baseDir := resolveBaseDir(ctx, tool.BaseDir)
-	fullPath := filepath.Join(baseDir, path)
-
-	data, err := os.ReadFile(fullPath)
-	if err != nil {
-		return nil, err
-	}
-
-	lines := tooldiff.SplitLines(string(data))
-
-	if err := validateEdits(edits, lines); err != nil {
-		return nil, err
-	}
-
-	oldHashes := hashline.GenerateHashMap(lines)
-
-	newLines, err := applyEdits(lines, edits)
-	if err != nil {
-		return nil, err
-	}
-
-	newHashes := hashline.GenerateHashMap(newLines)
-
-	oldContent := string(data)
-	newContent := strings.Join(newLines, "\n")
-	if len(newLines) > 0 {
-		newContent += "\n"
-	}
-
-	preview := tooldiff.GenerateStructuredDiffWithHashes(path, oldContent, newContent, oldHashes, newHashes)
-
-	opCounts := make(map[string]int)
-	for _, e := range edits {
-		opCounts[e.operation]++
-	}
-	preview.Summary.Operations = opCounts
-	preview.Summary.TotalEdits = len(edits)
-
-	return &preview, nil
-}
-
-func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string, error) {
-	path, err := validatePath(args)
-	if err != nil {
-		return "", err
-	}
-
-	editsRaw, ok := args["edits"]
-	if !ok {
-		return "", errors.New("missing edits parameter")
-	}
-
-	edits, err := parseEdits(editsRaw)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse edits: %w", err)
-	}
-
 	if len(edits) == 0 {
-		return "", errors.New("edits array is empty")
+		return nil, errors.New("edits array is empty")
 	}
 
 	baseDir := resolveBaseDir(ctx, tool.BaseDir)
@@ -173,36 +111,96 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("file does not exist: %s", path)
+			return nil, fmt.Errorf("file does not exist: %s", path)
 		}
-		return "", err
+		return nil, err
 	}
 
+	trailingNewline := len(data) > 0 && data[len(data)-1] == '\n'
 	lines := tooldiff.SplitLines(string(data))
 
 	if err := validateEdits(edits, lines); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	newLines, err := applyEdits(lines, edits)
 	if err != nil {
+		return nil, err
+	}
+
+	return &editPlan{
+		path:            path,
+		fullPath:        fullPath,
+		oldLines:        lines,
+		newLines:        newLines,
+		edits:           edits,
+		trailingNewline: trailingNewline,
+	}, nil
+}
+
+func assembleContent(lines []string, trailingNewline bool) string {
+	content := strings.Join(lines, "\n")
+	if trailingNewline && len(lines) > 0 {
+		content += "\n"
+	}
+	return content
+}
+
+func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string, error) {
+	preview, err := tool.PreviewStructured(args, ctx)
+	if err != nil {
 		return "", err
 	}
 
-	newContent := strings.Join(newLines, "\n")
-	if len(newLines) > 0 {
-		newContent += "\n"
+	data, err := json.Marshal(preview)
+	if err != nil {
+		return "", fmt.Errorf("edit_file: marshal preview: %w", err)
 	}
+
+	return string(data), nil
+}
+
+func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context) (*tooldiff.DiffPreview, error) {
+	plan, err := tool.prepareEdits(args, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	oldContent := assembleContent(plan.oldLines, plan.trailingNewline)
+	newContent := assembleContent(plan.newLines, plan.trailingNewline)
+
+	oldHashes := hashline.GenerateHashMap(plan.oldLines)
+	newHashes := hashline.GenerateHashMap(plan.newLines)
+
+	preview := tooldiff.GenerateStructuredDiffWithHashes(plan.path, oldContent, newContent, oldHashes, newHashes)
+
+	opCounts := make(map[string]int)
+	for _, e := range plan.edits {
+		opCounts[e.operation]++
+	}
+	preview.Summary.Operations = opCounts
+	preview.Summary.TotalEdits = len(plan.edits)
+
+	return &preview, nil
+}
+
+func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string, error) {
+	plan, err := tool.prepareEdits(args, ctx)
+	if err != nil {
+		return "", err
+	}
+
+	newContent := assembleContent(plan.newLines, plan.trailingNewline)
 
 	if tool.FileConfig.MaxSizeBytes > 0 && int64(len(newContent)) > tool.FileConfig.MaxSizeBytes {
 		return "", fmt.Errorf("result would exceed maximum file size of %d bytes", tool.FileConfig.MaxSizeBytes)
 	}
 
-	if err := os.WriteFile(fullPath, []byte(newContent), 0o644); err != nil {
+	if err := os.WriteFile(plan.fullPath, []byte(newContent), 0o644); err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("Applied %d edit(s) to %s", len(edits), path), nil
+	return fmt.Sprintf("Applied %d edit(s) to %s", len(plan.edits), plan.path), nil
 }
 
 func parseEdits(editsRaw any) ([]edit, error) {
@@ -284,40 +282,23 @@ func validateEdits(edits []edit, lines []string) error {
 }
 
 func applyEdits(lines []string, edits []edit) ([]string, error) {
-	sortedEdits := make([]edit, len(edits))
-	copy(sortedEdits, edits)
-	sort.Slice(sortedEdits, func(i, j int) bool {
-		return sortedEdits[i].line > sortedEdits[j].line
-	})
+	sorted := make([]edit, len(edits))
+	copy(sorted, edits)
+	slices.SortFunc(sorted, func(a, b edit) int { return b.line - a.line })
 
 	result := make([]string, len(lines))
 	copy(result, lines)
 
-	for _, e := range sortedEdits {
+	for _, e := range sorted {
 		switch e.operation {
 		case "replace":
 			result[e.line-1] = e.content
-
 		case "delete":
-			newResult := make([]string, 0, len(result)-1)
-			newResult = append(newResult, result[:e.line-1]...)
-			newResult = append(newResult, result[e.line:]...)
-			result = newResult
-
+			result = slices.Delete(result, e.line-1, e.line)
 		case "insert_after":
-			newResult := make([]string, 0, len(result)+1)
-			newResult = append(newResult, result[:e.line]...)
-			newResult = append(newResult, e.content)
-			newResult = append(newResult, result[e.line:]...)
-			result = newResult
-
+			result = slices.Insert(result, e.line, e.content)
 		case "insert_before":
-			newResult := make([]string, 0, len(result)+1)
-			newResult = append(newResult, result[:e.line-1]...)
-			newResult = append(newResult, e.content)
-			newResult = append(newResult, result[e.line-1:]...)
-			result = newResult
-
+			result = slices.Insert(result, e.line-1, e.content)
 		default:
 			return nil, fmt.Errorf("unknown operation: %s", e.operation)
 		}
