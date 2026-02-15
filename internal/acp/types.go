@@ -311,6 +311,7 @@ type ToolCallDetail struct {
 	Kind       *ToolKind       `json:"kind,omitempty"`
 	Status     *ToolCallStatus `json:"status,omitempty"`
 	RawInput   any             `json:"rawInput,omitempty"`
+	Preview    any             `json:"preview,omitempty"`
 }
 
 type RequestPermissionRequest struct {

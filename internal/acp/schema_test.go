@@ -200,6 +200,33 @@ func TestSchemaPermission(t *testing.T) {
 		})
 	})
 
+	t.Run("RequestPermissionRequest/WithPreview", func(t *testing.T) {
+		assertSchemaValid(t, "RequestPermissionRequest", RequestPermissionRequest{
+			SessionID: "sess_1",
+			ToolCall: ToolCallDetail{
+				ToolCallID: "call_1",
+				Title:      ptrTo("edit_file"),
+				Kind:       ptrTo(ToolKindEdit),
+				Status:     ptrTo(ToolCallStatusPending),
+				RawInput:   map[string]any{"path": "test.txt", "edits": []any{}},
+				Preview: map[string]any{
+					"path": "test.txt",
+					"summary": map[string]any{
+						"total_edits":   1,
+						"lines_added":   1,
+						"lines_removed": 1,
+						"net_change":    0,
+					},
+					"blocks": []any{},
+				},
+			},
+			Options: []PermissionOption{
+				{OptionID: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
+				{OptionID: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
+			},
+		})
+	})
+
 	t.Run("RequestPermissionResponse/Selected", func(t *testing.T) {
 		assertSchemaValid(t, "RequestPermissionResponse", RequestPermissionResponse{
 			Outcome: PermissionSelected("allow"),

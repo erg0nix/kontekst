@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/erg0nix/kontekst/internal/tools"
+	"github.com/erg0nix/kontekst/internal/tools/hashline"
 )
 
 const maxLinesDefault = 10000
@@ -19,7 +20,7 @@ type ReadFile struct {
 
 func (tool *ReadFile) Name() string { return "read_file" }
 func (tool *ReadFile) Description() string {
-	return "Reads a file and returns its content with line numbers. Supports optional line range (1-indexed, inclusive)."
+	return "Reads a file and returns its content with line numbers and hashes. Format: 'linenum:hash|content'. Supports optional line range (1-indexed, inclusive). Use the hash values when editing files with edit_file."
 }
 func (tool *ReadFile) Parameters() map[string]any {
 	return map[string]any{
@@ -55,6 +56,9 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 
 	endLine, hasEndLine := getIntArg("end_line", args)
+	if hasEndLine && startLine > endLine {
+		return "", fmt.Errorf("no lines in range %d-%d", startLine, endLine)
+	}
 
 	baseDir := resolveBaseDir(ctx, tool.BaseDir)
 	fullPath := filepath.Join(baseDir, path)
@@ -66,21 +70,24 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 	defer file.Close()
 
 	var lines []string
+	hashMap := make(map[int]string)
 	scanner := bufio.NewScanner(file)
-	lineNumber := 0
+	lineNum := 0
 
 	for scanner.Scan() {
-		lineNumber++
+		lineNum++
 
-		if lineNumber < startLine {
+		if lineNum < startLine {
 			continue
 		}
 
-		if hasEndLine && lineNumber > endLine {
+		if hasEndLine && lineNum > endLine {
 			break
 		}
 
-		lines = append(lines, scanner.Text())
+		line := scanner.Text()
+		lines = append(lines, line)
+		hashMap[lineNum] = hashline.ComputeLineHash(line)
 
 		if !hasEndLine && len(lines) >= maxLinesDefault {
 			return "", fmt.Errorf("file has more than %d lines; specify start_line and end_line to read a range", maxLinesDefault)
@@ -92,23 +99,22 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 
 	if len(lines) == 0 {
-		if hasEndLine {
-			return "", fmt.Errorf("no lines in range %d-%d (file has %d lines)", startLine, endLine, lineNumber)
-		}
-		return "", fmt.Errorf("no lines starting from line %d (file has %d lines)", startLine, lineNumber)
+		return "", fmt.Errorf("no lines starting from line %d (file has %d lines)", startLine, lineNum)
 	}
 
-	return formatWithLineNumbers(lines, startLine), nil
+	return formatWithLineNumbers(lines, startLine, hashMap), nil
 }
 
-func formatWithLineNumbers(lines []string, startLine int) string {
+func formatWithLineNumbers(lines []string, startLine int, hashMap map[int]string) string {
 	var builder strings.Builder
+
 	maxLineNum := startLine + len(lines) - 1
 	width := len(fmt.Sprintf("%d", maxLineNum))
 
 	for i, line := range lines {
 		lineNum := startLine + i
-		builder.WriteString(fmt.Sprintf("%*d: %s\n", width, lineNum, line))
+		hash := hashMap[lineNum]
+		builder.WriteString(fmt.Sprintf("%*d:%s|%s\n", width, lineNum, hash, line))
 	}
 
 	return strings.TrimSuffix(builder.String(), "\n")
