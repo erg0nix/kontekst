@@ -31,6 +31,7 @@ type RunConfig struct {
 	Skill               *skills.Skill
 	SkillContent        string
 	ToolRole            bool
+	Tools               tools.ToolExecutor
 }
 
 type Runner interface {
@@ -93,7 +94,12 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 		runner.DebugConfig,
 	)
 
-	agentEngine := New(provider, runner.Tools, ctxWindow, cfg)
+	toolExecutor := cfg.Tools
+	if toolExecutor == nil {
+		toolExecutor = runner.Tools
+	}
+
+	agentEngine := New(provider, toolExecutor, ctxWindow, cfg)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
 	outputChannel := make(chan AgentEvent, 32)

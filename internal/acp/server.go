@@ -20,6 +20,7 @@ type Handler struct {
 	skills   *skills.Registry
 	conn     *Connection
 	sessions sync.Map
+	caps     ClientCapabilities
 }
 
 type sessionState struct {
@@ -90,7 +91,16 @@ func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMe
 	}
 }
 
-func (h *Handler) handleInitialize(_ context.Context, _ json.RawMessage) (InitializeResponse, error) {
+func (h *Handler) handleInitialize(_ context.Context, params json.RawMessage) (InitializeResponse, error) {
+	var req InitializeRequest
+	if len(params) > 0 {
+		if err := json.Unmarshal(params, &req); err != nil {
+			return InitializeResponse{}, NewRPCError(ErrInvalidParams, err.Error())
+		}
+	}
+
+	h.caps = req.ClientCapabilities
+
 	return InitializeResponse{
 		ProtocolVersion: ProtocolVersion,
 		AgentCapabilities: AgentCapabilities{
@@ -197,7 +207,7 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 
 	runCtx, cancelFn := context.WithCancel(ctx)
 
-	commandCh, eventCh, err := h.runner.StartRun(agent.RunConfig{
+	runCfg := agent.RunConfig{
 		Prompt:              promptText,
 		SessionID:           sess.sessionID,
 		AgentName:           sess.agentName,
@@ -211,7 +221,13 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 		Skill:               skill,
 		SkillContent:        skillContent,
 		ToolRole:            agentCfg.ToolRole,
-	})
+	}
+
+	if hasACPTools(h.caps) {
+		runCfg.Tools = NewACPToolExecutor(h.conn, req.SessionID, h.caps)
+	}
+
+	commandCh, eventCh, err := h.runner.StartRun(runCfg)
 	if err != nil {
 		cancelFn()
 		return PromptResponse{}, NewRPCError(ErrInternalError, err.Error())
@@ -450,4 +466,14 @@ func parseSkillInvocation(text string) (name string, args string) {
 		return text, ""
 	}
 	return text[:idx], strings.TrimSpace(text[idx+1:])
+}
+
+func hasACPTools(caps ClientCapabilities) bool {
+	if caps.Terminal {
+		return true
+	}
+	if caps.Fs != nil && (caps.Fs.ReadTextFile || caps.Fs.WriteTextFile) {
+		return true
+	}
+	return false
 }
