@@ -119,57 +119,57 @@ func TestGenerateNewFileDiff(t *testing.T) {
 
 func TestGenerateStructuredDiff(t *testing.T) {
 	tests := []struct {
-		name       string
-		path       string
-		oldContent string
-		newContent string
-		wantBlocks int
-		wantAdded  int
+		name        string
+		path        string
+		oldContent  string
+		newContent  string
+		wantBlocks  int
+		wantAdded   int
 		wantRemoved int
 	}{
 		{
-			name:       "single line change",
-			path:       "test.txt",
-			oldContent: "line1\nline2\nline3\n",
-			newContent: "line1\nmodified\nline3\n",
-			wantBlocks: 1,
-			wantAdded:  1,
+			name:        "single line change",
+			path:        "test.txt",
+			oldContent:  "line1\nline2\nline3\n",
+			newContent:  "line1\nmodified\nline3\n",
+			wantBlocks:  1,
+			wantAdded:   1,
 			wantRemoved: 1,
 		},
 		{
-			name:       "add line",
-			path:       "test.txt",
-			oldContent: "line1\nline2\n",
-			newContent: "line1\nline2\nline3\n",
-			wantBlocks: 1,
-			wantAdded:  1,
+			name:        "add line",
+			path:        "test.txt",
+			oldContent:  "line1\nline2\n",
+			newContent:  "line1\nline2\nline3\n",
+			wantBlocks:  1,
+			wantAdded:   1,
 			wantRemoved: 0,
 		},
 		{
-			name:       "remove line",
-			path:       "test.txt",
-			oldContent: "line1\nline2\nline3\n",
-			newContent: "line1\nline3\n",
-			wantBlocks: 1,
-			wantAdded:  0,
+			name:        "remove line",
+			path:        "test.txt",
+			oldContent:  "line1\nline2\nline3\n",
+			newContent:  "line1\nline3\n",
+			wantBlocks:  1,
+			wantAdded:   0,
 			wantRemoved: 1,
 		},
 		{
-			name:       "no change",
-			path:       "test.txt",
-			oldContent: "same\n",
-			newContent: "same\n",
-			wantBlocks: 0,
-			wantAdded:  0,
+			name:        "no change",
+			path:        "test.txt",
+			oldContent:  "same\n",
+			newContent:  "same\n",
+			wantBlocks:  0,
+			wantAdded:   0,
 			wantRemoved: 0,
 		},
 		{
-			name:       "empty to content",
-			path:       "test.txt",
-			oldContent: "",
-			newContent: "new content\n",
-			wantBlocks: 1,
-			wantAdded:  1,
+			name:        "empty to content",
+			path:        "test.txt",
+			oldContent:  "",
+			newContent:  "new content\n",
+			wantBlocks:  1,
+			wantAdded:   1,
 			wantRemoved: 0,
 		},
 	}

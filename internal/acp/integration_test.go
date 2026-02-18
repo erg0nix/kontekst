@@ -24,13 +24,13 @@ type mockContextWindow struct {
 	messages []core.Message
 }
 
-func (m *mockContextWindow) SystemContent() string               { return "" }
-func (m *mockContextWindow) StartRun(appctx.BudgetParams) error  { return nil }
-func (m *mockContextWindow) CompleteRun()                        {}
-func (m *mockContextWindow) SetActiveSkill(*core.SkillMetadata)  {}
-func (m *mockContextWindow) ActiveSkill() *core.SkillMetadata    { return nil }
-func (m *mockContextWindow) SetAgentSystemPrompt(string)         {}
-func (m *mockContextWindow) Snapshot() core.ContextSnapshot      { return core.ContextSnapshot{} }
+func (m *mockContextWindow) SystemContent() string              { return "" }
+func (m *mockContextWindow) StartRun(appctx.BudgetParams) error { return nil }
+func (m *mockContextWindow) CompleteRun()                       {}
+func (m *mockContextWindow) SetActiveSkill(*core.SkillMetadata) {}
+func (m *mockContextWindow) ActiveSkill() *core.SkillMetadata   { return nil }
+func (m *mockContextWindow) SetAgentSystemPrompt(string)        {}
+func (m *mockContextWindow) Snapshot() core.ContextSnapshot     { return core.ContextSnapshot{} }
 
 func (m *mockContextWindow) BuildContext() ([]core.Message, error) {
 	m.mu.Lock()

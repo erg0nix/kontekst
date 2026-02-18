@@ -326,4 +326,3 @@ func parseUsage(response map[string]any) *core.Usage {
 		TotalTokens:      core.IntFromAny(usageMap["total_tokens"]),
 	}
 }
-
