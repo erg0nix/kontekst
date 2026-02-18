@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	lipgloss "github.com/charmbracelet/lipgloss/v2"

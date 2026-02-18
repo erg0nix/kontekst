@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func execute() {
+func NewRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           "kontekst [prompt]",
 		Short:         "kontekst CLI",
@@ -39,10 +39,7 @@ func execute() {
 	rootCmd.AddCommand(newPsCmd())
 	rootCmd.AddCommand(newInitCmd())
 
-	if err := rootCmd.Execute(); err != nil {
-		lipgloss.Println(styleError.Render(err.Error()))
-		os.Exit(1)
-	}
+	return rootCmd
 }
 
 func loadConfig(path string) (config.Config, error) {

@@ -1,5 +1,15 @@
 package main
 
+import (
+	"fmt"
+	"os"
+
+	"github.com/erg0nix/kontekst/internal/cli"
+)
+
 func main() {
-	execute()
+	if err := cli.NewRootCommand().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
