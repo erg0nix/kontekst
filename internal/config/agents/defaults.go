@@ -5,7 +5,10 @@ import (
 	"path/filepath"
 )
 
+// DefaultAgentName is the name of the default agent used when none is specified.
 const DefaultAgentName = "default"
+
+// InitAgentName is the name of the agent used for project initialization.
 const InitAgentName = "init"
 
 type bundledAgent struct {
@@ -93,6 +96,7 @@ max_tokens = 4096
 	},
 }
 
+// EnsureDefaults creates bundled agent configurations under baseDir if they do not already exist.
 func EnsureDefaults(baseDir string) error {
 	for _, a := range bundledAgents {
 		if err := ensureAgent(baseDir, a); err != nil {

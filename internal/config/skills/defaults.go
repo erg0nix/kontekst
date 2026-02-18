@@ -14,6 +14,7 @@ var bundledSkills = []bundledSkill{
 	{name: "kontekst", content: KontekstSkillContent},
 }
 
+// EnsureDefaults creates bundled skill files under skillsDir if they do not already exist.
 func EnsureDefaults(skillsDir string) error {
 	for _, s := range bundledSkills {
 		if err := ensureSkill(skillsDir, s); err != nil {

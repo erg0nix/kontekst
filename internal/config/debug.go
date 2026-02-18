@@ -2,6 +2,7 @@ package config
 
 import "os"
 
+// LoadDebugConfigFromEnv overrides debug settings in cfg with values from KONTEKST_DEBUG_* environment variables.
 func LoadDebugConfigFromEnv(cfg DebugConfig) DebugConfig {
 	if os.Getenv("KONTEKST_DEBUG_LOG_REQUESTS") == "1" {
 		cfg.LogRequests = true

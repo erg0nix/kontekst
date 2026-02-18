@@ -21,6 +21,7 @@ var bundledCommands = []bundledCommand{
 	},
 }
 
+// EnsureDefaults creates bundled command configurations under commandsDir if they do not already exist.
 func EnsureDefaults(commandsDir string) error {
 	for _, c := range bundledCommands {
 		if err := ensureCommand(commandsDir, c); err != nil {
