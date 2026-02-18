@@ -20,13 +20,12 @@ func newSessionsCmd() *cobra.Command {
 }
 
 func runSessionsCmd(cmd *cobra.Command, _ []string) error {
-	configPath, _ := cmd.Flags().GetString("config")
-	cfg, err := loadConfig(configPath)
+	app, err := newApp(cmd)
 	if err != nil {
 		return err
 	}
 
-	svc := &sessions.FileSessionService{BaseDir: cfg.DataDir}
+	svc := &sessions.FileSessionService{BaseDir: app.Config.DataDir}
 	list, err := svc.List()
 	if err != nil {
 		return err
@@ -37,7 +36,7 @@ func runSessionsCmd(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	activeID := loadActiveSession(cfg.DataDir)
+	activeID := loadActiveSession(app.Config.DataDir)
 	printSessionsTable(list, activeID)
 	return nil
 }

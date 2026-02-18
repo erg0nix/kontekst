@@ -25,17 +25,14 @@ func newPsCmd() *cobra.Command {
 		Use:   "ps",
 		Short: "Show running processes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			configPath, _ := cmd.Flags().GetString("config")
-			serverOverride, _ := cmd.Flags().GetString("server")
-			cfg, err := loadConfig(configPath)
+			app, err := newApp(cmd)
 			if err != nil {
-				return fmt.Errorf("load config: %w", err)
+				return err
 			}
-			serverAddr := resolveServer(serverOverride, cfg)
 
 			t := newTable("NAME", "STATUS", "PID", "ENDPOINT", "UPTIME")
 
-			addServerRow(cmd.Context(), t, cfg.DataDir, serverAddr)
+			addServerRow(cmd.Context(), t, app.Config.DataDir, app.ServerAddr)
 			addLlamaRow(t)
 
 			lipgloss.Println(t.Render())

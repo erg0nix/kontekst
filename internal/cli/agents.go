@@ -16,13 +16,12 @@ func newAgentsCmd() *cobra.Command {
 }
 
 func runAgentsCmd(cmd *cobra.Command, _ []string) error {
-	configPath, _ := cmd.Flags().GetString("config")
-	cfg, err := loadConfig(configPath)
+	app, err := newApp(cmd)
 	if err != nil {
 		return err
 	}
 
-	registry := agent.NewRegistry(cfg.DataDir)
+	registry := agent.NewRegistry(app.Config.DataDir)
 	agentList, err := registry.List()
 	if err != nil {
 		return err

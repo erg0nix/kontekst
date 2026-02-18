@@ -29,17 +29,13 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("%s already exists; remove it first to regenerate", agentsMDFile)
 	}
 
-	configPath, _ := cmd.Flags().GetString("config")
-	serverOverride, _ := cmd.Flags().GetString("server")
-
-	cfg, err := loadConfig(configPath)
+	app, err := newApp(cmd)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-	serverAddr := resolveServer(serverOverride, cfg)
 
-	if !alreadyRunning(cfg.DataDir) {
-		if err := startServer(cfg, configPath, false); err != nil {
+	if !alreadyRunning(app.Config.DataDir) {
+		if err := startServer(app.Config, app.ConfigPath, false); err != nil {
 			return fmt.Errorf("auto-start server: %w", err)
 		}
 	}
@@ -88,14 +84,14 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 
 	var client *acp.Client
 	for range 10 {
-		client, err = acp.Dial(context.Background(), serverAddr, callbacks)
+		client, err = acp.Dial(context.Background(), app.ServerAddr, callbacks)
 		if err == nil {
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
 	if err != nil {
-		return fmt.Errorf("connect to server at %s: %w", serverAddr, err)
+		return fmt.Errorf("connect to server at %s: %w", app.ServerAddr, err)
 	}
 	defer client.Close()
 

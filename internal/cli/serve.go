@@ -41,16 +41,16 @@ func newServeCmd() *cobra.Command {
 }
 
 func runServeCmd(cmd *cobra.Command, _ []string) error {
-	configPath, _ := cmd.Flags().GetString("config")
+	app, err := newApp(cmd)
+	if err != nil {
+		return err
+	}
 	stdio, _ := cmd.Flags().GetBool("stdio")
 	foreground, _ := cmd.Flags().GetBool("foreground")
 	bindOverride, _ := cmd.Flags().GetString("bind")
 	llamaBin, _ := cmd.Flags().GetString("llama-bin")
 
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
+	cfg := app.Config
 	if bindOverride != "" {
 		cfg.Bind = bindOverride
 	}
@@ -66,7 +66,7 @@ func runServeCmd(cmd *cobra.Command, _ []string) error {
 		return runServer(cfg)
 	}
 
-	return startServer(cfg, configPath, false)
+	return startServer(cfg, app.ConfigPath, false)
 }
 
 func runStdio(cfg config.Config) error {

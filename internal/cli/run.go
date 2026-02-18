@@ -24,17 +24,13 @@ import (
 )
 
 func runCmd(cmd *cobra.Command, args []string) error {
-	configPath, _ := cmd.Flags().GetString("config")
-	serverOverride, _ := cmd.Flags().GetString("server")
+	app, err := newApp(cmd)
+	if err != nil {
+		return err
+	}
 	autoApprove, _ := cmd.Flags().GetBool("auto-approve")
 	sessionOverride, _ := cmd.Flags().GetString("session")
 	agentName, _ := cmd.Flags().GetString("agent")
-
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	serverAddr := resolveServer(serverOverride, cfg)
 
 	prompt := strings.TrimSpace(strings.Join(args, " "))
 	if prompt == "" {
@@ -43,11 +39,11 @@ func runCmd(cmd *cobra.Command, args []string) error {
 
 	sessionID := strings.TrimSpace(sessionOverride)
 	if sessionID == "" {
-		sessionID = loadActiveSession(cfg.DataDir)
+		sessionID = loadActiveSession(app.Config.DataDir)
 	}
 
 	if agentName == "" && sessionID != "" {
-		sessionService := &sessions.FileSessionService{BaseDir: cfg.DataDir}
+		sessionService := &sessions.FileSessionService{BaseDir: app.Config.DataDir}
 		if defaultAgent, err := sessionService.GetDefaultAgent(core.SessionID(sessionID)); err == nil && defaultAgent != "" {
 			agentName = defaultAgent
 		}
@@ -60,7 +56,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	renderer := newMarkdownRenderer()
 	var lastSnapshot *core.ContextSnapshot
 
-	client, err := dialServer(serverAddr, acp.ClientCallbacks{
+	client, err := dialServer(app.ServerAddr, acp.ClientCallbacks{
 		OnUpdate: func(notif acp.SessionNotification) {
 			handleSessionUpdate(notif, renderer)
 		},
@@ -120,7 +116,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		sid = sessResp.SessionID
 	}
 
-	if err := saveActiveSession(cfg.DataDir, string(sid)); err != nil {
+	if err := saveActiveSession(app.Config.DataDir, string(sid)); err != nil {
 		slog.Warn("failed to save active session", "error", err)
 	}
 

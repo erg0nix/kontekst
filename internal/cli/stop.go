@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"strings"
 	"time"
@@ -19,15 +18,12 @@ func newStopCmd() *cobra.Command {
 		Use:   "stop",
 		Short: "Stop kontekst server and llama-server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			configPath, _ := cmd.Flags().GetString("config")
-			serverOverride, _ := cmd.Flags().GetString("server")
-			cfg, err := loadConfig(configPath)
+			app, err := newApp(cmd)
 			if err != nil {
-				return fmt.Errorf("load config: %w", err)
+				return err
 			}
-			serverAddr := resolveServer(serverOverride, cfg)
 
-			stopKontekstServer(cmd.Context(), serverAddr)
+			stopKontekstServer(cmd.Context(), app.ServerAddr)
 			stopLlamaServer()
 			return nil
 		},
