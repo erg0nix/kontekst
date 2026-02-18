@@ -99,7 +99,7 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 	}
 	defer client.Close()
 
-	ctx := context.Background()
+	ctx := cmd.Context()
 
 	_, err = client.Initialize(ctx, acp.InitializeRequest{
 		ProtocolVersion: acp.ProtocolVersion,

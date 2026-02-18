@@ -35,7 +35,7 @@ func newPsCmd() *cobra.Command {
 
 			t := newTable("NAME", "STATUS", "PID", "ENDPOINT", "UPTIME")
 
-			addServerRow(t, cfg.DataDir, serverAddr)
+			addServerRow(cmd.Context(), t, cfg.DataDir, serverAddr)
 			addLlamaRow(t)
 
 			lipgloss.Println(t.Render())
@@ -44,7 +44,7 @@ func newPsCmd() *cobra.Command {
 	}
 }
 
-func addServerRow(t *table.Table, dataDir string, serverAddr string) {
+func addServerRow(ctx context.Context, t *table.Table, dataDir string, serverAddr string) {
 	pid := readPID(filepath.Join(dataDir, "server.pid"))
 	if pid == 0 {
 		t.Row("kontekst", styleError.Render("stopped"), "-", serverAddr, "-")
@@ -52,10 +52,10 @@ func addServerRow(t *table.Table, dataDir string, serverAddr string) {
 	}
 
 	var uptime string
-	client, err := acp.Dial(context.Background(), serverAddr, acp.ClientCallbacks{})
+	client, err := acp.Dial(ctx, serverAddr, acp.ClientCallbacks{})
 	if err == nil {
 		defer client.Close()
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		if resp, err := client.Status(ctx); err == nil {
 			uptime = resp.Uptime

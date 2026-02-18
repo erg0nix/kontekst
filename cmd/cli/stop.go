@@ -27,22 +27,22 @@ func newStopCmd() *cobra.Command {
 			}
 			serverAddr := resolveServer(serverOverride, cfg)
 
-			stopKontekstServer(serverAddr)
+			stopKontekstServer(cmd.Context(), serverAddr)
 			stopLlamaServer()
 			return nil
 		},
 	}
 }
 
-func stopKontekstServer(serverAddr string) {
-	client, err := acp.Dial(context.Background(), serverAddr, acp.ClientCallbacks{})
+func stopKontekstServer(ctx context.Context, serverAddr string) {
+	client, err := acp.Dial(ctx, serverAddr, acp.ClientCallbacks{})
 	if err != nil {
 		lipgloss.Println(styleDim.Render("kontekst server not running"))
 		return
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	if err := client.Shutdown(ctx); err != nil {

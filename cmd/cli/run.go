@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -79,7 +78,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	ctx := context.Background()
+	ctx := cmd.Context()
 
 	_, err = client.Initialize(ctx, acp.InitializeRequest{
 		ProtocolVersion: acp.ProtocolVersion,
