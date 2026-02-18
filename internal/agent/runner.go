@@ -41,7 +41,7 @@ type Runner interface {
 type DefaultRunner struct {
 	Tools       tools.ToolExecutor
 	Context     context.ContextService
-	Sessions    sessions.SessionService
+	Sessions    sessions.SessionCreator
 	DebugConfig config.DebugConfig
 }
 

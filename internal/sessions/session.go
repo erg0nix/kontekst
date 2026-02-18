@@ -15,12 +15,24 @@ type SessionInfo struct {
 	ModifiedAt   time.Time
 }
 
-type SessionService interface {
+type SessionCreator interface {
 	Create() (core.SessionID, string, error)
 	Ensure(sessionID core.SessionID) (string, error)
+}
+
+type SessionMetadata interface {
 	GetDefaultAgent(sessionID core.SessionID) (string, error)
 	SetDefaultAgent(sessionID core.SessionID, agentName string) error
+}
+
+type SessionBrowser interface {
 	List() ([]SessionInfo, error)
 	Get(sessionID core.SessionID) (SessionInfo, error)
+}
+
+type SessionService interface {
+	SessionCreator
+	SessionMetadata
+	SessionBrowser
 	Delete(sessionID core.SessionID) error
 }
