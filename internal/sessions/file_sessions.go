@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -88,7 +89,9 @@ func (service *FileSessionService) SetDefaultAgent(sessionID core.SessionID, age
 	var meta sessionMeta
 	data, err := os.ReadFile(metaPath)
 	if err == nil {
-		_ = json.Unmarshal(data, &meta)
+		if err := json.Unmarshal(data, &meta); err != nil {
+			slog.Warn("failed to parse session metadata", "path", metaPath, "error", err)
+		}
 	}
 
 	meta.DefaultAgent = agentName

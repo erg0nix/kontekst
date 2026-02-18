@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -119,7 +120,9 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		sid = sessResp.SessionID
 	}
 
-	_ = saveActiveSession(cfg.DataDir, string(sid))
+	if err := saveActiveSession(cfg.DataDir, string(sid)); err != nil {
+		slog.Warn("failed to save active session", "error", err)
+	}
 
 	promptResp, err := client.Prompt(ctx, acp.PromptRequest{
 		SessionID: sid,

@@ -30,7 +30,9 @@ func setupServices(cfg config.Config) setupResult {
 	}
 
 	skillsDir := filepath.Join(cfg.DataDir, "skills")
-	os.MkdirAll(skillsDir, 0o755)
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		slog.Warn("failed to create skills directory", "error", err)
+	}
 	if err := skillsConfig.EnsureDefaults(skillsDir); err != nil {
 		slog.Warn("failed to ensure default skills", "error", err)
 	}
@@ -40,7 +42,9 @@ func setupServices(cfg config.Config) setupResult {
 	}
 
 	commandsDir := filepath.Join(cfg.DataDir, "commands")
-	os.MkdirAll(commandsDir, 0o755)
+	if err := os.MkdirAll(commandsDir, 0o755); err != nil {
+		slog.Warn("failed to create commands directory", "error", err)
+	}
 	if err := commandsConfig.EnsureDefaults(commandsDir); err != nil {
 		slog.Warn("failed to ensure default commands", "error", err)
 	}

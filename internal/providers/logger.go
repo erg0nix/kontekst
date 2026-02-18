@@ -113,7 +113,10 @@ func (l *RequestLogger) writeLog(entry LogEntry) {
 		return
 	}
 
-	_ = os.MkdirAll(l.logDir, 0o755)
+	if err := os.MkdirAll(l.logDir, 0o755); err != nil {
+		slog.Warn("failed to create log directory", "path", l.logDir, "error", err)
+		return
+	}
 
 	logFile := filepath.Join(l.logDir, fmt.Sprintf("provider_%s.jsonl", time.Now().Format("2006-01-02")))
 
