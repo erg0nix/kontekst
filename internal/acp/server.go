@@ -14,6 +14,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/skills"
 )
 
+// Handler is the server-side ACP request handler that manages sessions and routes agent events.
 type Handler struct {
 	runner   agent.Runner
 	registry *agent.Registry
@@ -44,6 +45,7 @@ func (s *sessionState) sendCommand(cmd agent.Command) bool {
 	return true
 }
 
+// NewHandler creates a Handler with the given agent runner, registry, and skills registry.
 func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *skills.Registry) *Handler {
 	return &Handler{
 		runner:   runner,
@@ -52,18 +54,21 @@ func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *s
 	}
 }
 
+// Serve creates a Connection using the handler's default dispatch and returns it.
 func (h *Handler) Serve(w io.Writer, r io.Reader) *Connection {
 	conn := NewConnection(h.Dispatch, w, r)
 	h.conn = conn
 	return conn
 }
 
+// ServeWith creates a Connection using a custom dispatch function and returns it.
 func (h *Handler) ServeWith(dispatch MethodHandler, w io.Writer, r io.Reader) *Connection {
 	conn := NewConnection(dispatch, w, r)
 	h.conn = conn
 	return conn
 }
 
+// Dispatch routes an incoming JSON-RPC method call to the appropriate handler.
 func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
 	switch method {
 	case MethodInitialize:

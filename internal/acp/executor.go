@@ -8,12 +8,14 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+// ACPToolExecutor delegates tool execution to the ACP client based on its declared capabilities.
 type ACPToolExecutor struct {
 	conn      *Connection
 	sessionID SessionID
 	caps      ClientCapabilities
 }
 
+// NewACPToolExecutor creates an ACPToolExecutor that routes tool calls over the given connection.
 func NewACPToolExecutor(conn *Connection, sessionID SessionID, caps ClientCapabilities) *ACPToolExecutor {
 	return &ACPToolExecutor{
 		conn:      conn,
@@ -22,6 +24,7 @@ func NewACPToolExecutor(conn *Connection, sessionID SessionID, caps ClientCapabi
 	}
 }
 
+// ToolDefinitions returns tool definitions based on the client's declared capabilities.
 func (e *ACPToolExecutor) ToolDefinitions() []core.ToolDef {
 	var defs []core.ToolDef
 
@@ -100,6 +103,7 @@ func (e *ACPToolExecutor) ToolDefinitions() []core.ToolDef {
 	return defs
 }
 
+// Execute runs the named tool by delegating to the appropriate ACP method on the client.
 func (e *ACPToolExecutor) Execute(name string, args map[string]any, ctx context.Context) (string, error) {
 	switch name {
 	case "read_file":
@@ -113,6 +117,7 @@ func (e *ACPToolExecutor) Execute(name string, args map[string]any, ctx context.
 	}
 }
 
+// Preview returns an empty string because ACP-delegated tools do not support previews.
 func (e *ACPToolExecutor) Preview(_ string, _ map[string]any, _ context.Context) (string, error) {
 	return "", nil
 }

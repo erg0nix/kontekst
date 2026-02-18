@@ -12,8 +12,10 @@ import (
 
 const maxMessageSize = 10 * 1024 * 1024
 
+// MethodHandler is a function that handles an incoming JSON-RPC method call.
 type MethodHandler func(ctx context.Context, method string, params json.RawMessage) (any, error)
 
+// Connection is a bidirectional JSON-RPC 2.0 connection over line-delimited JSON.
 type Connection struct {
 	writer  io.Writer
 	scanner *bufio.Scanner
@@ -45,19 +47,23 @@ type jsonrpcResponse struct {
 	Error  *jsonrpcError
 }
 
+// RPCError represents a JSON-RPC 2.0 error with a code and message.
 type RPCError struct {
 	Code    int
 	Message string
 }
 
+// Error returns a formatted string containing the RPC error code and message.
 func (e *RPCError) Error() string {
 	return fmt.Sprintf("RPC error %d: %s", e.Code, e.Message)
 }
 
+// NewRPCError creates an RPCError with the given error code and message.
 func NewRPCError(code ErrorCode, message string) *RPCError {
 	return &RPCError{Code: int(code), Message: message}
 }
 
+// NewConnection creates a Connection with the given handler and starts its read loop.
 func NewConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection {
 	c := newConnection(handler, w, r)
 	go c.readLoop()
@@ -80,6 +86,7 @@ func newConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection 
 	}
 }
 
+// Start begins the connection's read loop in a goroutine.
 func (c *Connection) Start() {
 	go c.readLoop()
 }
@@ -185,6 +192,7 @@ func (c *Connection) writeMessage(msg jsonrpcMessage) error {
 	return nil
 }
 
+// Request sends a JSON-RPC request and blocks until a response is received or the context is cancelled.
 func (c *Connection) Request(ctx context.Context, method string, params any) (json.RawMessage, error) {
 	c.mu.Lock()
 	c.nextID++
@@ -235,6 +243,7 @@ func (c *Connection) Request(ctx context.Context, method string, params any) (js
 	}
 }
 
+// Notify sends a JSON-RPC notification (a request with no ID that expects no response).
 func (c *Connection) Notify(ctx context.Context, method string, params any) error {
 	var rawParams json.RawMessage
 	if params != nil {
@@ -254,14 +263,17 @@ func (c *Connection) Notify(ctx context.Context, method string, params any) erro
 	return c.writeMessage(msg)
 }
 
+// Done returns a channel that is closed when the connection's read loop terminates.
 func (c *Connection) Done() <-chan struct{} {
 	return c.done
 }
 
+// Context returns the connection's context, which is cancelled when the connection closes.
 func (c *Connection) Context() context.Context {
 	return c.ctx
 }
 
+// Close cancels the connection's context and closes the underlying writer if it implements io.Closer.
 func (c *Connection) Close() error {
 	c.cancel()
 	if closer, ok := c.writer.(io.Closer); ok {

@@ -7,16 +7,23 @@ import (
 	"net"
 )
 
+// UpdateHandler is a callback invoked when the server sends a session update notification.
 type UpdateHandler func(SessionNotification)
+
+// PermissionHandler is a callback invoked when the server requests tool execution approval.
 type PermissionHandler func(RequestPermissionRequest) RequestPermissionResponse
+
+// ContextSnapshotHandler is a callback invoked when the server sends a context snapshot.
 type ContextSnapshotHandler func(json.RawMessage)
 
+// ClientCallbacks holds the callback functions for handling server-initiated messages.
 type ClientCallbacks struct {
 	OnUpdate          UpdateHandler
 	OnPermission      PermissionHandler
 	OnContextSnapshot ContextSnapshotHandler
 }
 
+// Client is an ACP client that communicates with the agent server over a JSON-RPC connection.
 type Client struct {
 	conn              *Connection
 	OnUpdate          UpdateHandler
@@ -24,6 +31,7 @@ type Client struct {
 	OnContextSnapshot ContextSnapshotHandler
 }
 
+// Dial connects to an ACP server at the given address and returns a Client.
 func Dial(ctx context.Context, addr string, callbacks ClientCallbacks) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
@@ -45,6 +53,7 @@ func Dial(ctx context.Context, addr string, callbacks ClientCallbacks) (*Client,
 	return client, nil
 }
 
+// NewClient creates a Client from an existing Connection and registers its dispatch handler.
 func NewClient(conn *Connection) *Client {
 	c := &Client{conn: conn}
 	conn.handler = c.dispatch
@@ -84,6 +93,7 @@ func (c *Client) dispatch(ctx context.Context, method string, params json.RawMes
 	return nil, nil
 }
 
+// Initialize performs the ACP protocol handshake with the server.
 func (c *Client) Initialize(ctx context.Context, req InitializeRequest) (InitializeResponse, error) {
 	result, err := c.conn.Request(ctx, MethodInitialize, req)
 	if err != nil {
@@ -97,6 +107,7 @@ func (c *Client) Initialize(ctx context.Context, req InitializeRequest) (Initial
 	return resp, nil
 }
 
+// NewSession creates a new session on the server.
 func (c *Client) NewSession(ctx context.Context, req NewSessionRequest) (NewSessionResponse, error) {
 	result, err := c.conn.Request(ctx, MethodSessionNew, req)
 	if err != nil {
@@ -110,6 +121,7 @@ func (c *Client) NewSession(ctx context.Context, req NewSessionRequest) (NewSess
 	return resp, nil
 }
 
+// LoadSession resumes an existing session on the server.
 func (c *Client) LoadSession(ctx context.Context, req LoadSessionRequest) (LoadSessionResponse, error) {
 	result, err := c.conn.Request(ctx, MethodSessionLoad, req)
 	if err != nil {
@@ -123,6 +135,7 @@ func (c *Client) LoadSession(ctx context.Context, req LoadSessionRequest) (LoadS
 	return resp, nil
 }
 
+// Prompt sends a user prompt to the server and blocks until the agent completes its response.
 func (c *Client) Prompt(ctx context.Context, req PromptRequest) (PromptResponse, error) {
 	result, err := c.conn.Request(ctx, MethodSessionPrompt, req)
 	if err != nil {
@@ -136,10 +149,12 @@ func (c *Client) Prompt(ctx context.Context, req PromptRequest) (PromptResponse,
 	return resp, nil
 }
 
+// Cancel sends a cancellation notification for the active prompt in the given session.
 func (c *Client) Cancel(ctx context.Context, sessionID SessionID) error {
 	return c.conn.Notify(ctx, MethodSessionCancel, CancelNotification{SessionID: sessionID})
 }
 
+// Status queries the server for its current status after performing a handshake.
 func (c *Client) Status(ctx context.Context) (StatusResponse, error) {
 	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
 	if err != nil {
@@ -158,6 +173,7 @@ func (c *Client) Status(ctx context.Context) (StatusResponse, error) {
 	return resp, nil
 }
 
+// Shutdown requests the server to shut down gracefully after performing a handshake.
 func (c *Client) Shutdown(ctx context.Context) error {
 	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
 	if err != nil {
@@ -171,10 +187,12 @@ func (c *Client) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// Done returns a channel that is closed when the client's connection is closed.
 func (c *Client) Done() <-chan struct{} {
 	return c.conn.Done()
 }
 
+// Close shuts down the client's underlying connection.
 func (c *Client) Close() error {
 	return c.conn.Close()
 }
