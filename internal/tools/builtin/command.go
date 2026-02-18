@@ -17,6 +17,7 @@ import (
 
 const maxOutputBytes = 128 * 1024
 
+// CommandTool is a tool that executes user-defined commands from the commands registry.
 type CommandTool struct {
 	Registry *commands.Registry
 }
@@ -279,6 +280,7 @@ func ensureVenv(ctx context.Context, cmd *commands.Command) error {
 	return nil
 }
 
+// RegisterCommand adds the run_command tool to the registry.
 func RegisterCommand(registry *tools.Registry, commandsRegistry *commands.Registry) {
 	registry.Add(&CommandTool{Registry: commandsRegistry})
 }

@@ -7,12 +7,14 @@ import (
 
 const contextLines = 3
 
+// DiffPreview represents a structured diff with summary statistics and line-level blocks.
 type DiffPreview struct {
 	Path    string      `json:"path"`
 	Summary DiffSummary `json:"summary"`
 	Blocks  []DiffBlock `json:"blocks"`
 }
 
+// DiffSummary holds aggregate statistics about a diff.
 type DiffSummary struct {
 	TotalEdits   int            `json:"total_edits"`
 	Operations   map[string]int `json:"operations"`
@@ -21,6 +23,7 @@ type DiffSummary struct {
 	NetChange    int            `json:"net_change"`
 }
 
+// DiffBlock represents a contiguous hunk of changed and context lines.
 type DiffBlock struct {
 	Header       string     `json:"header"`
 	OldStartLine int        `json:"old_start_line"`
@@ -28,6 +31,7 @@ type DiffBlock struct {
 	Lines        []DiffLine `json:"lines"`
 }
 
+// DiffLine represents a single line within a diff block, with its type and optional line numbers.
 type DiffLine struct {
 	Type      string  `json:"type"`
 	Content   string  `json:"content"`
@@ -36,6 +40,7 @@ type DiffLine struct {
 	Hash      *string `json:"hash,omitempty"`
 }
 
+// GenerateUnifiedDiff produces a unified diff string between old and new content for the given path.
 func GenerateUnifiedDiff(path, oldContent, newContent string) string {
 	oldLines := SplitLines(oldContent)
 	newLines := SplitLines(newContent)
@@ -64,6 +69,7 @@ func GenerateUnifiedDiff(path, oldContent, newContent string) string {
 	return builder.String()
 }
 
+// GenerateNewFileDiff produces a unified diff showing the creation of a new file, truncating at maxLines.
 func GenerateNewFileDiff(path, content string, maxLines int) string {
 	lines := SplitLines(content)
 	totalLines := len(lines)
@@ -313,6 +319,7 @@ func filterChangesInRange(changes []change, start, end int) []change {
 	return result
 }
 
+// SplitLines splits a string into lines, stripping a trailing empty line from a final newline.
 func SplitLines(s string) []string {
 	if s == "" {
 		return nil
@@ -324,10 +331,12 @@ func SplitLines(s string) []string {
 	return lines
 }
 
+// GenerateStructuredDiff produces a DiffPreview between old and new content without hashline annotations.
 func GenerateStructuredDiff(path, oldContent, newContent string) DiffPreview {
 	return GenerateStructuredDiffWithHashes(path, oldContent, newContent, nil, nil)
 }
 
+// GenerateStructuredDiffWithHashes produces a DiffPreview with optional hashline annotations on each line.
 func GenerateStructuredDiffWithHashes(path, oldContent, newContent string, oldHashes, newHashes map[int]string) DiffPreview {
 	oldLines := SplitLines(oldContent)
 	newLines := SplitLines(newContent)

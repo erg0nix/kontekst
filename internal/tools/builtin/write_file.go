@@ -14,6 +14,7 @@ import (
 
 const maxPreviewLines = 50
 
+// WriteFile is a tool that creates or overwrites files with given content.
 type WriteFile struct {
 	BaseDir    string
 	FileConfig config.FileToolsConfig
@@ -96,6 +97,7 @@ func (tool *WriteFile) Execute(args map[string]any, ctx context.Context) (string
 	return fmt.Sprintf("Successfully wrote %d bytes to %s", len(content), path), nil
 }
 
+// RegisterWriteFile adds the write_file tool to the registry.
 func RegisterWriteFile(registry *tools.Registry, baseDir string, fileConfig config.FileToolsConfig) {
 	registry.Add(&WriteFile{BaseDir: baseDir, FileConfig: fileConfig})
 }

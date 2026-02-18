@@ -67,6 +67,7 @@ func getIntArg(key string, args map[string]any) (int, bool) {
 	}
 }
 
+// RegisterAll registers all builtin file and web tools into the registry.
 func RegisterAll(registry *tools.Registry, baseDir string, toolsConfig config.ToolsConfig) {
 	RegisterReadFile(registry, baseDir)
 	RegisterListFiles(registry, baseDir)

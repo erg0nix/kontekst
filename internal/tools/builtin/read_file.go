@@ -14,6 +14,7 @@ import (
 
 const maxLinesDefault = 10000
 
+// ReadFile is a tool that reads file contents with line numbers and hashline annotations.
 type ReadFile struct {
 	BaseDir string
 }
@@ -120,6 +121,7 @@ func formatWithLineNumbers(lines []string, startLine int, hashMap map[int]string
 	return strings.TrimSuffix(builder.String(), "\n")
 }
 
+// RegisterReadFile adds the read_file tool to the registry.
 func RegisterReadFile(registry *tools.Registry, baseDir string) {
 	registry.Add(&ReadFile{BaseDir: baseDir})
 }

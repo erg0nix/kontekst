@@ -12,15 +12,18 @@ import (
 
 type skillContextKey struct{}
 
+// SkillCallbacks holds the functions needed by the skill tool to inject content and set active skill metadata.
 type SkillCallbacks struct {
 	ContextInjector func(msg core.Message) error
 	SetActiveSkill  func(skill *core.SkillMetadata)
 }
 
+// WithSkillCallbacks returns a new context carrying the given skill callbacks.
 func WithSkillCallbacks(ctx context.Context, callbacks *SkillCallbacks) context.Context {
 	return context.WithValue(ctx, skillContextKey{}, callbacks)
 }
 
+// GetSkillCallbacks extracts the skill callbacks from the context, or returns nil if unset.
 func GetSkillCallbacks(ctx context.Context) *SkillCallbacks {
 	val := ctx.Value(skillContextKey{})
 	if val == nil {
@@ -29,6 +32,7 @@ func GetSkillCallbacks(ctx context.Context) *SkillCallbacks {
 	return val.(*SkillCallbacks)
 }
 
+// SkillTool is a tool that invokes named skills to provide specialized workflows and instructions.
 type SkillTool struct {
 	Registry *skills.Registry
 }
@@ -109,6 +113,7 @@ func (tool *SkillTool) Execute(args map[string]any, ctx context.Context) (string
 	return fmt.Sprintf("Skill '%s' loaded. Follow the instructions in the message above.", name), nil
 }
 
+// RegisterSkill adds the skill tool to the registry.
 func RegisterSkill(registry *tools.Registry, skillsRegistry *skills.Registry) {
 	registry.Add(&SkillTool{Registry: skillsRegistry})
 }

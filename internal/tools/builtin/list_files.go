@@ -10,6 +10,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
+// ListFiles is a tool that lists files matching a glob pattern.
 type ListFiles struct {
 	BaseDir string
 }
@@ -68,6 +69,7 @@ func (tool *ListFiles) Execute(args map[string]any, ctx context.Context) (string
 	return strings.Join(out, "\n"), nil
 }
 
+// RegisterListFiles adds the list_files tool to the registry.
 func RegisterListFiles(registry *tools.Registry, baseDir string) {
 	registry.Add(&ListFiles{BaseDir: baseDir})
 }

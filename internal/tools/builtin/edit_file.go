@@ -16,6 +16,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools/hashline"
 )
 
+// EditFile is a tool that applies hashline-validated edits to existing files.
 type EditFile struct {
 	BaseDir    string
 	FileConfig config.FileToolsConfig
@@ -160,6 +161,7 @@ func (tool *EditFile) Preview(args map[string]any, ctx context.Context) (string,
 	return string(data), nil
 }
 
+// PreviewStructured returns a structured diff preview of the edits that would be applied.
 func (tool *EditFile) PreviewStructured(args map[string]any, ctx context.Context) (*tooldiff.DiffPreview, error) {
 	plan, err := tool.prepareEdits(args, ctx)
 	if err != nil {
@@ -307,6 +309,7 @@ func applyEdits(lines []string, edits []edit) ([]string, error) {
 	return result, nil
 }
 
+// RegisterEditFile adds the edit_file tool to the registry.
 func RegisterEditFile(registry *tools.Registry, baseDir string, fileConfig config.FileToolsConfig) {
 	registry.Add(&EditFile{BaseDir: baseDir, FileConfig: fileConfig})
 }

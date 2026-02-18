@@ -13,6 +13,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
+// WebFetch is a tool that fetches content from URLs via HTTP.
 type WebFetch struct {
 	WebConfig config.WebToolsConfig
 }
@@ -132,6 +133,7 @@ func (tool *WebFetch) Execute(args map[string]any, ctx context.Context) (string,
 	return result.String(), nil
 }
 
+// RegisterWebFetch adds the web_fetch tool to the registry.
 func RegisterWebFetch(registry *tools.Registry, webConfig config.WebToolsConfig) {
 	registry.Add(&WebFetch{WebConfig: webConfig})
 }
