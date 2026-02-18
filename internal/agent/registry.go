@@ -9,16 +9,19 @@ import (
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
 )
 
+// Registry discovers and loads agent configurations from the agents directory.
 type Registry struct {
 	AgentsDir string
 }
 
+// NewRegistry creates a Registry that looks for agents under dataDir/agents.
 func NewRegistry(dataDir string) *Registry {
 	return &Registry{
 		AgentsDir: filepath.Join(dataDir, "agents"),
 	}
 }
 
+// Summary holds metadata about a registered agent for listing purposes.
 type Summary struct {
 	Name        string
 	DisplayName string
@@ -26,6 +29,7 @@ type Summary struct {
 	HasConfig   bool
 }
 
+// List returns summaries of all agents found in the agents directory.
 func (r *Registry) List() ([]Summary, error) {
 	entries, err := os.ReadDir(r.AgentsDir)
 	if err != nil {
@@ -72,6 +76,7 @@ func (r *Registry) List() ([]Summary, error) {
 	return agents, nil
 }
 
+// Load reads and returns the full agent configuration for the named agent.
 func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	agentDir := filepath.Join(r.AgentsDir, name)
 	configPath := filepath.Join(agentDir, "config.toml")
@@ -131,6 +136,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	return cfg, nil
 }
 
+// Exists reports whether an agent with the given name has a config or prompt file.
 func (r *Registry) Exists(name string) bool {
 	agentDir := filepath.Join(r.AgentsDir, name)
 	configPath := filepath.Join(agentDir, "config.toml")
@@ -144,11 +150,13 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
+// NotFoundError is returned when a requested agent does not exist in the registry.
 type NotFoundError struct {
 	Name      string
 	Available []string
 }
 
+// Error returns a message identifying the missing agent and listing available alternatives.
 func (e *NotFoundError) Error() string {
 	msg := "agent not found: " + e.Name
 	if len(e.Available) > 0 {
@@ -157,15 +165,18 @@ func (e *NotFoundError) Error() string {
 	return msg
 }
 
+// ConfigError is returned when an agent's configuration file cannot be loaded or parsed.
 type ConfigError struct {
 	Name string
 	Err  error
 }
 
+// Error returns a message identifying the agent and the underlying configuration error.
 func (e *ConfigError) Error() string {
 	return "invalid config for agent " + e.Name + ": " + e.Err.Error()
 }
 
+// Unwrap returns the underlying error that caused the configuration failure.
 func (e *ConfigError) Unwrap() error {
 	return e.Err
 }

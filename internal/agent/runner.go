@@ -17,6 +17,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
+// RunConfig holds all parameters needed to start a single agent run.
 type RunConfig struct {
 	Prompt              string
 	SessionID           core.SessionID
@@ -34,10 +35,12 @@ type RunConfig struct {
 	Tools               tools.ToolExecutor
 }
 
+// Runner starts agent runs and returns channels for bidirectional communication.
 type Runner interface {
 	StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error)
 }
 
+// DefaultRunner is the standard Runner implementation that wires together sessions, context, and an LLM provider.
 type DefaultRunner struct {
 	Tools       tools.ToolExecutor
 	Context     context.ContextService
@@ -45,6 +48,7 @@ type DefaultRunner struct {
 	DebugConfig config.DebugConfig
 }
 
+// StartRun initializes a session and context window, then starts the agent loop in a background goroutine.
 func (runner *DefaultRunner) StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error) {
 	sessionID := cfg.SessionID
 	if sessionID == "" {

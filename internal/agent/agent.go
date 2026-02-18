@@ -11,6 +11,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools"
 )
 
+// Agent orchestrates the iterative loop of prompting an LLM, proposing tool calls, and executing approved tools.
 type Agent struct {
 	provider providers.Provider
 	tools    tools.ToolExecutor
@@ -18,6 +19,7 @@ type Agent struct {
 	config   RunConfig
 }
 
+// New creates an Agent with the given provider, tool executor, context window, and run configuration.
 func New(
 	provider providers.Provider,
 	toolExecutor tools.ToolExecutor,
@@ -32,6 +34,7 @@ func New(
 	}
 }
 
+// Run starts the agent loop in a goroutine and returns a command channel for client input and an event channel for agent output.
 func (agent *Agent) Run(prompt string) (chan<- Command, <-chan Event) {
 	commandChannel := make(chan Command, 16)
 	eventChannel := make(chan Event, 32)
