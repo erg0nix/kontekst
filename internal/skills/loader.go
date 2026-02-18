@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ type skillFrontmatter struct {
 func loadSkillFile(path string) (*Skill, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read skill: %w", err)
 	}
 
 	content := string(data)
@@ -27,7 +28,7 @@ func loadSkillFile(path string) (*Skill, error) {
 	var fm skillFrontmatter
 	if frontmatter != "" {
 		if err := toml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parse skill frontmatter: %w", err)
 		}
 	}
 

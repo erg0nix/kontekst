@@ -210,7 +210,7 @@ func (p *OpenAIProvider) GenerateChat(
 
 	var responsePayload map[string]any
 	if err := json.NewDecoder(httpResp.Body).Decode(&responsePayload); err != nil {
-		return core.ChatResponse{}, err
+		return core.ChatResponse{}, fmt.Errorf("decode response: %w", err)
 	}
 
 	response, err := parseResponsePayload(responsePayload)

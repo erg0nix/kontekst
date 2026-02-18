@@ -65,7 +65,7 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 
 	file, err := os.Open(fullPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("open file: %w", err)
 	}
 	defer file.Close()
 
@@ -95,7 +95,7 @@ func (tool *ReadFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", err
+		return "", fmt.Errorf("scan file: %w", err)
 	}
 
 	if len(lines) == 0 {

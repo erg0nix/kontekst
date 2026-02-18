@@ -90,7 +90,7 @@ func (tool *WriteFile) Execute(args map[string]any, ctx context.Context) (string
 	}
 
 	if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
-		return "", err
+		return "", fmt.Errorf("write file: %w", err)
 	}
 
 	return fmt.Sprintf("Successfully wrote %d bytes to %s", len(content), path), nil

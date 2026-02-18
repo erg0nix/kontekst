@@ -113,7 +113,7 @@ func (tool *EditFile) prepareEdits(args map[string]any, ctx context.Context) (*e
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("file does not exist: %s", path)
 		}
-		return nil, err
+		return nil, fmt.Errorf("read file: %w", err)
 	}
 
 	trailingNewline := len(data) > 0 && data[len(data)-1] == '\n'
@@ -197,7 +197,7 @@ func (tool *EditFile) Execute(args map[string]any, ctx context.Context) (string,
 	}
 
 	if err := os.WriteFile(plan.fullPath, []byte(newContent), 0o644); err != nil {
-		return "", err
+		return "", fmt.Errorf("write file: %w", err)
 	}
 
 	return fmt.Sprintf("Applied %d edit(s) to %s", len(plan.edits), plan.path), nil
