@@ -30,7 +30,10 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	sessionOverride, _ := cmd.Flags().GetString("session")
 	agentName, _ := cmd.Flags().GetString("agent")
 
-	cfg, _ := loadConfig(configPath)
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
 	serverAddr := resolveServer(serverOverride, cfg)
 
 	prompt := strings.TrimSpace(strings.Join(args, " "))

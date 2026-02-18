@@ -27,7 +27,10 @@ func newPsCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			configPath, _ := cmd.Flags().GetString("config")
 			serverOverride, _ := cmd.Flags().GetString("server")
-			cfg, _ := loadConfig(configPath)
+			cfg, err := loadConfig(configPath)
+			if err != nil {
+				return fmt.Errorf("load config: %w", err)
+			}
 			serverAddr := resolveServer(serverOverride, cfg)
 
 			t := newTable("NAME", "STATUS", "PID", "ENDPOINT", "UPTIME")

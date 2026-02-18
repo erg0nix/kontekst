@@ -32,7 +32,10 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 	configPath, _ := cmd.Flags().GetString("config")
 	serverOverride, _ := cmd.Flags().GetString("server")
 
-	cfg, _ := loadConfig(configPath)
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
 	serverAddr := resolveServer(serverOverride, cfg)
 
 	if !alreadyRunning(cfg.DataDir) {
@@ -84,7 +87,6 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 	}
 
 	var client *acp.Client
-	var err error
 	for range 10 {
 		client, err = acp.Dial(context.Background(), serverAddr, callbacks)
 		if err == nil {

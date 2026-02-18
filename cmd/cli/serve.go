@@ -47,7 +47,10 @@ func runServeCmd(cmd *cobra.Command, _ []string) error {
 	bindOverride, _ := cmd.Flags().GetString("bind")
 	llamaBin, _ := cmd.Flags().GetString("llama-bin")
 
-	cfg, _ := loadConfig(configPath)
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
 	if bindOverride != "" {
 		cfg.Bind = bindOverride
 	}
