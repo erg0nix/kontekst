@@ -67,7 +67,7 @@ func (b *pendingBatch) asToolCalls() []core.ToolCall {
 	return out
 }
 
-func collectApprovals(commandChannel <-chan AgentCommand, batch *pendingBatch) ([]*pendingCall, error) {
+func collectApprovals(commandChannel <-chan Command, batch *pendingBatch) ([]*pendingCall, error) {
 	for {
 		if allDecided(batch) {
 			return collectDecisions(batch), nil

@@ -2,36 +2,36 @@ package agent
 
 import "github.com/erg0nix/kontekst/internal/core"
 
-type AgentCommandType string
+type CommandType string
 
-type AgentEventType string
+type EventType string
 
 const (
-	CmdApproveTool    AgentCommandType = "approve_tool"
-	CmdDenyTool       AgentCommandType = "deny_tool"
-	CmdCancel         AgentCommandType = "cancel"
-	EvtRunStarted     AgentEventType   = "run_started"
-	EvtTokenDelta     AgentEventType   = "token_delta"
-	EvtReasoningDelta AgentEventType   = "reasoning_delta"
-	EvtTurnCompleted  AgentEventType   = "turn_completed"
-	EvtToolsProposed  AgentEventType   = "tools_proposed"
-	EvtToolStarted    AgentEventType   = "tool_execution_started"
-	EvtToolCompleted  AgentEventType   = "tool_execution_completed"
-	EvtToolFailed     AgentEventType   = "tool_execution_failed"
-	EvtToolsCompleted AgentEventType   = "tools_completed"
-	EvtRunCompleted   AgentEventType   = "run_completed"
-	EvtRunCancelled   AgentEventType   = "run_cancelled"
-	EvtRunFailed      AgentEventType   = "run_failed"
+	CmdApproveTool    CommandType = "approve_tool"
+	CmdDenyTool       CommandType = "deny_tool"
+	CmdCancel         CommandType = "cancel"
+	EvtRunStarted     EventType   = "run_started"
+	EvtTokenDelta     EventType   = "token_delta"
+	EvtReasoningDelta EventType   = "reasoning_delta"
+	EvtTurnCompleted  EventType   = "turn_completed"
+	EvtToolsProposed  EventType   = "tools_proposed"
+	EvtToolStarted    EventType   = "tool_execution_started"
+	EvtToolCompleted  EventType   = "tool_execution_completed"
+	EvtToolFailed     EventType   = "tool_execution_failed"
+	EvtToolsCompleted EventType   = "tools_completed"
+	EvtRunCompleted   EventType   = "run_completed"
+	EvtRunCancelled   EventType   = "run_cancelled"
+	EvtRunFailed      EventType   = "run_failed"
 )
 
-type AgentCommand struct {
-	Type   AgentCommandType
+type Command struct {
+	Type   CommandType
 	CallID string
 	Reason string
 }
 
-type AgentEvent struct {
-	Type      AgentEventType
+type Event struct {
+	Type      EventType
 	RunID     core.RunID
 	SessionID core.SessionID
 	AgentName string

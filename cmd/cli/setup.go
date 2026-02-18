@@ -19,7 +19,7 @@ import (
 )
 
 type setupResult struct {
-	Runner *agent.AgentRunner
+	Runner *agent.DefaultRunner
 	Agents *agent.Registry
 	Skills *skills.Registry
 }
@@ -57,7 +57,7 @@ func setupServices(cfg config.Config) setupResult {
 	contextService := context.NewFileContextService(cfg.DataDir)
 	sessionService := &sessions.FileSessionService{BaseDir: cfg.DataDir}
 
-	runner := &agent.AgentRunner{
+	runner := &agent.DefaultRunner{
 		Tools:       toolRegistry,
 		Context:     contextService,
 		Sessions:    sessionService,

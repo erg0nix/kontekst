@@ -28,11 +28,11 @@ type sessionState struct {
 	agentName string
 	sessionID core.SessionID
 	cwd       string
-	commandCh chan<- agent.AgentCommand
+	commandCh chan<- agent.Command
 	cancelFn  context.CancelFunc
 }
 
-func (s *sessionState) sendCommand(cmd agent.AgentCommand) bool {
+func (s *sessionState) sendCommand(cmd agent.Command) bool {
 	s.mu.Lock()
 	ch := s.commandCh
 	s.mu.Unlock()
@@ -241,7 +241,7 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 	return h.forwardEvents(runCtx, req.SessionID, sess, eventCh)
 }
 
-func (h *Handler) forwardEvents(ctx context.Context, sid SessionID, sess *sessionState, eventCh <-chan agent.AgentEvent) (PromptResponse, error) {
+func (h *Handler) forwardEvents(ctx context.Context, sid SessionID, sess *sessionState, eventCh <-chan agent.Event) (PromptResponse, error) {
 	defer func() {
 		sess.mu.Lock()
 		if sess.cancelFn != nil {
@@ -268,17 +268,17 @@ func (h *Handler) forwardEvents(ctx context.Context, sid SessionID, sess *sessio
 			}
 
 		case <-h.conn.Done():
-			sess.sendCommand(agent.AgentCommand{Type: agent.CmdCancel})
+			sess.sendCommand(agent.Command{Type: agent.CmdCancel})
 			return PromptResponse{StopReason: StopReasonCancelled}, nil
 
 		case <-ctx.Done():
-			sess.sendCommand(agent.AgentCommand{Type: agent.CmdCancel})
+			sess.sendCommand(agent.Command{Type: agent.CmdCancel})
 			return PromptResponse{StopReason: StopReasonCancelled}, nil
 		}
 	}
 }
 
-func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *sessionState, event agent.AgentEvent) (PromptResponse, bool, error) {
+func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *sessionState, event agent.Event) (PromptResponse, bool, error) {
 	switch event.Type {
 	case agent.EvtRunStarted:
 		return PromptResponse{}, false, nil
@@ -322,18 +322,18 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 
 			permResp, err := h.requestPermission(ctx, sid, call, kind, options)
 			if err != nil {
-				sess.sendCommand(agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: "permission request failed"})
+				sess.sendCommand(agent.Command{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: "permission request failed"})
 				continue
 			}
 
 			if isAllowOutcome(permResp.Outcome, options) {
-				sess.sendCommand(agent.AgentCommand{Type: agent.CmdApproveTool, CallID: call.CallID})
+				sess.sendCommand(agent.Command{Type: agent.CmdApproveTool, CallID: call.CallID})
 			} else {
 				reason := "denied by user"
 				if permResp.Outcome.Outcome == "cancelled" {
 					reason = "cancelled"
 				}
-				sess.sendCommand(agent.AgentCommand{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: reason})
+				sess.sendCommand(agent.Command{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: reason})
 			}
 		}
 		return PromptResponse{}, false, nil
@@ -427,7 +427,7 @@ func (h *Handler) handleCancel(params json.RawMessage) {
 	}
 	sess := val.(*sessionState)
 
-	sess.sendCommand(agent.AgentCommand{Type: agent.CmdCancel})
+	sess.sendCommand(agent.Command{Type: agent.CmdCancel})
 }
 
 func (h *Handler) sendUpdate(sid SessionID, update any) {

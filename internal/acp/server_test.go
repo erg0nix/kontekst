@@ -15,18 +15,18 @@ import (
 )
 
 type mockRunner struct {
-	events  []agent.AgentEvent
-	onCmd   func(agent.AgentCommand)
+	events  []agent.Event
+	onCmd   func(agent.Command)
 	onStart func(agent.RunConfig)
 }
 
-func (m *mockRunner) StartRun(cfg agent.RunConfig) (chan<- agent.AgentCommand, <-chan agent.AgentEvent, error) {
+func (m *mockRunner) StartRun(cfg agent.RunConfig) (chan<- agent.Command, <-chan agent.Event, error) {
 	if m.onStart != nil {
 		m.onStart(cfg)
 	}
 
-	cmdCh := make(chan agent.AgentCommand, 16)
-	evtCh := make(chan agent.AgentEvent, 32)
+	cmdCh := make(chan agent.Command, 16)
+	evtCh := make(chan agent.Event, 32)
 
 	go func() {
 		for _, e := range m.events {
@@ -107,7 +107,7 @@ func initAndCreateSession(t *testing.T, client *Connection) SessionID {
 
 func TestServerSimplePrompt(t *testing.T) {
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: core.ChatResponse{Content: "Hello!"}},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
@@ -169,7 +169,7 @@ func TestServerSimplePrompt(t *testing.T) {
 func TestServerToolApproval(t *testing.T) {
 	approved := make(chan string, 1)
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: core.ChatResponse{Content: "I'll read the file"}},
 			{Type: agent.EvtToolsProposed, RunID: "run_1", Calls: []agent.ProposedToolCall{
@@ -179,7 +179,7 @@ func TestServerToolApproval(t *testing.T) {
 			{Type: agent.EvtToolCompleted, RunID: "run_1", CallID: "call_1", Output: "package main"},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
-		onCmd: func(cmd agent.AgentCommand) {
+		onCmd: func(cmd agent.Command) {
 			if cmd.Type == agent.CmdApproveTool {
 				approved <- cmd.CallID
 			}
@@ -226,7 +226,7 @@ func TestServerToolApproval(t *testing.T) {
 func TestServerToolDenied(t *testing.T) {
 	denied := make(chan string, 1)
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: core.ChatResponse{Content: "I'll write the file"}},
 			{Type: agent.EvtToolsProposed, RunID: "run_1", Calls: []agent.ProposedToolCall{
@@ -234,7 +234,7 @@ func TestServerToolDenied(t *testing.T) {
 			}},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
-		onCmd: func(cmd agent.AgentCommand) {
+		onCmd: func(cmd agent.Command) {
 			if cmd.Type == agent.CmdDenyTool {
 				denied <- cmd.CallID
 			}
@@ -274,7 +274,7 @@ func TestServerToolDenied(t *testing.T) {
 
 func TestServerCancel(t *testing.T) {
 	cancelReceived := make(chan struct{})
-	eventCh := make(chan agent.AgentEvent, 32)
+	eventCh := make(chan agent.Event, 32)
 
 	runner := &mockRunnerChan{
 		eventCh:        eventCh,
@@ -288,7 +288,7 @@ func TestServerCancel(t *testing.T) {
 		return nil, nil
 	}
 
-	eventCh <- agent.AgentEvent{Type: agent.EvtRunStarted, RunID: "run_1"}
+	eventCh <- agent.Event{Type: agent.EvtRunStarted, RunID: "run_1"}
 
 	ctx := context.Background()
 	promptDone := make(chan struct{})
@@ -310,7 +310,7 @@ func TestServerCancel(t *testing.T) {
 		t.Fatal("cancel not received")
 	}
 
-	eventCh <- agent.AgentEvent{Type: agent.EvtRunCancelled, RunID: "run_1"}
+	eventCh <- agent.Event{Type: agent.EvtRunCancelled, RunID: "run_1"}
 	close(eventCh)
 
 	select {
@@ -321,12 +321,12 @@ func TestServerCancel(t *testing.T) {
 }
 
 type mockRunnerChan struct {
-	eventCh        chan agent.AgentEvent
+	eventCh        chan agent.Event
 	cancelReceived chan struct{}
 }
 
-func (m *mockRunnerChan) StartRun(_ agent.RunConfig) (chan<- agent.AgentCommand, <-chan agent.AgentEvent, error) {
-	cmdCh := make(chan agent.AgentCommand, 16)
+func (m *mockRunnerChan) StartRun(_ agent.RunConfig) (chan<- agent.Command, <-chan agent.Event, error) {
+	cmdCh := make(chan agent.Command, 16)
 
 	go func() {
 		for cmd := range cmdCh {
@@ -384,7 +384,7 @@ func TestServerSessionNotFound(t *testing.T) {
 
 func TestServerRunFailed(t *testing.T) {
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtRunFailed, RunID: "run_1", Error: "model returned error"},
 		},
@@ -420,7 +420,7 @@ func TestServerRunFailed(t *testing.T) {
 
 func TestServerConnectionCloseCancel(t *testing.T) {
 	cancelReceived := make(chan struct{})
-	eventCh := make(chan agent.AgentEvent, 32)
+	eventCh := make(chan agent.Event, 32)
 
 	runner := &mockRunnerChan{
 		eventCh:        eventCh,
@@ -434,7 +434,7 @@ func TestServerConnectionCloseCancel(t *testing.T) {
 		return nil, nil
 	}
 
-	eventCh <- agent.AgentEvent{Type: agent.EvtRunStarted, RunID: "run_1"}
+	eventCh <- agent.Event{Type: agent.EvtRunStarted, RunID: "run_1"}
 
 	promptDone := make(chan struct{})
 	go func() {
@@ -455,7 +455,7 @@ func TestServerConnectionCloseCancel(t *testing.T) {
 		t.Fatal("cancel not received after connection close")
 	}
 
-	eventCh <- agent.AgentEvent{Type: agent.EvtRunCancelled, RunID: "run_1"}
+	eventCh <- agent.Event{Type: agent.EvtRunCancelled, RunID: "run_1"}
 	close(eventCh)
 
 	select {
@@ -494,7 +494,7 @@ func TestIsAllowOutcome(t *testing.T) {
 func TestServerNewSessionWithMeta(t *testing.T) {
 	agentNameCh := make(chan string, 1)
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
@@ -568,7 +568,7 @@ model = "test"
 
 func TestServerLoadSession(t *testing.T) {
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
@@ -616,32 +616,32 @@ func TestServerLoadSession(t *testing.T) {
 func TestServerEventForwarding(t *testing.T) {
 	tests := []struct {
 		name       string
-		event      agent.AgentEvent
+		event      agent.Event
 		wantUpdate string
 	}{
 		{
 			name:       "EvtTokenDelta",
-			event:      agent.AgentEvent{Type: agent.EvtTokenDelta, RunID: "run_1", Token: "hello"},
+			event:      agent.Event{Type: agent.EvtTokenDelta, RunID: "run_1", Token: "hello"},
 			wantUpdate: "agent_message_chunk",
 		},
 		{
 			name:       "EvtReasoningDelta",
-			event:      agent.AgentEvent{Type: agent.EvtReasoningDelta, RunID: "run_1", Reasoning: "thinking..."},
+			event:      agent.Event{Type: agent.EvtReasoningDelta, RunID: "run_1", Reasoning: "thinking..."},
 			wantUpdate: "agent_thought_chunk",
 		},
 		{
 			name:       "EvtToolStarted",
-			event:      agent.AgentEvent{Type: agent.EvtToolStarted, RunID: "run_1", CallID: "call_1"},
+			event:      agent.Event{Type: agent.EvtToolStarted, RunID: "run_1", CallID: "call_1"},
 			wantUpdate: "tool_call_update",
 		},
 		{
 			name:       "EvtToolCompleted",
-			event:      agent.AgentEvent{Type: agent.EvtToolCompleted, RunID: "run_1", CallID: "call_1", Output: "result"},
+			event:      agent.Event{Type: agent.EvtToolCompleted, RunID: "run_1", CallID: "call_1", Output: "result"},
 			wantUpdate: "tool_call_update",
 		},
 		{
 			name:       "EvtToolFailed",
-			event:      agent.AgentEvent{Type: agent.EvtToolFailed, RunID: "run_1", CallID: "call_1", Error: "oops"},
+			event:      agent.Event{Type: agent.EvtToolFailed, RunID: "run_1", CallID: "call_1", Error: "oops"},
 			wantUpdate: "tool_call_update",
 		},
 	}
@@ -649,7 +649,7 @@ func TestServerEventForwarding(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				events: []agent.AgentEvent{
+				events: []agent.Event{
 					{Type: agent.EvtRunStarted, RunID: "run_1"},
 					tt.event,
 					{Type: agent.EvtRunCompleted, RunID: "run_1"},
@@ -698,7 +698,7 @@ func TestServerEventForwarding(t *testing.T) {
 
 func TestServerContextSnapshot(t *testing.T) {
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtTurnCompleted, RunID: "run_1",
 				Response: core.ChatResponse{Content: "Hi"},

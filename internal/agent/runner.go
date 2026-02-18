@@ -35,17 +35,17 @@ type RunConfig struct {
 }
 
 type Runner interface {
-	StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error)
+	StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error)
 }
 
-type AgentRunner struct {
+type DefaultRunner struct {
 	Tools       tools.ToolExecutor
 	Context     context.ContextService
 	Sessions    sessions.SessionService
 	DebugConfig config.DebugConfig
 }
 
-func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error) {
+func (runner *DefaultRunner) StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error) {
 	sessionID := cfg.SessionID
 	if sessionID == "" {
 		newSessionID, _, err := runner.Sessions.Create()
@@ -102,7 +102,7 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 	agentEngine := New(provider, toolExecutor, ctxWindow, cfg)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
-	outputChannel := make(chan AgentEvent, 32)
+	outputChannel := make(chan Event, 32)
 
 	go func() {
 		turnCounter := 0
@@ -149,4 +149,4 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 	return commandChannel, outputChannel, nil
 }
 
-var _ Runner = (*AgentRunner)(nil)
+var _ Runner = (*DefaultRunner)(nil)

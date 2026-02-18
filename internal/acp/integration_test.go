@@ -125,7 +125,7 @@ func TestIntegrationACPReadFile(t *testing.T) {
 	}))
 	defer llm.Close()
 
-	runner := &agent.AgentRunner{
+	runner := &agent.DefaultRunner{
 		Context:  &mockCtxService{window: &mockContextWindow{}},
 		Sessions: &mockSessions{},
 	}
@@ -248,7 +248,7 @@ func TestIntegrationACPRunCommand(t *testing.T) {
 	}))
 	defer llm.Close()
 
-	runner := &agent.AgentRunner{
+	runner := &agent.DefaultRunner{
 		Context:  &mockCtxService{window: &mockContextWindow{}},
 		Sessions: &mockSessions{},
 	}
@@ -335,7 +335,7 @@ func TestIntegrationACPRunCommand(t *testing.T) {
 func TestIntegrationNoCapabilitiesUsesKontekstTools(t *testing.T) {
 	var receivedConfig agent.RunConfig
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},

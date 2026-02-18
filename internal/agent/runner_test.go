@@ -58,7 +58,7 @@ func (m *mockSessionService) Get(_ core.SessionID) (sessions.SessionInfo, error)
 
 func (m *mockSessionService) Delete(_ core.SessionID) error { return nil }
 
-func drainEvents(events <-chan AgentEvent) {
+func drainEvents(events <-chan Event) {
 	for range events {
 	}
 }
@@ -70,7 +70,7 @@ func TestStartRun_WithAgentsMD(t *testing.T) {
 	}
 
 	capturer := &capturingContext{}
-	runner := &AgentRunner{
+	runner := &DefaultRunner{
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},
@@ -101,7 +101,7 @@ func TestStartRun_WithoutAgentsMD(t *testing.T) {
 	dir := t.TempDir()
 
 	capturer := &capturingContext{}
-	runner := &AgentRunner{
+	runner := &DefaultRunner{
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},
@@ -132,7 +132,7 @@ func TestStartRun_AgentsMDBeforeSkillContent(t *testing.T) {
 	}
 
 	capturer := &capturingContext{}
-	runner := &AgentRunner{
+	runner := &DefaultRunner{
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},

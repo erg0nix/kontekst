@@ -19,14 +19,14 @@ func NewRegistry(dataDir string) *Registry {
 	}
 }
 
-type AgentSummary struct {
+type Summary struct {
 	Name        string
 	DisplayName string
 	HasPrompt   bool
 	HasConfig   bool
 }
 
-func (r *Registry) List() ([]AgentSummary, error) {
+func (r *Registry) List() ([]Summary, error) {
 	entries, err := os.ReadDir(r.AgentsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -35,7 +35,7 @@ func (r *Registry) List() ([]AgentSummary, error) {
 		return nil, err
 	}
 
-	var agents []AgentSummary
+	var agents []Summary
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -61,7 +61,7 @@ func (r *Registry) List() ([]AgentSummary, error) {
 			}
 		}
 
-		agents = append(agents, AgentSummary{
+		agents = append(agents, Summary{
 			Name:        name,
 			DisplayName: displayName,
 			HasPrompt:   hasPrompt,
@@ -86,7 +86,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 		for _, a := range available {
 			names = append(names, a.Name)
 		}
-		return nil, &AgentNotFoundError{Name: name, Available: names}
+		return nil, &NotFoundError{Name: name, Available: names}
 	}
 
 	cfg := &agentConfig.AgentConfig{
@@ -97,7 +97,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	if hasConfig {
 		tomlCfg, err := agentConfig.LoadTOML(configPath)
 		if err != nil {
-			return nil, &AgentConfigError{Name: name, Err: err}
+			return nil, &ConfigError{Name: name, Err: err}
 		}
 		if tomlCfg != nil {
 			if tomlCfg.Name != "" {
@@ -123,7 +123,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	if hasPrompt {
 		prompt, err := agentConfig.LoadPrompt(promptPath)
 		if err != nil {
-			return nil, &AgentConfigError{Name: name, Err: err}
+			return nil, &ConfigError{Name: name, Err: err}
 		}
 		cfg.SystemPrompt = prompt
 	}
@@ -144,12 +144,12 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-type AgentNotFoundError struct {
+type NotFoundError struct {
 	Name      string
 	Available []string
 }
 
-func (e *AgentNotFoundError) Error() string {
+func (e *NotFoundError) Error() string {
 	msg := "agent not found: " + e.Name
 	if len(e.Available) > 0 {
 		msg += "; available: " + strings.Join(e.Available, ", ")
@@ -157,15 +157,15 @@ func (e *AgentNotFoundError) Error() string {
 	return msg
 }
 
-type AgentConfigError struct {
+type ConfigError struct {
 	Name string
 	Err  error
 }
 
-func (e *AgentConfigError) Error() string {
+func (e *ConfigError) Error() string {
 	return "invalid config for agent " + e.Name + ": " + e.Err.Error()
 }
 
-func (e *AgentConfigError) Unwrap() error {
+func (e *ConfigError) Unwrap() error {
 	return e.Err
 }

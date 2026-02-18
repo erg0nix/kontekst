@@ -32,18 +32,18 @@ func New(
 	}
 }
 
-func (agent *Agent) Run(prompt string) (chan<- AgentCommand, <-chan AgentEvent) {
-	commandChannel := make(chan AgentCommand, 16)
-	eventChannel := make(chan AgentEvent, 32)
+func (agent *Agent) Run(prompt string) (chan<- Command, <-chan Event) {
+	commandChannel := make(chan Command, 16)
+	eventChannel := make(chan Event, 32)
 
 	go agent.loop(prompt, commandChannel, eventChannel)
 
 	return commandChannel, eventChannel
 }
 
-func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, eventChannel chan<- AgentEvent) {
+func (agent *Agent) loop(prompt string, commandChannel <-chan Command, eventChannel chan<- Event) {
 	runID := core.NewRunID()
-	eventChannel <- AgentEvent{Type: EvtRunStarted, RunID: runID}
+	eventChannel <- Event{Type: EvtRunStarted, RunID: runID}
 
 	systemContent := agent.context.SystemContent()
 	systemTokens, err := agent.provider.CountTokens(systemContent)
@@ -86,7 +86,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 	for {
 		contextMessages, err := agent.context.BuildContext()
 		if err != nil {
-			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
+			eventChannel <- Event{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
 			return
 		}
 
@@ -99,7 +99,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 		)
 
 		if err != nil {
-			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
+			eventChannel <- Event{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
 			return
 		}
 
@@ -118,8 +118,8 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 				slog.Warn("failed to add assistant message", "error", err)
 			}
 			snapshot := agent.context.Snapshot()
-			eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
-			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
+			eventChannel <- Event{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
+			eventChannel <- Event{Type: EvtRunCompleted, RunID: runID, Response: chatResponse}
 			return
 		}
 
@@ -136,25 +136,25 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan AgentCommand, even
 			slog.Warn("failed to add assistant message with tool calls", "error", err)
 		}
 		snapshot := agent.context.Snapshot()
-		eventChannel <- AgentEvent{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
+		eventChannel <- Event{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
 
 		previewCtx := tools.WithWorkingDir(context.Background(), agent.config.WorkingDir)
 		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)
 
-		eventChannel <- AgentEvent{Type: EvtToolsProposed, RunID: runID, Calls: proposedCalls}
+		eventChannel <- Event{Type: EvtToolsProposed, RunID: runID, Calls: proposedCalls}
 		toolDecisions, err := collectApprovals(commandChannel, pendingToolCalls)
 		if err != nil {
-			eventChannel <- AgentEvent{Type: EvtRunCancelled, RunID: runID}
+			eventChannel <- Event{Type: EvtRunCancelled, RunID: runID}
 			return
 		}
 
 		if err := agent.executeTools(runID, toolDecisions, eventChannel); err != nil {
-			eventChannel <- AgentEvent{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
+			eventChannel <- Event{Type: EvtRunFailed, RunID: runID, Error: err.Error()}
 			return
 		}
 
 		if hasAnyDenied(toolDecisions) {
-			eventChannel <- AgentEvent{Type: EvtRunCompleted, RunID: runID}
+			eventChannel <- Event{Type: EvtRunCompleted, RunID: runID}
 			return
 		}
 	}

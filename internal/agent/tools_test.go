@@ -69,7 +69,7 @@ func (m *mockProvider) CountTokens(text string) (int, error) {
 
 func TestExecuteTools_SingleTool(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
@@ -103,7 +103,7 @@ func TestExecuteTools_SingleTool(t *testing.T) {
 
 func TestExecuteTools_MultipleToolsProduceIndividualMessages(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
@@ -143,7 +143,7 @@ func TestExecuteTools_MultipleToolsProduceIndividualMessages(t *testing.T) {
 
 func TestExecuteTools_DeniedToolRecordsError(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
@@ -170,7 +170,7 @@ func TestExecuteTools_DeniedToolRecordsError(t *testing.T) {
 
 func TestExecuteTools_MixedApprovedAndDenied(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},

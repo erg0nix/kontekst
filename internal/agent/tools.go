@@ -10,7 +10,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/tools/builtin"
 )
 
-func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventChannel chan<- AgentEvent) error {
+func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventChannel chan<- Event) error {
 	skillCallbacks := &builtin.SkillCallbacks{
 		ContextInjector: func(msg core.Message) error {
 			return agent.context.AddMessage(msg)
@@ -53,11 +53,11 @@ func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventCh
 		}
 	}
 
-	eventChannel <- AgentEvent{Type: EvtToolsCompleted, RunID: runID}
+	eventChannel <- Event{Type: EvtToolsCompleted, RunID: runID}
 	return nil
 }
 
-func (agent *Agent) executeToolCall(runID core.RunID, call *pendingCall, callbacks *builtin.SkillCallbacks, eventChannel chan<- AgentEvent) (string, error) {
+func (agent *Agent) executeToolCall(runID core.RunID, call *pendingCall, callbacks *builtin.SkillCallbacks, eventChannel chan<- Event) (string, error) {
 	if call.Approved != nil && !*call.Approved {
 		reason := call.Reason
 		if reason == "" {
@@ -74,13 +74,13 @@ func (agent *Agent) executeToolCall(runID core.RunID, call *pendingCall, callbac
 	}
 	ctx = builtin.WithSkillCallbacks(ctx, callbacks)
 
-	eventChannel <- AgentEvent{Type: EvtToolStarted, RunID: runID, CallID: call.ID}
+	eventChannel <- Event{Type: EvtToolStarted, RunID: runID, CallID: call.ID}
 	output, err := agent.tools.Execute(call.Name, call.Args, ctx)
 
 	if err != nil {
-		eventChannel <- AgentEvent{Type: EvtToolFailed, RunID: runID, CallID: call.ID, Error: err.Error()}
+		eventChannel <- Event{Type: EvtToolFailed, RunID: runID, CallID: call.ID, Error: err.Error()}
 	} else {
-		eventChannel <- AgentEvent{Type: EvtToolCompleted, RunID: runID, CallID: call.ID, Output: output}
+		eventChannel <- Event{Type: EvtToolCompleted, RunID: runID, CallID: call.ID, Output: output}
 	}
 
 	return output, err

@@ -38,7 +38,7 @@ func runAgentsCmd(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func printAgentsTable(agentList []agent.AgentSummary) {
+func printAgentsTable(agentList []agent.Summary) {
 	t := newTable("NAME", "DISPLAY NAME", "PROMPT", "CONFIG")
 
 	for _, a := range agentList {

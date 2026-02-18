@@ -344,7 +344,7 @@ func TestHasACPTools(t *testing.T) {
 func TestServerACPToolExecutorWired(t *testing.T) {
 	var receivedTools bool
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
@@ -411,7 +411,7 @@ func TestServerACPToolExecutorWired(t *testing.T) {
 func TestServerNoCapabilitiesNoACPTools(t *testing.T) {
 	var receivedTools bool
 	runner := &mockRunner{
-		events: []agent.AgentEvent{
+		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
