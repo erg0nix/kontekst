@@ -9,6 +9,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+// BudgetParams holds the token budget breakdown used to size the context window for a run.
 type BudgetParams struct {
 	ContextSize      int
 	SystemContent    string
@@ -17,6 +18,7 @@ type BudgetParams struct {
 	UserPromptTokens int
 }
 
+// ContextWindow manages the message history and system prompt for a single session's conversation context.
 type ContextWindow interface {
 	SystemContent() string
 	StartRun(params BudgetParams) error
@@ -29,18 +31,22 @@ type ContextWindow interface {
 	Snapshot() core.ContextSnapshot
 }
 
+// ContextService creates ContextWindow instances for sessions.
 type ContextService interface {
 	NewWindow(sessionID core.SessionID) (ContextWindow, error)
 }
 
+// FileContextService implements ContextService using JSONL session files on disk.
 type FileContextService struct {
 	dataDir string
 }
 
+// NewFileContextService creates a FileContextService rooted at the given data directory.
 func NewFileContextService(dataDir string) *FileContextService {
 	return &FileContextService{dataDir: dataDir}
 }
 
+// NewWindow creates a new ContextWindow backed by the session's JSONL file.
 func (service *FileContextService) NewWindow(sessionID core.SessionID) (ContextWindow, error) {
 	sessionDir := filepath.Join(service.dataDir, "sessions")
 

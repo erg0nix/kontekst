@@ -18,6 +18,7 @@ type sessionMeta struct {
 	DefaultAgent string `json:"default_agent,omitempty"`
 }
 
+// FileSessionService implements SessionService using JSONL files on the local filesystem.
 type FileSessionService struct {
 	BaseDir string
 }
@@ -30,6 +31,7 @@ func (service *FileSessionService) sessionPath(id core.SessionID) string {
 	return filepath.Join(service.sessionDir(), string(id)+".jsonl")
 }
 
+// Create generates a new session ID and creates its backing file, returning the ID and file path.
 func (service *FileSessionService) Create() (core.SessionID, string, error) {
 	sessionID := core.NewSessionID()
 
@@ -47,6 +49,7 @@ func (service *FileSessionService) Create() (core.SessionID, string, error) {
 	return sessionID, path, nil
 }
 
+// Ensure creates the session file if it does not already exist and returns its path.
 func (service *FileSessionService) Ensure(sessionID core.SessionID) (string, error) {
 	if err := os.MkdirAll(service.sessionDir(), 0o755); err != nil {
 		return "", fmt.Errorf("create sessions directory: %w", err)
@@ -66,6 +69,7 @@ func (service *FileSessionService) metaPath(sessionID core.SessionID) string {
 	return filepath.Join(service.sessionDir(), string(sessionID)+".meta.json")
 }
 
+// GetDefaultAgent returns the default agent name stored in the session's metadata file.
 func (service *FileSessionService) GetDefaultAgent(sessionID core.SessionID) (string, error) {
 	data, err := os.ReadFile(service.metaPath(sessionID))
 	if err != nil {
@@ -83,6 +87,7 @@ func (service *FileSessionService) GetDefaultAgent(sessionID core.SessionID) (st
 	return meta.DefaultAgent, nil
 }
 
+// SetDefaultAgent persists the given agent name as the default for the session.
 func (service *FileSessionService) SetDefaultAgent(sessionID core.SessionID, agentName string) error {
 	metaPath := service.metaPath(sessionID)
 
@@ -104,6 +109,7 @@ func (service *FileSessionService) SetDefaultAgent(sessionID core.SessionID, age
 	return os.WriteFile(metaPath, data, 0o644)
 }
 
+// List returns all sessions sorted by most recently modified first.
 func (service *FileSessionService) List() ([]SessionInfo, error) {
 	dir := service.sessionDir()
 
@@ -136,6 +142,7 @@ func (service *FileSessionService) List() ([]SessionInfo, error) {
 	return result, nil
 }
 
+// Get returns metadata for a single session identified by its ID.
 func (service *FileSessionService) Get(sessionID core.SessionID) (SessionInfo, error) {
 	path := service.sessionPath(sessionID)
 
@@ -159,6 +166,7 @@ func (service *FileSessionService) Get(sessionID core.SessionID) (SessionInfo, e
 	}, nil
 }
 
+// Delete removes the session's data and metadata files from disk.
 func (service *FileSessionService) Delete(sessionID core.SessionID) error {
 	path := service.sessionPath(sessionID)
 

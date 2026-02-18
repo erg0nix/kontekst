@@ -4,6 +4,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+// Provider defines the interface for LLM backends that generate chat completions and count tokens.
 type Provider interface {
 	GenerateChat(
 		messages []core.Message,

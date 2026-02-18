@@ -10,12 +10,14 @@ import (
 	"sync"
 )
 
+// Registry loads and stores commands from a directory, providing thread-safe access by name.
 type Registry struct {
 	commandsDir string
 	commands    map[string]*Command
 	mu          sync.RWMutex
 }
 
+// NewRegistry creates a Registry that loads commands from the given directory.
 func NewRegistry(commandsDir string) *Registry {
 	return &Registry{
 		commandsDir: commandsDir,
@@ -23,6 +25,7 @@ func NewRegistry(commandsDir string) *Registry {
 	}
 }
 
+// Load discovers and parses all command directories from the registry's base directory.
 func (r *Registry) Load() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -55,6 +58,7 @@ func (r *Registry) Load() error {
 	return nil
 }
 
+// Get returns the command with the given name, or false if not found.
 func (r *Registry) Get(name string) (*Command, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -63,6 +67,7 @@ func (r *Registry) Get(name string) (*Command, bool) {
 	return cmd, ok
 }
 
+// Summaries returns a formatted string listing all commands with their descriptions and arguments.
 func (r *Registry) Summaries() string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

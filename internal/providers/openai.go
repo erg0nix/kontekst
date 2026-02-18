@@ -15,11 +15,13 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+// OpenAIConfig holds connection settings for an OpenAI-compatible API endpoint.
 type OpenAIConfig struct {
 	Endpoint    string
 	HTTPTimeout time.Duration
 }
 
+// OpenAIProvider implements Provider using an OpenAI-compatible HTTP API.
 type OpenAIProvider struct {
 	endpoint      string
 	client        *http.Client
@@ -27,6 +29,7 @@ type OpenAIProvider struct {
 	validateRoles bool
 }
 
+// NewOpenAIProvider creates an OpenAIProvider with the given endpoint config and optional debug logging.
 func NewOpenAIProvider(cfg OpenAIConfig, debugCfg config.DebugConfig) *OpenAIProvider {
 	timeout := cfg.HTTPTimeout
 	if timeout == 0 {
@@ -52,6 +55,7 @@ func NewOpenAIProvider(cfg OpenAIConfig, debugCfg config.DebugConfig) *OpenAIPro
 	return provider
 }
 
+// CountTokens returns the token count for the given text, falling back to estimation if the endpoint is unavailable.
 func (p *OpenAIProvider) CountTokens(text string) (int, error) {
 	endpointURL := p.endpoint + "/tokenize"
 	requestBody, _ := json.Marshal(map[string]any{"content": text})
@@ -77,6 +81,7 @@ func (p *OpenAIProvider) CountTokens(text string) (int, error) {
 	return estimateTokens(text), nil
 }
 
+// GenerateChat sends a chat completion request to the OpenAI-compatible endpoint and returns the parsed response.
 func (p *OpenAIProvider) GenerateChat(
 	messages []core.Message,
 	tools []core.ToolDef,

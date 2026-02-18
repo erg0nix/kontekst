@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Argument describes a single parameter accepted by a command.
 type Argument struct {
 	Name        string
 	Type        string
@@ -14,6 +15,7 @@ type Argument struct {
 	Default     string
 }
 
+// Command represents a user-defined script that can be executed by the agent.
 type Command struct {
 	Name             string
 	Description      string

@@ -10,15 +10,18 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+// SessionFile provides append-only storage and tail-based loading of messages in a JSONL file.
 type SessionFile struct {
 	path string
 	mu   sync.Mutex
 }
 
+// NewSessionFile creates a SessionFile that reads from and writes to the given path.
 func NewSessionFile(path string) *SessionFile {
 	return &SessionFile{path: path}
 }
 
+// Append writes a single message as a JSON line to the end of the session file.
 func (sf *SessionFile) Append(msg core.Message) error {
 	sf.mu.Lock()
 	defer sf.mu.Unlock()
@@ -32,6 +35,7 @@ func (sf *SessionFile) Append(msg core.Message) error {
 	return json.NewEncoder(file).Encode(msg)
 }
 
+// LoadTail reads messages from the end of the file until the token budget is exhausted.
 func (sf *SessionFile) LoadTail(tokenBudget int) ([]core.Message, error) {
 	sf.mu.Lock()
 	defer sf.mu.Unlock()

@@ -11,6 +11,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+// RequestLogger writes provider request/response/error entries to daily JSONL log files.
 type RequestLogger struct {
 	logDir       string
 	logRequests  bool
@@ -18,6 +19,7 @@ type RequestLogger struct {
 	logger       *slog.Logger
 }
 
+// LogEntry represents a single provider request, response, or error log record.
 type LogEntry struct {
 	Timestamp  string               `json:"timestamp"`
 	RequestID  string               `json:"request_id"`
@@ -32,6 +34,7 @@ type LogEntry struct {
 	StatusCode int                  `json:"status_code,omitempty"`
 }
 
+// NewRequestLogger creates a RequestLogger that writes to the given directory.
 func NewRequestLogger(logDir string, logRequests, logResponses bool, logger *slog.Logger) *RequestLogger {
 	return &RequestLogger{
 		logDir:       logDir,
@@ -41,6 +44,7 @@ func NewRequestLogger(logDir string, logRequests, logResponses bool, logger *slo
 	}
 }
 
+// LogRequest records an outgoing provider request if request logging is enabled.
 func (l *RequestLogger) LogRequest(requestID core.RequestID, messages []core.Message, tools []core.ToolDef, sampling *core.SamplingConfig, payload map[string]any) {
 	if !l.logRequests {
 		return
@@ -60,6 +64,7 @@ func (l *RequestLogger) LogRequest(requestID core.RequestID, messages []core.Mes
 	l.logger.Debug("provider request", "request_id", requestID, "message_count", len(messages), "tool_count", len(tools))
 }
 
+// LogResponse records a provider response with its duration if response logging is enabled.
 func (l *RequestLogger) LogResponse(requestID core.RequestID, response core.ChatResponse, duration time.Duration) {
 	if !l.logResponses {
 		return
@@ -76,6 +81,7 @@ func (l *RequestLogger) LogResponse(requestID core.RequestID, response core.Chat
 	l.writeLog(entry)
 }
 
+// LogError records a provider error with the HTTP status code and error body.
 func (l *RequestLogger) LogError(requestID core.RequestID, statusCode int, errorBody []byte, messages []core.Message, payload map[string]any) {
 	entry := LogEntry{
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
