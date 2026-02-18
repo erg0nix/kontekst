@@ -19,10 +19,11 @@ import (
 
 func execute() {
 	rootCmd := &cobra.Command{
-		Use:   "kontekst [prompt]",
-		Short: "kontekst CLI",
-		Args:  cobra.ArbitraryArgs,
-		RunE:  runCmd,
+		Use:           "kontekst [prompt]",
+		Short:         "kontekst CLI",
+		SilenceErrors: true,
+		Args:          cobra.ArbitraryArgs,
+		RunE:          runCmd,
 	}
 
 	rootCmd.PersistentFlags().StringP("config", "c", "", "path to config file")
