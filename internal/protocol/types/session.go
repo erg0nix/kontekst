@@ -1,4 +1,4 @@
-package protocol
+package types
 
 // SessionID is a unique identifier for an ACP session.
 type SessionID string
@@ -11,6 +11,7 @@ type NewSessionRequest struct {
 }
 
 // McpServer represents an MCP server configuration attached to a session.
+// TODO:: populate with MCP server fields (name, endpoint, auth) when MCP support lands.
 type McpServer struct{}
 
 // NewSessionResponse is the server's response containing the newly created session ID.

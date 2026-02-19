@@ -1,3 +1,4 @@
+// Package core provides shared types and identifiers with zero internal dependencies.
 package core
 
 import (

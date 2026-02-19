@@ -1,3 +1,4 @@
+// Package provider implements LLM backends using the OpenAI-compatible HTTP API.
 package provider
 
 import (

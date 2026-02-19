@@ -6,6 +6,8 @@ import (
 	"io"
 	"testing"
 	"time"
+
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 )
 
 func TestClientPromptWithUpdates(t *testing.T) {
@@ -14,40 +16,40 @@ func TestClientPromptWithUpdates(t *testing.T) {
 
 	var serverConn *Connection
 	serverConn = NewConnection(func(_ context.Context, method string, params json.RawMessage) (any, error) {
-		if method == MethodSessionPrompt {
-			var req PromptRequest
+		if method == types.MethodSessionPrompt {
+			var req types.PromptRequest
 			json.Unmarshal(params, &req)
 
-			_ = serverConn.Notify(context.Background(), MethodSessionUpdate, SessionNotification{
+			_ = serverConn.Notify(context.Background(), types.MethodSessionUpdate, types.SessionNotification{
 				SessionID: req.SessionID,
-				Update:    AgentMessageChunk("response text"),
+				Update:    types.AgentMessageChunk("response text"),
 			})
 
-			return PromptResponse{StopReason: StopReasonEndTurn}, nil
+			return types.PromptResponse{StopReason: types.StopReasonEndTurn}, nil
 		}
 		return nil, nil
 	}, serverW, serverR)
 
-	updates := make(chan SessionNotification, 10)
+	updates := make(chan types.SessionNotification, 10)
 
 	clientConn := newConnection(nil, clientW, clientR)
 	client := NewClient(clientConn)
-	client.OnUpdate = func(notif SessionNotification) {
+	client.OnUpdate = func(notif types.SessionNotification) {
 		updates <- notif
 	}
 	clientConn.Start()
 	defer client.Close()
 
 	ctx := context.Background()
-	resp, err := client.Prompt(ctx, PromptRequest{
+	resp, err := client.Prompt(ctx, types.PromptRequest{
 		SessionID: "sess_1",
-		Prompt:    []ContentBlock{TextBlock("hello")},
+		Prompt:    []types.ContentBlock{types.TextBlock("hello")},
 	})
 	if err != nil {
 		t.Fatalf("prompt failed: %v", err)
 	}
 
-	if resp.StopReason != StopReasonEndTurn {
+	if resp.StopReason != types.StopReasonEndTurn {
 		t.Errorf("stopReason = %v, want end_turn", resp.StopReason)
 	}
 
@@ -69,29 +71,29 @@ func TestClientPermissionCallback(t *testing.T) {
 
 	clientConn := newConnection(nil, clientW, clientR)
 	client := NewClient(clientConn)
-	client.OnPermission = func(req RequestPermissionRequest) RequestPermissionResponse {
-		return RequestPermissionResponse{
-			Outcome: PermissionSelected("allow"),
+	client.OnPermission = func(req types.RequestPermissionRequest) types.RequestPermissionResponse {
+		return types.RequestPermissionResponse{
+			Outcome: types.PermissionSelected("allow"),
 		}
 	}
 	clientConn.Start()
 	defer client.Close()
 
 	ctx := context.Background()
-	result, err := server.Request(ctx, MethodRequestPermission, RequestPermissionRequest{
+	result, err := server.Request(ctx, types.MethodRequestPermission, types.RequestPermissionRequest{
 		SessionID: "sess_1",
-		ToolCall: ToolCallDetail{
+		ToolCall: types.ToolCallDetail{
 			ToolCallID: "call_1",
 		},
-		Options: []PermissionOption{
-			{OptionID: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
+		Options: []types.PermissionOption{
+			{OptionID: "allow", Name: "Allow", Kind: types.PermissionOptionKindAllowOnce},
 		},
 	})
 	if err != nil {
 		t.Fatalf("permission request failed: %v", err)
 	}
 
-	var resp RequestPermissionResponse
+	var resp types.RequestPermissionResponse
 	json.Unmarshal(result, &resp)
 	if resp.Outcome.Outcome != "selected" || resp.Outcome.OptionID != "allow" {
 		t.Errorf("outcome = %+v, want selected allow", resp.Outcome)

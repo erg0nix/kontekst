@@ -11,6 +11,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/agent"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 	"github.com/erg0nix/kontekst/internal/skill"
 )
 
@@ -21,7 +22,375 @@ type Handler struct {
 	skills   *skill.Registry
 	conn     *Connection
 	sessions sync.Map
-	caps     ClientCapabilities
+	caps     types.ClientCapabilities
+}
+
+// NewHandler creates a Handler with the given agent runner, registry, and skills registry.
+func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *skill.Registry) *Handler {
+	return &Handler{
+		runner:   runner,
+		registry: registry,
+		skills:   skillsRegistry,
+	}
+}
+
+// Serve creates a Connection using the handler's default dispatch and returns it.
+func (h *Handler) Serve(w io.Writer, r io.Reader) *Connection {
+	conn := NewConnection(h.Dispatch, w, r)
+	h.conn = conn
+	return conn
+}
+
+// ServeWith creates a Connection using a custom dispatch function and returns it.
+func (h *Handler) ServeWith(dispatch MethodHandler, w io.Writer, r io.Reader) *Connection {
+	conn := NewConnection(dispatch, w, r)
+	h.conn = conn
+	return conn
+}
+
+// Dispatch routes an incoming JSON-RPC method call to the appropriate handler.
+func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
+	switch method {
+	case types.MethodInitialize:
+		return h.handleInitialize(ctx, params)
+	case types.MethodAuthenticate:
+		return types.AuthenticateResponse{}, nil
+	case types.MethodSessionNew:
+		return h.handleNewSession(ctx, params)
+	case types.MethodSessionLoad:
+		return h.handleLoadSession(ctx, params)
+	case types.MethodSessionPrompt:
+		return h.handlePrompt(ctx, params)
+	case types.MethodSessionCancel:
+		h.handleCancel(params)
+		return nil, nil
+	case types.MethodSessionSetMode:
+		return types.SetSessionModeResponse{}, nil
+	case types.MethodSessionSetConfig:
+		return types.SetSessionConfigOptionResponse{ConfigOptions: []types.SessionConfigOption{}}, nil
+	default:
+		if strings.HasPrefix(method, "_") {
+			return nil, NewRPCError(types.ErrMethodNotFound, fmt.Sprintf("unknown extension: %s", method))
+		}
+		return nil, NewRPCError(types.ErrMethodNotFound, fmt.Sprintf("unknown method: %s", method))
+	}
+}
+
+func (h *Handler) handleInitialize(_ context.Context, params json.RawMessage) (types.InitializeResponse, error) {
+	var req types.InitializeRequest
+	if len(params) > 0 {
+		if err := json.Unmarshal(params, &req); err != nil {
+			return types.InitializeResponse{}, NewRPCError(types.ErrInvalidParams, err.Error())
+		}
+	}
+
+	h.caps = req.ClientCapabilities
+
+	return types.InitializeResponse{
+		ProtocolVersion: types.ProtocolVersion,
+		AgentCapabilities: types.AgentCapabilities{
+			LoadSession: true,
+		},
+		AgentInfo: &types.Implementation{
+			Name:    "kontekst",
+			Title:   "Kontekst",
+			Version: "0.1.0",
+		},
+		AuthMethods: []types.AuthMethod{},
+	}, nil
+}
+
+func (h *Handler) handleNewSession(ctx context.Context, params json.RawMessage) (types.NewSessionResponse, error) {
+	var req types.NewSessionRequest
+	if err := json.Unmarshal(params, &req); err != nil {
+		return types.NewSessionResponse{}, NewRPCError(types.ErrInvalidParams, err.Error())
+	}
+
+	agentName := agentConfig.DefaultAgentName
+	if req.Meta != nil {
+		if name, ok := req.Meta["agentName"].(string); ok && name != "" {
+			agentName = name
+		}
+	}
+
+	sid := types.SessionID(core.NewSessionID())
+
+	h.sessions.Store(sid, &sessionState{
+		agentName: agentName,
+		sessionID: core.SessionID(sid),
+		cwd:       req.Cwd,
+	})
+
+	if h.skills != nil {
+		var commands []types.Command
+		for _, s := range h.skills.ModelInvocableSkills() {
+			commands = append(commands, types.Command{Name: s.Name, Description: s.Description})
+		}
+		if len(commands) > 0 {
+			_ = h.conn.Notify(ctx, types.MethodSessionUpdate, types.SessionNotification{
+				SessionID: sid,
+				Update:    types.AvailableCommandsUpdate(commands),
+			})
+		}
+	}
+
+	return types.NewSessionResponse{SessionID: sid}, nil
+}
+
+func (h *Handler) handleLoadSession(_ context.Context, params json.RawMessage) (types.LoadSessionResponse, error) {
+	var req types.LoadSessionRequest
+	if err := json.Unmarshal(params, &req); err != nil {
+		return types.LoadSessionResponse{}, NewRPCError(types.ErrInvalidParams, err.Error())
+	}
+
+	agentName := agentConfig.DefaultAgentName
+
+	h.sessions.Store(req.SessionID, &sessionState{
+		agentName: agentName,
+		sessionID: core.SessionID(req.SessionID),
+		cwd:       req.Cwd,
+	})
+
+	return types.LoadSessionResponse{SessionID: req.SessionID}, nil
+}
+
+func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (types.PromptResponse, error) {
+	var req types.PromptRequest
+	if err := json.Unmarshal(params, &req); err != nil {
+		return types.PromptResponse{}, NewRPCError(types.ErrInvalidParams, err.Error())
+	}
+
+	val, ok := h.sessions.Load(req.SessionID)
+	if !ok {
+		return types.PromptResponse{}, NewRPCError(types.ErrNotFound, "session not found")
+	}
+	sess := val.(*sessionState)
+
+	promptText := extractText(req.Prompt)
+
+	var skill *skill.Skill
+	var skillContent string
+	if strings.HasPrefix(promptText, "/") {
+		skillName, args := parseSkillInvocation(promptText)
+		if h.skills != nil {
+			if loadedSkill, found := h.skills.Get(skillName); found {
+				rendered, err := loadedSkill.Render(args)
+				if err != nil {
+					return types.PromptResponse{}, NewRPCError(types.ErrInvalidParams, fmt.Sprintf("failed to render skill: %v", err))
+				}
+				skill = loadedSkill
+				skillContent = rendered
+				promptText = args
+			}
+		}
+	}
+
+	agentCfg, err := h.registry.Load(sess.agentName)
+	if err != nil {
+		return types.PromptResponse{}, NewRPCError(types.ErrInvalidParams, err.Error())
+	}
+
+	runCtx, cancelFn := context.WithCancel(ctx)
+
+	runCfg := agent.RunConfig{
+		Prompt:              promptText,
+		SessionID:           sess.sessionID,
+		AgentName:           sess.agentName,
+		AgentSystemPrompt:   agentCfg.SystemPrompt,
+		ContextSize:         agentCfg.ContextSize,
+		Sampling:            agentCfg.Sampling,
+		ProviderEndpoint:    agentCfg.Provider.Endpoint,
+		ProviderModel:       agentCfg.Provider.Model,
+		ProviderHTTPTimeout: agentCfg.Provider.HTTPTimeout,
+		WorkingDir:          sess.cwd,
+		Skill:               skill,
+		SkillContent:        skillContent,
+		ToolRole:            agentCfg.ToolRole,
+	}
+
+	if hasACPTools(h.caps) {
+		runCfg.Tools = NewToolExecutor(h.conn, req.SessionID, h.caps)
+	}
+
+	commandCh, eventCh, err := h.runner.StartRun(runCfg)
+	if err != nil {
+		cancelFn()
+		return types.PromptResponse{}, NewRPCError(types.ErrInternalError, err.Error())
+	}
+
+	sess.mu.Lock()
+	sess.cancelFn = cancelFn
+	sess.commandCh = commandCh
+	sess.doneCh = make(chan struct{})
+	sess.mu.Unlock()
+
+	return h.forwardEvents(runCtx, req.SessionID, sess, eventCh)
+}
+
+func (h *Handler) forwardEvents(ctx context.Context, sid types.SessionID, sess *sessionState, eventCh <-chan agent.Event) (types.PromptResponse, error) {
+	defer func() {
+		sess.mu.Lock()
+		if sess.doneCh != nil {
+			close(sess.doneCh)
+		}
+		if sess.cancelFn != nil {
+			sess.cancelFn()
+		}
+		sess.commandCh = nil
+		sess.cancelFn = nil
+		sess.doneCh = nil
+		sess.mu.Unlock()
+	}()
+
+	for {
+		select {
+		case event, ok := <-eventCh:
+			if !ok {
+				return types.PromptResponse{StopReason: types.StopReasonEndTurn}, nil
+			}
+
+			resp, done, err := h.processEvent(ctx, sid, sess, event)
+			if err != nil {
+				return types.PromptResponse{}, err
+			}
+			if done {
+				return resp, nil
+			}
+
+		case <-h.conn.Done():
+			sess.sendCommand(agent.Command{Type: agent.CmdCancel})
+			return types.PromptResponse{StopReason: types.StopReasonCancelled}, nil
+
+		case <-ctx.Done():
+			sess.sendCommand(agent.Command{Type: agent.CmdCancel})
+			return types.PromptResponse{StopReason: types.StopReasonCancelled}, nil
+		}
+	}
+}
+
+func (h *Handler) processEvent(ctx context.Context, sid types.SessionID, sess *sessionState, event agent.Event) (types.PromptResponse, bool, error) {
+	switch event.Type {
+	case agent.EvtRunStarted:
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtTokenDelta:
+		h.sendUpdate(ctx, sid, types.AgentMessageChunk(event.Token))
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtReasoningDelta:
+		h.sendUpdate(ctx, sid, types.AgentThoughtChunk(event.Reasoning))
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtTurnCompleted:
+		if event.Response.Reasoning != "" {
+			h.sendUpdate(ctx, sid, types.AgentThoughtChunk(event.Response.Reasoning))
+		}
+		if event.Response.Content != "" {
+			h.sendUpdate(ctx, sid, types.AgentMessageChunk(event.Response.Content))
+		}
+		if event.Snapshot != nil {
+			_ = h.conn.Notify(ctx, types.MethodKontekstContext, event.Snapshot)
+		}
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtToolsProposed:
+		for _, call := range event.Calls {
+			rawInput := parseRawInput(call.ArgumentsJSON)
+			kind := types.ToolKindFromName(call.Name)
+			h.sendUpdate(ctx, sid, types.ToolCallStart(
+				types.ToolCallID(call.CallID),
+				call.Name,
+				kind,
+				nil,
+				rawInput,
+			))
+
+			options := []types.PermissionOption{
+				{OptionID: "allow", Name: "Allow", Kind: types.PermissionOptionKindAllowOnce},
+				{OptionID: "reject", Name: "Reject", Kind: types.PermissionOptionKindRejectOnce},
+			}
+
+			permResp, err := h.requestPermission(ctx, sid, call, kind, options)
+			if err != nil {
+				sess.sendCommand(agent.Command{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: "permission request failed"})
+				continue
+			}
+
+			if outcomeIsAllowed(permResp.Outcome, options) {
+				sess.sendCommand(agent.Command{Type: agent.CmdApproveTool, CallID: call.CallID})
+			} else {
+				reason := "denied by user"
+				if permResp.Outcome.Outcome == "cancelled" {
+					reason = "cancelled"
+				}
+				sess.sendCommand(agent.Command{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: reason})
+			}
+		}
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtToolStarted:
+		h.sendUpdate(ctx, sid, types.ToolCallUpdate(types.ToolCallID(event.CallID), types.ToolCallStatusInProgress, nil, nil))
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtToolCompleted:
+		content := []types.ToolCallContent{types.TextToolContent(event.Output)}
+		h.sendUpdate(ctx, sid, types.ToolCallUpdate(types.ToolCallID(event.CallID), types.ToolCallStatusCompleted, content, map[string]any{"content": event.Output}))
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtToolFailed:
+		content := []types.ToolCallContent{types.TextToolContent(event.Error)}
+		h.sendUpdate(ctx, sid, types.ToolCallUpdate(types.ToolCallID(event.CallID), types.ToolCallStatusFailed, content, map[string]any{"error": event.Error}))
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtToolsCompleted:
+		return types.PromptResponse{}, false, nil
+
+	case agent.EvtRunCompleted:
+		return types.PromptResponse{StopReason: types.StopReasonEndTurn}, true, nil
+
+	case agent.EvtRunCancelled:
+		return types.PromptResponse{StopReason: types.StopReasonCancelled}, true, nil
+
+	case agent.EvtRunFailed:
+		return types.PromptResponse{}, true, NewRPCError(types.ErrInternalError, event.Error)
+	}
+
+	return types.PromptResponse{}, false, nil
+}
+
+func (h *Handler) requestPermission(ctx context.Context, sid types.SessionID, call agent.ProposedToolCall, kind types.ToolKind, options []types.PermissionOption) (types.RequestPermissionResponse, error) {
+	status := types.ToolCallStatusPending
+
+	var previewData any
+	if call.Preview != "" {
+		if err := json.Unmarshal([]byte(call.Preview), &previewData); err != nil {
+			previewData = nil
+		}
+	}
+
+	req := types.RequestPermissionRequest{
+		SessionID: sid,
+		ToolCall: types.ToolCallDetail{
+			ToolCallID: types.ToolCallID(call.CallID),
+			Title:      &call.Name,
+			Kind:       &kind,
+			Status:     &status,
+			RawInput:   parseRawInput(call.ArgumentsJSON),
+			Preview:    previewData,
+		},
+		Options: options,
+	}
+
+	result, err := h.conn.Request(ctx, types.MethodRequestPermission, req)
+	if err != nil {
+		return types.RequestPermissionResponse{}, fmt.Errorf("protocol: request permission: %w", err)
+	}
+
+	var resp types.RequestPermissionResponse
+	if err := json.Unmarshal(result, &resp); err != nil {
+		return types.RequestPermissionResponse{}, fmt.Errorf("protocol: unmarshal permission response: %w", err)
+	}
+	return resp, nil
 }
 
 type sessionState struct {
@@ -51,375 +420,7 @@ func (s *sessionState) sendCommand(cmd agent.Command) bool {
 	}
 }
 
-// NewHandler creates a Handler with the given agent runner, registry, and skills registry.
-func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *skill.Registry) *Handler {
-	return &Handler{
-		runner:   runner,
-		registry: registry,
-		skills:   skillsRegistry,
-	}
-}
-
-// Serve creates a Connection using the handler's default dispatch and returns it.
-func (h *Handler) Serve(w io.Writer, r io.Reader) *Connection {
-	conn := NewConnection(h.Dispatch, w, r)
-	h.conn = conn
-	return conn
-}
-
-// ServeWith creates a Connection using a custom dispatch function and returns it.
-func (h *Handler) ServeWith(dispatch MethodHandler, w io.Writer, r io.Reader) *Connection {
-	conn := NewConnection(dispatch, w, r)
-	h.conn = conn
-	return conn
-}
-
-// Dispatch routes an incoming JSON-RPC method call to the appropriate handler.
-func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
-	switch method {
-	case MethodInitialize:
-		return h.handleInitialize(ctx, params)
-	case MethodAuthenticate:
-		return AuthenticateResponse{}, nil
-	case MethodSessionNew:
-		return h.handleNewSession(ctx, params)
-	case MethodSessionLoad:
-		return h.handleLoadSession(ctx, params)
-	case MethodSessionPrompt:
-		return h.handlePrompt(ctx, params)
-	case MethodSessionCancel:
-		h.handleCancel(params)
-		return nil, nil
-	case MethodSessionSetMode:
-		return SetSessionModeResponse{}, nil
-	case MethodSessionSetConfig:
-		return SetSessionConfigOptionResponse{ConfigOptions: []SessionConfigOption{}}, nil
-	default:
-		if strings.HasPrefix(method, "_") {
-			return nil, NewRPCError(ErrMethodNotFound, fmt.Sprintf("unknown extension: %s", method))
-		}
-		return nil, NewRPCError(ErrMethodNotFound, fmt.Sprintf("unknown method: %s", method))
-	}
-}
-
-func (h *Handler) handleInitialize(_ context.Context, params json.RawMessage) (InitializeResponse, error) {
-	var req InitializeRequest
-	if len(params) > 0 {
-		if err := json.Unmarshal(params, &req); err != nil {
-			return InitializeResponse{}, NewRPCError(ErrInvalidParams, err.Error())
-		}
-	}
-
-	h.caps = req.ClientCapabilities
-
-	return InitializeResponse{
-		ProtocolVersion: ProtocolVersion,
-		AgentCapabilities: AgentCapabilities{
-			LoadSession: true,
-		},
-		AgentInfo: &Implementation{
-			Name:    "kontekst",
-			Title:   "Kontekst",
-			Version: "0.1.0",
-		},
-		AuthMethods: []AuthMethod{},
-	}, nil
-}
-
-func (h *Handler) handleNewSession(ctx context.Context, params json.RawMessage) (NewSessionResponse, error) {
-	var req NewSessionRequest
-	if err := json.Unmarshal(params, &req); err != nil {
-		return NewSessionResponse{}, NewRPCError(ErrInvalidParams, err.Error())
-	}
-
-	agentName := agentConfig.DefaultAgentName
-	if req.Meta != nil {
-		if name, ok := req.Meta["agentName"].(string); ok && name != "" {
-			agentName = name
-		}
-	}
-
-	sid := SessionID(core.NewSessionID())
-
-	h.sessions.Store(sid, &sessionState{
-		agentName: agentName,
-		sessionID: core.SessionID(sid),
-		cwd:       req.Cwd,
-	})
-
-	if h.skills != nil {
-		var commands []Command
-		for _, s := range h.skills.ModelInvocableSkills() {
-			commands = append(commands, Command{Name: s.Name, Description: s.Description})
-		}
-		if len(commands) > 0 {
-			_ = h.conn.Notify(ctx, MethodSessionUpdate, SessionNotification{
-				SessionID: sid,
-				Update:    AvailableCommandsUpdate(commands),
-			})
-		}
-	}
-
-	return NewSessionResponse{SessionID: sid}, nil
-}
-
-func (h *Handler) handleLoadSession(_ context.Context, params json.RawMessage) (LoadSessionResponse, error) {
-	var req LoadSessionRequest
-	if err := json.Unmarshal(params, &req); err != nil {
-		return LoadSessionResponse{}, NewRPCError(ErrInvalidParams, err.Error())
-	}
-
-	agentName := agentConfig.DefaultAgentName
-
-	h.sessions.Store(req.SessionID, &sessionState{
-		agentName: agentName,
-		sessionID: core.SessionID(req.SessionID),
-		cwd:       req.Cwd,
-	})
-
-	return LoadSessionResponse{SessionID: req.SessionID}, nil
-}
-
-func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (PromptResponse, error) {
-	var req PromptRequest
-	if err := json.Unmarshal(params, &req); err != nil {
-		return PromptResponse{}, NewRPCError(ErrInvalidParams, err.Error())
-	}
-
-	val, ok := h.sessions.Load(req.SessionID)
-	if !ok {
-		return PromptResponse{}, NewRPCError(ErrNotFound, "session not found")
-	}
-	sess := val.(*sessionState)
-
-	promptText := extractText(req.Prompt)
-
-	var skill *skill.Skill
-	var skillContent string
-	if strings.HasPrefix(promptText, "/") {
-		skillName, args := parseSkillInvocation(promptText)
-		if h.skills != nil {
-			if loadedSkill, found := h.skills.Get(skillName); found {
-				rendered, err := loadedSkill.Render(args)
-				if err != nil {
-					return PromptResponse{}, NewRPCError(ErrInvalidParams, fmt.Sprintf("failed to render skill: %v", err))
-				}
-				skill = loadedSkill
-				skillContent = rendered
-				promptText = args
-			}
-		}
-	}
-
-	agentCfg, err := h.registry.Load(sess.agentName)
-	if err != nil {
-		return PromptResponse{}, NewRPCError(ErrInvalidParams, err.Error())
-	}
-
-	runCtx, cancelFn := context.WithCancel(ctx)
-
-	runCfg := agent.RunConfig{
-		Prompt:              promptText,
-		SessionID:           sess.sessionID,
-		AgentName:           sess.agentName,
-		AgentSystemPrompt:   agentCfg.SystemPrompt,
-		ContextSize:         agentCfg.ContextSize,
-		Sampling:            agentCfg.Sampling,
-		ProviderEndpoint:    agentCfg.Provider.Endpoint,
-		ProviderModel:       agentCfg.Provider.Model,
-		ProviderHTTPTimeout: agentCfg.Provider.HTTPTimeout,
-		WorkingDir:          sess.cwd,
-		Skill:               skill,
-		SkillContent:        skillContent,
-		ToolRole:            agentCfg.ToolRole,
-	}
-
-	if hasACPTools(h.caps) {
-		runCfg.Tools = NewToolExecutor(h.conn, req.SessionID, h.caps)
-	}
-
-	commandCh, eventCh, err := h.runner.StartRun(runCfg)
-	if err != nil {
-		cancelFn()
-		return PromptResponse{}, NewRPCError(ErrInternalError, err.Error())
-	}
-
-	sess.mu.Lock()
-	sess.cancelFn = cancelFn
-	sess.commandCh = commandCh
-	sess.doneCh = make(chan struct{})
-	sess.mu.Unlock()
-
-	return h.forwardEvents(runCtx, req.SessionID, sess, eventCh)
-}
-
-func (h *Handler) forwardEvents(ctx context.Context, sid SessionID, sess *sessionState, eventCh <-chan agent.Event) (PromptResponse, error) {
-	defer func() {
-		sess.mu.Lock()
-		if sess.doneCh != nil {
-			close(sess.doneCh)
-		}
-		if sess.cancelFn != nil {
-			sess.cancelFn()
-		}
-		sess.commandCh = nil
-		sess.cancelFn = nil
-		sess.doneCh = nil
-		sess.mu.Unlock()
-	}()
-
-	for {
-		select {
-		case event, ok := <-eventCh:
-			if !ok {
-				return PromptResponse{StopReason: StopReasonEndTurn}, nil
-			}
-
-			resp, done, err := h.processEvent(ctx, sid, sess, event)
-			if err != nil {
-				return PromptResponse{}, err
-			}
-			if done {
-				return resp, nil
-			}
-
-		case <-h.conn.Done():
-			sess.sendCommand(agent.Command{Type: agent.CmdCancel})
-			return PromptResponse{StopReason: StopReasonCancelled}, nil
-
-		case <-ctx.Done():
-			sess.sendCommand(agent.Command{Type: agent.CmdCancel})
-			return PromptResponse{StopReason: StopReasonCancelled}, nil
-		}
-	}
-}
-
-func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *sessionState, event agent.Event) (PromptResponse, bool, error) {
-	switch event.Type {
-	case agent.EvtRunStarted:
-		return PromptResponse{}, false, nil
-
-	case agent.EvtTokenDelta:
-		h.sendUpdate(ctx, sid, AgentMessageChunk(event.Token))
-		return PromptResponse{}, false, nil
-
-	case agent.EvtReasoningDelta:
-		h.sendUpdate(ctx, sid, AgentThoughtChunk(event.Reasoning))
-		return PromptResponse{}, false, nil
-
-	case agent.EvtTurnCompleted:
-		if event.Response.Reasoning != "" {
-			h.sendUpdate(ctx, sid, AgentThoughtChunk(event.Response.Reasoning))
-		}
-		if event.Response.Content != "" {
-			h.sendUpdate(ctx, sid, AgentMessageChunk(event.Response.Content))
-		}
-		if event.Snapshot != nil {
-			_ = h.conn.Notify(ctx, MethodKontekstContext, event.Snapshot)
-		}
-		return PromptResponse{}, false, nil
-
-	case agent.EvtToolsProposed:
-		for _, call := range event.Calls {
-			rawInput := parseRawInput(call.ArgumentsJSON)
-			kind := ToolKindFromName(call.Name)
-			h.sendUpdate(ctx, sid, ToolCallStart(
-				ToolCallID(call.CallID),
-				call.Name,
-				kind,
-				nil,
-				rawInput,
-			))
-
-			options := []PermissionOption{
-				{OptionID: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
-				{OptionID: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
-			}
-
-			permResp, err := h.requestPermission(ctx, sid, call, kind, options)
-			if err != nil {
-				sess.sendCommand(agent.Command{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: "permission request failed"})
-				continue
-			}
-
-			if outcomeIsAllowed(permResp.Outcome, options) {
-				sess.sendCommand(agent.Command{Type: agent.CmdApproveTool, CallID: call.CallID})
-			} else {
-				reason := "denied by user"
-				if permResp.Outcome.Outcome == "cancelled" {
-					reason = "cancelled"
-				}
-				sess.sendCommand(agent.Command{Type: agent.CmdDenyTool, CallID: call.CallID, Reason: reason})
-			}
-		}
-		return PromptResponse{}, false, nil
-
-	case agent.EvtToolStarted:
-		h.sendUpdate(ctx, sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusInProgress, nil, nil))
-		return PromptResponse{}, false, nil
-
-	case agent.EvtToolCompleted:
-		content := []ToolCallContent{TextToolContent(event.Output)}
-		h.sendUpdate(ctx, sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusCompleted, content, map[string]any{"content": event.Output}))
-		return PromptResponse{}, false, nil
-
-	case agent.EvtToolFailed:
-		content := []ToolCallContent{TextToolContent(event.Error)}
-		h.sendUpdate(ctx, sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusFailed, content, map[string]any{"error": event.Error}))
-		return PromptResponse{}, false, nil
-
-	case agent.EvtToolsCompleted:
-		return PromptResponse{}, false, nil
-
-	case agent.EvtRunCompleted:
-		return PromptResponse{StopReason: StopReasonEndTurn}, true, nil
-
-	case agent.EvtRunCancelled:
-		return PromptResponse{StopReason: StopReasonCancelled}, true, nil
-
-	case agent.EvtRunFailed:
-		return PromptResponse{}, true, NewRPCError(ErrInternalError, event.Error)
-	}
-
-	return PromptResponse{}, false, nil
-}
-
-func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call agent.ProposedToolCall, kind ToolKind, options []PermissionOption) (RequestPermissionResponse, error) {
-	status := ToolCallStatusPending
-
-	var previewData any
-	if call.Preview != "" {
-		if err := json.Unmarshal([]byte(call.Preview), &previewData); err != nil {
-			previewData = nil
-		}
-	}
-
-	req := RequestPermissionRequest{
-		SessionID: sid,
-		ToolCall: ToolCallDetail{
-			ToolCallID: ToolCallID(call.CallID),
-			Title:      &call.Name,
-			Kind:       &kind,
-			Status:     &status,
-			RawInput:   parseRawInput(call.ArgumentsJSON),
-			Preview:    previewData,
-		},
-		Options: options,
-	}
-
-	result, err := h.conn.Request(ctx, MethodRequestPermission, req)
-	if err != nil {
-		return RequestPermissionResponse{}, fmt.Errorf("protocol: request permission: %w", err)
-	}
-
-	var resp RequestPermissionResponse
-	if err := json.Unmarshal(result, &resp); err != nil {
-		return RequestPermissionResponse{}, fmt.Errorf("protocol: unmarshal permission response: %w", err)
-	}
-	return resp, nil
-}
-
-func outcomeIsAllowed(outcome PermissionOutcome, options []PermissionOption) bool {
+func outcomeIsAllowed(outcome types.PermissionOutcome, options []types.PermissionOption) bool {
 	if outcome.Outcome != "selected" {
 		return false
 	}
@@ -432,7 +433,7 @@ func outcomeIsAllowed(outcome PermissionOutcome, options []PermissionOption) boo
 }
 
 func (h *Handler) handleCancel(params json.RawMessage) {
-	var notif CancelNotification
+	var notif types.CancelNotification
 	if err := json.Unmarshal(params, &notif); err != nil {
 		return
 	}
@@ -446,14 +447,14 @@ func (h *Handler) handleCancel(params json.RawMessage) {
 	sess.sendCommand(agent.Command{Type: agent.CmdCancel})
 }
 
-func (h *Handler) sendUpdate(ctx context.Context, sid SessionID, update any) {
-	_ = h.conn.Notify(ctx, MethodSessionUpdate, SessionNotification{
+func (h *Handler) sendUpdate(ctx context.Context, sid types.SessionID, update any) {
+	_ = h.conn.Notify(ctx, types.MethodSessionUpdate, types.SessionNotification{
 		SessionID: sid,
 		Update:    update,
 	})
 }
 
-func extractText(blocks []ContentBlock) string {
+func extractText(blocks []types.ContentBlock) string {
 	var parts []string
 	for _, b := range blocks {
 		if b.Type == "text" && b.Text != "" {
@@ -484,7 +485,7 @@ func parseSkillInvocation(text string) (name string, args string) {
 	return text[:idx], strings.TrimSpace(text[idx+1:])
 }
 
-func hasACPTools(caps ClientCapabilities) bool {
+func hasACPTools(caps types.ClientCapabilities) bool {
 	if caps.Terminal {
 		return true
 	}

@@ -1,3 +1,4 @@
+// Package builtin implements the standard set of agent tools (read, write, edit, list, web_fetch).
 package builtin
 
 import (

@@ -1,3 +1,4 @@
+// Package session manages session creation, persistence, and metadata on disk.
 package session
 
 import (

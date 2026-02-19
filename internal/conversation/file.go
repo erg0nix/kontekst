@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"slices"
@@ -30,7 +31,7 @@ func (sf *SessionFile) Append(msg core.Message) error {
 
 	file, err := os.OpenFile(sf.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		return err
+		return fmt.Errorf("session file: open for append: %w", err)
 	}
 	defer file.Close()
 
@@ -47,13 +48,13 @@ func (sf *SessionFile) LoadTail(tokenBudget int) ([]core.Message, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("session file: open for read: %w", err)
 	}
 	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("session file: stat: %w", err)
 	}
 
 	fileSize := fileInfo.Size()
@@ -76,11 +77,11 @@ func (sf *SessionFile) LoadTail(tokenBudget int) ([]core.Message, error) {
 		chunk := make([]byte, readSize)
 
 		if _, err := file.Seek(offset, io.SeekStart); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("session file: seek: %w", err)
 		}
 
 		if _, err := io.ReadFull(file, chunk); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("session file: read chunk: %w", err)
 		}
 
 		if len(carryover) > 0 {

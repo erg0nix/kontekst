@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 )
 
 func TestRequestResponseRoundTrip(t *testing.T) {
@@ -19,7 +21,7 @@ func TestRequestResponseRoundTrip(t *testing.T) {
 			json.Unmarshal(params, &m)
 			return m, nil
 		}
-		return nil, NewRPCError(ErrMethodNotFound, "unknown method")
+		return nil, NewRPCError(types.ErrMethodNotFound, "unknown method")
 	}
 
 	server := NewConnection(serverHandler, serverW, serverR)
@@ -191,7 +193,7 @@ func TestErrorResponse(t *testing.T) {
 	clientR, serverW := io.Pipe()
 
 	serverHandler := func(_ context.Context, _ string, _ json.RawMessage) (any, error) {
-		return nil, NewRPCError(ErrMethodNotFound, "no such method")
+		return nil, NewRPCError(types.ErrMethodNotFound, "no such method")
 	}
 
 	server := NewConnection(serverHandler, serverW, serverR)
@@ -210,8 +212,8 @@ func TestErrorResponse(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected RPCError, got %T: %v", err, err)
 	}
-	if rpcErr.Code != int(ErrMethodNotFound) {
-		t.Errorf("code = %d, want %d", rpcErr.Code, ErrMethodNotFound)
+	if rpcErr.Code != int(types.ErrMethodNotFound) {
+		t.Errorf("code = %d, want %d", rpcErr.Code, types.ErrMethodNotFound)
 	}
 	if rpcErr.Message != "no such method" {
 		t.Errorf("message = %q, want %q", rpcErr.Message, "no such method")

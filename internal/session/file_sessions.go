@@ -14,10 +14,6 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
-type sessionMeta struct {
-	DefaultAgent string `json:"default_agent,omitempty"`
-}
-
 // FileService implements Service using JSONL files on the local filesystem.
 type FileService struct {
 	BaseDir string
@@ -106,7 +102,11 @@ func (service *FileService) SetDefaultAgent(sessionID core.SessionID, agentName 
 		return fmt.Errorf("marshal session metadata: %w", err)
 	}
 
-	return os.WriteFile(metaPath, data, 0o644)
+	if err := os.WriteFile(metaPath, data, 0o644); err != nil {
+		return fmt.Errorf("write session metadata: %w", err)
+	}
+
+	return nil
 }
 
 // List returns all sessions sorted by most recently modified first.
@@ -187,6 +187,10 @@ func (service *FileService) Delete(sessionID core.SessionID) error {
 	}
 
 	return nil
+}
+
+type sessionMeta struct {
+	DefaultAgent string `json:"default_agent,omitempty"`
 }
 
 func countLines(path string) int {

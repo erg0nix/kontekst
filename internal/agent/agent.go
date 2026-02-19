@@ -1,3 +1,5 @@
+// Package agent implements the iterative agent loop that sends prompts to an LLM,
+// detects tool calls, handles approval, executes tools, and feeds results back.
 package agent
 
 import (

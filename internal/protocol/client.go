@@ -1,3 +1,5 @@
+// Package protocol implements ACP (Agent Client Protocol) over JSON-RPC 2.0,
+// including the server handler, client, and bidirectional connection.
 package protocol
 
 import (
@@ -5,13 +7,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 )
 
 // UpdateHandler is a callback invoked when the server sends a session update notification.
-type UpdateHandler func(SessionNotification)
+type UpdateHandler func(types.SessionNotification)
 
 // PermissionHandler is a callback invoked when the server requests tool execution approval.
-type PermissionHandler func(RequestPermissionRequest) RequestPermissionResponse
+type PermissionHandler func(types.RequestPermissionRequest) types.RequestPermissionResponse
 
 // ContextSnapshotHandler is a callback invoked when the server sends a context snapshot.
 type ContextSnapshotHandler func(json.RawMessage)
@@ -62,28 +66,28 @@ func NewClient(conn *Connection) *Client {
 
 func (c *Client) dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
 	switch method {
-	case MethodSessionUpdate:
+	case types.MethodSessionUpdate:
 		if c.OnUpdate != nil {
-			var notif SessionNotification
+			var notif types.SessionNotification
 			if err := json.Unmarshal(params, &notif); err == nil {
 				c.OnUpdate(notif)
 			}
 		}
 		return nil, nil
 
-	case MethodRequestPermission:
+	case types.MethodRequestPermission:
 		if c.OnPermission != nil {
-			var req RequestPermissionRequest
+			var req types.RequestPermissionRequest
 			if err := json.Unmarshal(params, &req); err != nil {
-				return nil, NewRPCError(ErrInvalidParams, err.Error())
+				return nil, NewRPCError(types.ErrInvalidParams, err.Error())
 			}
 			return c.OnPermission(req), nil
 		}
-		return RequestPermissionResponse{
-			Outcome: PermissionCancelled(),
+		return types.RequestPermissionResponse{
+			Outcome: types.PermissionCancelled(),
 		}, nil
 
-	case MethodKontekstContext:
+	case types.MethodKontekstContext:
 		if c.OnContextSnapshot != nil {
 			c.OnContextSnapshot(params)
 		}
@@ -94,93 +98,93 @@ func (c *Client) dispatch(ctx context.Context, method string, params json.RawMes
 }
 
 // Initialize performs the ACP protocol handshake with the server.
-func (c *Client) Initialize(ctx context.Context, req InitializeRequest) (InitializeResponse, error) {
-	result, err := c.conn.Request(ctx, MethodInitialize, req)
+func (c *Client) Initialize(ctx context.Context, req types.InitializeRequest) (types.InitializeResponse, error) {
+	result, err := c.conn.Request(ctx, types.MethodInitialize, req)
 	if err != nil {
-		return InitializeResponse{}, err
+		return types.InitializeResponse{}, err
 	}
 
-	var resp InitializeResponse
+	var resp types.InitializeResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return InitializeResponse{}, fmt.Errorf("protocol: unmarshal initialize response: %w", err)
+		return types.InitializeResponse{}, fmt.Errorf("protocol: unmarshal initialize response: %w", err)
 	}
 	return resp, nil
 }
 
 // NewSession creates a new session on the server.
-func (c *Client) NewSession(ctx context.Context, req NewSessionRequest) (NewSessionResponse, error) {
-	result, err := c.conn.Request(ctx, MethodSessionNew, req)
+func (c *Client) NewSession(ctx context.Context, req types.NewSessionRequest) (types.NewSessionResponse, error) {
+	result, err := c.conn.Request(ctx, types.MethodSessionNew, req)
 	if err != nil {
-		return NewSessionResponse{}, err
+		return types.NewSessionResponse{}, err
 	}
 
-	var resp NewSessionResponse
+	var resp types.NewSessionResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return NewSessionResponse{}, fmt.Errorf("protocol: unmarshal session response: %w", err)
+		return types.NewSessionResponse{}, fmt.Errorf("protocol: unmarshal session response: %w", err)
 	}
 	return resp, nil
 }
 
 // LoadSession resumes an existing session on the server.
-func (c *Client) LoadSession(ctx context.Context, req LoadSessionRequest) (LoadSessionResponse, error) {
-	result, err := c.conn.Request(ctx, MethodSessionLoad, req)
+func (c *Client) LoadSession(ctx context.Context, req types.LoadSessionRequest) (types.LoadSessionResponse, error) {
+	result, err := c.conn.Request(ctx, types.MethodSessionLoad, req)
 	if err != nil {
-		return LoadSessionResponse{}, err
+		return types.LoadSessionResponse{}, err
 	}
 
-	var resp LoadSessionResponse
+	var resp types.LoadSessionResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return LoadSessionResponse{}, fmt.Errorf("protocol: unmarshal load session response: %w", err)
+		return types.LoadSessionResponse{}, fmt.Errorf("protocol: unmarshal load session response: %w", err)
 	}
 	return resp, nil
 }
 
 // Prompt sends a user prompt to the server and blocks until the agent completes its response.
-func (c *Client) Prompt(ctx context.Context, req PromptRequest) (PromptResponse, error) {
-	result, err := c.conn.Request(ctx, MethodSessionPrompt, req)
+func (c *Client) Prompt(ctx context.Context, req types.PromptRequest) (types.PromptResponse, error) {
+	result, err := c.conn.Request(ctx, types.MethodSessionPrompt, req)
 	if err != nil {
-		return PromptResponse{}, err
+		return types.PromptResponse{}, err
 	}
 
-	var resp PromptResponse
+	var resp types.PromptResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return PromptResponse{}, fmt.Errorf("protocol: unmarshal prompt response: %w", err)
+		return types.PromptResponse{}, fmt.Errorf("protocol: unmarshal prompt response: %w", err)
 	}
 	return resp, nil
 }
 
 // Cancel sends a cancellation notification for the active prompt in the given session.
-func (c *Client) Cancel(ctx context.Context, sessionID SessionID) error {
-	return c.conn.Notify(ctx, MethodSessionCancel, CancelNotification{SessionID: sessionID})
+func (c *Client) Cancel(ctx context.Context, sessionID types.SessionID) error {
+	return c.conn.Notify(ctx, types.MethodSessionCancel, types.CancelNotification{SessionID: sessionID})
 }
 
 // Status queries the server for its current status after performing a handshake.
-func (c *Client) Status(ctx context.Context) (StatusResponse, error) {
-	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
+func (c *Client) Status(ctx context.Context) (types.StatusResponse, error) {
+	_, err := c.conn.Request(ctx, types.MethodInitialize, types.InitializeRequest{ProtocolVersion: types.ProtocolVersion})
 	if err != nil {
-		return StatusResponse{}, fmt.Errorf("protocol: initialize: %w", err)
+		return types.StatusResponse{}, fmt.Errorf("protocol: initialize: %w", err)
 	}
 
-	statusResult, err := c.conn.Request(ctx, MethodKontekstStatus, nil)
+	statusResult, err := c.conn.Request(ctx, types.MethodKontekstStatus, nil)
 	if err != nil {
-		return StatusResponse{}, fmt.Errorf("protocol: status request: %w", err)
+		return types.StatusResponse{}, fmt.Errorf("protocol: status request: %w", err)
 	}
 
-	var resp StatusResponse
+	var resp types.StatusResponse
 	if err := json.Unmarshal(statusResult, &resp); err != nil {
-		return StatusResponse{}, fmt.Errorf("protocol: unmarshal status response: %w", err)
+		return types.StatusResponse{}, fmt.Errorf("protocol: unmarshal status response: %w", err)
 	}
 	return resp, nil
 }
 
 // Shutdown requests the server to shut down gracefully after performing a handshake.
 func (c *Client) Shutdown(ctx context.Context) error {
-	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
+	_, err := c.conn.Request(ctx, types.MethodInitialize, types.InitializeRequest{ProtocolVersion: types.ProtocolVersion})
 	if err != nil {
 		return fmt.Errorf("protocol: initialize: %w", err)
 	}
 
-	_, err = c.conn.Request(ctx, MethodKontekstShutdown, nil)
+	_, err = c.conn.Request(ctx, types.MethodKontekstShutdown, nil)
 	if err != nil {
 		return fmt.Errorf("protocol: shutdown: %w", err)
 	}

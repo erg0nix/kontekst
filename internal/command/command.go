@@ -1,3 +1,4 @@
+// Package command provides slash command loading and execution.
 package command
 
 import (

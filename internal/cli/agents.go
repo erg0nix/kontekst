@@ -1,6 +1,9 @@
+// Package cli implements the Cobra command tree for the kontekst CLI.
 package cli
 
 import (
+	"fmt"
+
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
 	"github.com/erg0nix/kontekst/internal/agent"
@@ -24,7 +27,7 @@ func runAgentsCmd(cmd *cobra.Command, _ []string) error {
 	registry := agent.NewRegistry(app.Config.DataDir)
 	agentList, err := registry.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("list agents: %w", err)
 	}
 
 	if len(agentList) == 0 {

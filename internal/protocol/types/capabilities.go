@@ -1,4 +1,5 @@
-package protocol
+// Package types defines the ACP protocol request, response, and notification types.
+package types
 
 // InitializeRequest is the client's handshake request containing protocol version and capabilities.
 type InitializeRequest struct {

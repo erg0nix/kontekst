@@ -1,3 +1,4 @@
+// Package diff generates unified and structured diffs between text content.
 package diff
 
 import (

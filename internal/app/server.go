@@ -18,6 +18,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/config"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 	"github.com/erg0nix/kontekst/internal/protocol"
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 )
 
 // RunServer starts the TCP server, listens for connections, and shuts down on signal or request.
@@ -91,16 +92,16 @@ func handleConnection(conn net.Conn, services Services, cfg config.Config, start
 
 	dispatch := func(ctx context.Context, method string, params json.RawMessage) (any, error) {
 		switch method {
-		case protocol.MethodKontekstStatus:
+		case types.MethodKontekstStatus:
 			uptime := time.Since(startTime).Round(time.Second).String()
-			return protocol.StatusResponse{
+			return types.StatusResponse{
 				Bind:      cfg.Bind,
 				Uptime:    uptime,
 				StartedAt: startTime.Format(time.RFC3339),
 				DataDir:   cfg.DataDir,
 			}, nil
 
-		case protocol.MethodKontekstShutdown:
+		case types.MethodKontekstShutdown:
 			go func() {
 				select {
 				case shutdownCh <- struct{}{}:

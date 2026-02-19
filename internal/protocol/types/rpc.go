@@ -1,4 +1,4 @@
-package protocol
+package types
 
 // StatusResponse contains server status information returned by the _kontekst/status method.
 type StatusResponse struct {

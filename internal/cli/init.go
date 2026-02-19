@@ -9,6 +9,7 @@ import (
 
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 	"github.com/erg0nix/kontekst/internal/protocol"
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 
 	"github.com/spf13/cobra"
 )
@@ -47,7 +48,7 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 	}
 
 	callbacks := protocol.ClientCallbacks{
-		OnUpdate: func(notif protocol.SessionNotification) {
+		OnUpdate: func(notif types.SessionNotification) {
 			m, ok := notif.Update.(map[string]any)
 			if !ok {
 				return
@@ -68,16 +69,16 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 				fmt.Printf("  tool: %s(%s)\n", title, string(inputJSON))
 			}
 		},
-		OnPermission: func(req protocol.RequestPermissionRequest) protocol.RequestPermissionResponse {
+		OnPermission: func(req types.RequestPermissionRequest) types.RequestPermissionResponse {
 			toolName := ""
 			if req.ToolCall.Title != nil {
 				toolName = *req.ToolCall.Title
 			}
 
 			if allowedTools[toolName] {
-				return protocol.RequestPermissionResponse{Outcome: protocol.PermissionSelected("allow")}
+				return types.RequestPermissionResponse{Outcome: types.PermissionSelected("allow")}
 			}
-			return protocol.RequestPermissionResponse{Outcome: protocol.PermissionSelected("reject")}
+			return types.RequestPermissionResponse{Outcome: types.PermissionSelected("reject")}
 		},
 	}
 
@@ -96,9 +97,9 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 	}
 	defer client.Close()
 
-	_, err = client.Initialize(ctx, protocol.InitializeRequest{
-		ProtocolVersion: protocol.ProtocolVersion,
-		ClientInfo:      &protocol.Implementation{Name: "kontekst-cli"},
+	_, err = client.Initialize(ctx, types.InitializeRequest{
+		ProtocolVersion: types.ProtocolVersion,
+		ClientInfo:      &types.Implementation{Name: "kontekst-cli"},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -106,9 +107,9 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 
 	workingDir, _ := os.Getwd()
 
-	sessResp, err := client.NewSession(ctx, protocol.NewSessionRequest{
+	sessResp, err := client.NewSession(ctx, types.NewSessionRequest{
 		Cwd:        workingDir,
-		McpServers: []protocol.McpServer{},
+		McpServers: []types.McpServer{},
 		Meta:       map[string]any{"agentName": agentConfig.InitAgentName},
 	})
 	if err != nil {
@@ -117,15 +118,15 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 
 	fmt.Println("analyzing project...")
 
-	promptResp, err := client.Prompt(ctx, protocol.PromptRequest{
+	promptResp, err := client.Prompt(ctx, types.PromptRequest{
 		SessionID: sessResp.SessionID,
-		Prompt:    []protocol.ContentBlock{protocol.TextBlock("Analyze this project and generate an AGENTS.md file.")},
+		Prompt:    []types.ContentBlock{types.TextBlock("Analyze this project and generate an AGENTS.md file.")},
 	})
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}
 
-	if promptResp.StopReason != protocol.StopReasonEndTurn {
+	if promptResp.StopReason != types.StopReasonEndTurn {
 		return fmt.Errorf("agent stopped unexpectedly: %s", promptResp.StopReason)
 	}
 

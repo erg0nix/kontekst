@@ -28,7 +28,7 @@ func runSessionsCmd(cmd *cobra.Command, _ []string) error {
 	svc := &session.FileService{BaseDir: app.Config.DataDir}
 	list, err := svc.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("list sessions: %w", err)
 	}
 
 	if len(list) == 0 {

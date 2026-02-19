@@ -1,6 +1,8 @@
+// Package config loads and manages the server-level TOML configuration.
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,31 +79,31 @@ func LoadOrCreate(path string) (Config, error) {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				return config, err
+				return config, fmt.Errorf("config: create directory: %w", err)
 			}
 
 			configData, err := toml.Marshal(config)
 			if err != nil {
-				return config, err
+				return config, fmt.Errorf("config: marshal defaults: %w", err)
 			}
 
 			if err := os.WriteFile(path, configData, 0o644); err != nil {
-				return config, err
+				return config, fmt.Errorf("config: write defaults: %w", err)
 			}
 
 			return config, nil
 		}
 
-		return config, err
+		return config, fmt.Errorf("config: stat %s: %w", path, err)
 	}
 
 	configData, err := os.ReadFile(path)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("config: read %s: %w", path, err)
 	}
 
 	if err := toml.Unmarshal(configData, &config); err != nil {
-		return config, err
+		return config, fmt.Errorf("config: parse %s: %w", path, err)
 	}
 
 	config.DataDir = expandPath(config.DataDir)

@@ -1,3 +1,4 @@
+// Package skill provides default skill configuration and installation.
 package skill
 
 import (

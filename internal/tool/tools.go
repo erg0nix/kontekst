@@ -1,3 +1,4 @@
+// Package tool defines the tool interface, registry, and execution context.
 package tool
 
 import (

@@ -8,38 +8,39 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/agent"
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 )
 
 func TestACPToolExecutorDefinitions(t *testing.T) {
 	tests := []struct {
 		name      string
-		caps      ClientCapabilities
+		caps      types.ClientCapabilities
 		wantTools []string
 	}{
 		{
 			name:      "no capabilities",
-			caps:      ClientCapabilities{},
+			caps:      types.ClientCapabilities{},
 			wantTools: nil,
 		},
 		{
 			name:      "fs read only",
-			caps:      ClientCapabilities{Fs: &FileSystemCapability{ReadTextFile: true}},
+			caps:      types.ClientCapabilities{Fs: &types.FileSystemCapability{ReadTextFile: true}},
 			wantTools: []string{"read_file"},
 		},
 		{
 			name:      "fs write only",
-			caps:      ClientCapabilities{Fs: &FileSystemCapability{WriteTextFile: true}},
+			caps:      types.ClientCapabilities{Fs: &types.FileSystemCapability{WriteTextFile: true}},
 			wantTools: []string{"write_file"},
 		},
 		{
 			name:      "terminal only",
-			caps:      ClientCapabilities{Terminal: true},
+			caps:      types.ClientCapabilities{Terminal: true},
 			wantTools: []string{"run_command"},
 		},
 		{
 			name: "all capabilities",
-			caps: ClientCapabilities{
-				Fs:       &FileSystemCapability{ReadTextFile: true, WriteTextFile: true},
+			caps: types.ClientCapabilities{
+				Fs:       &types.FileSystemCapability{ReadTextFile: true, WriteTextFile: true},
 				Terminal: true,
 			},
 			wantTools: []string{"read_file", "write_file", "run_command"},
@@ -65,7 +66,7 @@ func TestACPToolExecutorDefinitions(t *testing.T) {
 }
 
 func TestACPToolExecutorPreview(t *testing.T) {
-	exec := NewToolExecutor(nil, "sess_1", ClientCapabilities{})
+	exec := NewToolExecutor(nil, "sess_1", types.ClientCapabilities{})
 	result, err := exec.Preview("read_file", nil, context.Background())
 	if err != nil {
 		t.Fatalf("Preview returned error: %v", err)
@@ -76,7 +77,7 @@ func TestACPToolExecutorPreview(t *testing.T) {
 }
 
 func TestACPToolExecutorUnknownTool(t *testing.T) {
-	exec := NewToolExecutor(nil, "sess_1", ClientCapabilities{})
+	exec := NewToolExecutor(nil, "sess_1", types.ClientCapabilities{})
 	_, err := exec.Execute("nonexistent", nil, context.Background())
 	if err == nil {
 		t.Fatal("expected error for unknown tool")
@@ -88,12 +89,12 @@ func TestACPToolExecutorReadFile(t *testing.T) {
 	clientR, serverW := io.Pipe()
 
 	clientConn := newConnection(func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-		if method != MethodFsReadTextFile {
+		if method != types.MethodFsReadTextFile {
 			t.Errorf("unexpected method: %s", method)
 			return nil, nil
 		}
 
-		var req ReadTextFileRequest
+		var req types.ReadTextFileRequest
 		json.Unmarshal(params, &req)
 		if req.Path != "/tmp/test.go" {
 			t.Errorf("path = %q, want /tmp/test.go", req.Path)
@@ -102,7 +103,7 @@ func TestACPToolExecutorReadFile(t *testing.T) {
 			t.Errorf("sessionId = %q, want sess_1", req.SessionID)
 		}
 
-		return ReadTextFileResponse{Content: "package main"}, nil
+		return types.ReadTextFileResponse{Content: "package main"}, nil
 	}, clientW, clientR)
 	clientConn.Start()
 	defer clientConn.Close()
@@ -111,8 +112,8 @@ func TestACPToolExecutorReadFile(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{
-		Fs: &FileSystemCapability{ReadTextFile: true},
+	exec := NewToolExecutor(serverConn, "sess_1", types.ClientCapabilities{
+		Fs: &types.FileSystemCapability{ReadTextFile: true},
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -132,7 +133,7 @@ func TestACPToolExecutorReadFileWithLineAndLimit(t *testing.T) {
 	clientR, serverW := io.Pipe()
 
 	clientConn := newConnection(func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-		var req ReadTextFileRequest
+		var req types.ReadTextFileRequest
 		json.Unmarshal(params, &req)
 
 		if req.Line == nil || *req.Line != 10 {
@@ -142,7 +143,7 @@ func TestACPToolExecutorReadFileWithLineAndLimit(t *testing.T) {
 			t.Errorf("limit = %v, want 5", req.Limit)
 		}
 
-		return ReadTextFileResponse{Content: "line 10\nline 11"}, nil
+		return types.ReadTextFileResponse{Content: "line 10\nline 11"}, nil
 	}, clientW, clientR)
 	clientConn.Start()
 	defer clientConn.Close()
@@ -151,8 +152,8 @@ func TestACPToolExecutorReadFileWithLineAndLimit(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{
-		Fs: &FileSystemCapability{ReadTextFile: true},
+	exec := NewToolExecutor(serverConn, "sess_1", types.ClientCapabilities{
+		Fs: &types.FileSystemCapability{ReadTextFile: true},
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -176,12 +177,12 @@ func TestACPToolExecutorWriteFile(t *testing.T) {
 	clientR, serverW := io.Pipe()
 
 	clientConn := newConnection(func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-		if method != MethodFsWriteTextFile {
+		if method != types.MethodFsWriteTextFile {
 			t.Errorf("unexpected method: %s", method)
 			return nil, nil
 		}
 
-		var req WriteTextFileRequest
+		var req types.WriteTextFileRequest
 		json.Unmarshal(params, &req)
 		if req.Path != "/tmp/out.go" {
 			t.Errorf("path = %q, want /tmp/out.go", req.Path)
@@ -190,7 +191,7 @@ func TestACPToolExecutorWriteFile(t *testing.T) {
 			t.Errorf("content = %q, want %q", req.Content, "package main")
 		}
 
-		return WriteTextFileResponse{}, nil
+		return types.WriteTextFileResponse{}, nil
 	}, clientW, clientR)
 	clientConn.Start()
 	defer clientConn.Close()
@@ -199,8 +200,8 @@ func TestACPToolExecutorWriteFile(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{
-		Fs: &FileSystemCapability{WriteTextFile: true},
+	exec := NewToolExecutor(serverConn, "sess_1", types.ClientCapabilities{
+		Fs: &types.FileSystemCapability{WriteTextFile: true},
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -224,8 +225,8 @@ func TestACPToolExecutorRunCommand(t *testing.T) {
 
 	clientConn := newConnection(func(ctx context.Context, method string, params json.RawMessage) (any, error) {
 		switch method {
-		case MethodTerminalCreate:
-			var req CreateTerminalRequest
+		case types.MethodTerminalCreate:
+			var req types.CreateTerminalRequest
 			json.Unmarshal(params, &req)
 			if req.Command != "ls" {
 				t.Errorf("command = %q, want ls", req.Command)
@@ -233,22 +234,22 @@ func TestACPToolExecutorRunCommand(t *testing.T) {
 			if len(req.Args) != 1 || req.Args[0] != "-la" {
 				t.Errorf("args = %v, want [-la]", req.Args)
 			}
-			return CreateTerminalResponse{TerminalID: "term_1"}, nil
+			return types.CreateTerminalResponse{TerminalID: "term_1"}, nil
 
-		case MethodTerminalWait:
-			var req WaitForExitRequest
+		case types.MethodTerminalWait:
+			var req types.WaitForExitRequest
 			json.Unmarshal(params, &req)
 			if req.TerminalID != "term_1" {
 				t.Errorf("terminalId = %q, want term_1", req.TerminalID)
 			}
 			code := uint32(0)
-			return WaitForExitResponse{ExitCode: &code}, nil
+			return types.WaitForExitResponse{ExitCode: &code}, nil
 
-		case MethodTerminalOutput:
-			return TerminalOutputResponse{Output: "file1.go\nfile2.go", Truncated: false}, nil
+		case types.MethodTerminalOutput:
+			return types.TerminalOutputResponse{Output: "file1.go\nfile2.go", Truncated: false}, nil
 
-		case MethodTerminalRelease:
-			return ReleaseTerminalResponse{}, nil
+		case types.MethodTerminalRelease:
+			return types.ReleaseTerminalResponse{}, nil
 
 		default:
 			t.Errorf("unexpected method: %s", method)
@@ -262,7 +263,7 @@ func TestACPToolExecutorRunCommand(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{Terminal: true})
+	exec := NewToolExecutor(serverConn, "sess_1", types.ClientCapabilities{Terminal: true})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -285,15 +286,15 @@ func TestACPToolExecutorRunCommandNonZeroExit(t *testing.T) {
 
 	clientConn := newConnection(func(ctx context.Context, method string, params json.RawMessage) (any, error) {
 		switch method {
-		case MethodTerminalCreate:
-			return CreateTerminalResponse{TerminalID: "term_1"}, nil
-		case MethodTerminalWait:
+		case types.MethodTerminalCreate:
+			return types.CreateTerminalResponse{TerminalID: "term_1"}, nil
+		case types.MethodTerminalWait:
 			code := uint32(1)
-			return WaitForExitResponse{ExitCode: &code}, nil
-		case MethodTerminalOutput:
-			return TerminalOutputResponse{Output: "error: not found", Truncated: false}, nil
-		case MethodTerminalRelease:
-			return ReleaseTerminalResponse{}, nil
+			return types.WaitForExitResponse{ExitCode: &code}, nil
+		case types.MethodTerminalOutput:
+			return types.TerminalOutputResponse{Output: "error: not found", Truncated: false}, nil
+		case types.MethodTerminalRelease:
+			return types.ReleaseTerminalResponse{}, nil
 		default:
 			return nil, nil
 		}
@@ -305,7 +306,7 @@ func TestACPToolExecutorRunCommandNonZeroExit(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{Terminal: true})
+	exec := NewToolExecutor(serverConn, "sess_1", types.ClientCapabilities{Terminal: true})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -322,14 +323,14 @@ func TestACPToolExecutorRunCommandNonZeroExit(t *testing.T) {
 func TestHasACPTools(t *testing.T) {
 	tests := []struct {
 		name string
-		caps ClientCapabilities
+		caps types.ClientCapabilities
 		want bool
 	}{
-		{"empty", ClientCapabilities{}, false},
-		{"fs read", ClientCapabilities{Fs: &FileSystemCapability{ReadTextFile: true}}, true},
-		{"fs write", ClientCapabilities{Fs: &FileSystemCapability{WriteTextFile: true}}, true},
-		{"terminal", ClientCapabilities{Terminal: true}, true},
-		{"fs empty", ClientCapabilities{Fs: &FileSystemCapability{}}, false},
+		{"empty", types.ClientCapabilities{}, false},
+		{"fs read", types.ClientCapabilities{Fs: &types.FileSystemCapability{ReadTextFile: true}}, true},
+		{"fs write", types.ClientCapabilities{Fs: &types.FileSystemCapability{WriteTextFile: true}}, true},
+		{"terminal", types.ClientCapabilities{Terminal: true}, true},
+		{"fs empty", types.ClientCapabilities{Fs: &types.FileSystemCapability{}}, false},
 	}
 
 	for _, tt := range tests {
@@ -369,10 +370,10 @@ func TestServerACPToolExecutorWired(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := clientConn.Request(ctx, MethodInitialize, InitializeRequest{
+	_, err := clientConn.Request(ctx, types.MethodInitialize, types.InitializeRequest{
 		ProtocolVersion: 1,
-		ClientCapabilities: ClientCapabilities{
-			Fs:       &FileSystemCapability{ReadTextFile: true, WriteTextFile: true},
+		ClientCapabilities: types.ClientCapabilities{
+			Fs:       &types.FileSystemCapability{ReadTextFile: true, WriteTextFile: true},
 			Terminal: true,
 		},
 	})
@@ -380,24 +381,24 @@ func TestServerACPToolExecutorWired(t *testing.T) {
 		t.Fatalf("initialize failed: %v", err)
 	}
 
-	result, err := clientConn.Request(ctx, MethodSessionNew, NewSessionRequest{
+	result, err := clientConn.Request(ctx, types.MethodSessionNew, types.NewSessionRequest{
 		Cwd:        "/tmp",
-		McpServers: []McpServer{},
+		McpServers: []types.McpServer{},
 	})
 	if err != nil {
 		t.Fatalf("new session failed: %v", err)
 	}
 
-	var sessResp NewSessionResponse
+	var sessResp types.NewSessionResponse
 	json.Unmarshal(result, &sessResp)
 
 	clientConn.handler = func(_ context.Context, _ string, _ json.RawMessage) (any, error) {
 		return nil, nil
 	}
 
-	_, err = clientConn.Request(ctx, MethodSessionPrompt, PromptRequest{
+	_, err = clientConn.Request(ctx, types.MethodSessionPrompt, types.PromptRequest{
 		SessionID: sessResp.SessionID,
-		Prompt:    []ContentBlock{TextBlock("test")},
+		Prompt:    []types.ContentBlock{types.TextBlock("test")},
 	})
 	if err != nil {
 		t.Fatalf("prompt failed: %v", err)
@@ -428,9 +429,9 @@ func TestServerNoCapabilitiesNoACPTools(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := client.Request(ctx, MethodSessionPrompt, PromptRequest{
+	_, err := client.Request(ctx, types.MethodSessionPrompt, types.PromptRequest{
 		SessionID: sid,
-		Prompt:    []ContentBlock{TextBlock("test")},
+		Prompt:    []types.ContentBlock{types.TextBlock("test")},
 	})
 	if err != nil {
 		t.Fatalf("prompt failed: %v", err)
@@ -444,32 +445,32 @@ func TestServerNoCapabilitiesNoACPTools(t *testing.T) {
 func TestFormatCommandOutput(t *testing.T) {
 	tests := []struct {
 		name string
-		out  TerminalOutputResponse
-		exit WaitForExitResponse
+		out  types.TerminalOutputResponse
+		exit types.WaitForExitResponse
 		want string
 	}{
 		{
 			name: "simple output",
-			out:  TerminalOutputResponse{Output: "hello"},
-			exit: WaitForExitResponse{ExitCode: uintPtr(0)},
+			out:  types.TerminalOutputResponse{Output: "hello"},
+			exit: types.WaitForExitResponse{ExitCode: uintPtr(0)},
 			want: "hello",
 		},
 		{
 			name: "non-zero exit",
-			out:  TerminalOutputResponse{Output: "fail"},
-			exit: WaitForExitResponse{ExitCode: uintPtr(1)},
+			out:  types.TerminalOutputResponse{Output: "fail"},
+			exit: types.WaitForExitResponse{ExitCode: uintPtr(1)},
 			want: "fail\n[exit code: 1]",
 		},
 		{
 			name: "signal",
-			out:  TerminalOutputResponse{Output: ""},
-			exit: WaitForExitResponse{Signal: strPtr("SIGKILL")},
+			out:  types.TerminalOutputResponse{Output: ""},
+			exit: types.WaitForExitResponse{Signal: strPtr("SIGKILL")},
 			want: "\n[signal: SIGKILL]",
 		},
 		{
 			name: "truncated",
-			out:  TerminalOutputResponse{Output: "data", Truncated: true},
-			exit: WaitForExitResponse{ExitCode: uintPtr(0)},
+			out:  types.TerminalOutputResponse{Output: "data", Truncated: true},
+			exit: types.WaitForExitResponse{ExitCode: uintPtr(0)},
 			want: "data\n[output truncated]",
 		},
 	}

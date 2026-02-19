@@ -1,3 +1,4 @@
+// Package command provides default slash command configuration and installation.
 package command
 
 import (

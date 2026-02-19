@@ -1,3 +1,4 @@
+// Package conversation manages the sliding context window of messages sent to the LLM.
 package conversation
 
 import (

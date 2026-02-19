@@ -1,4 +1,4 @@
-package protocol
+package types
 
 // ToolCallID is a unique identifier for a tool call within a session.
 type ToolCallID string
@@ -28,16 +28,6 @@ const (
 	// ToolKindOther indicates a tool that does not fit other categories.
 	ToolKindOther ToolKind = "other"
 )
-
-var toolKindMap = map[string]ToolKind{
-	"read_file":   ToolKindRead,
-	"list_files":  ToolKindSearch,
-	"write_file":  ToolKindEdit,
-	"edit_file":   ToolKindEdit,
-	"web_fetch":   ToolKindFetch,
-	"run_command": ToolKindExecute,
-	"skill":       ToolKindOther,
-}
 
 // ToolKindFromName maps a tool name to its corresponding ToolKind.
 func ToolKindFromName(toolName string) ToolKind {
@@ -126,4 +116,14 @@ func AvailableCommandsUpdate(commands []Command) map[string]any {
 		"sessionUpdate":     "available_commands_update",
 		"availableCommands": commands,
 	}
+}
+
+var toolKindMap = map[string]ToolKind{
+	"read_file":   ToolKindRead,
+	"list_files":  ToolKindSearch,
+	"write_file":  ToolKindEdit,
+	"edit_file":   ToolKindEdit,
+	"web_fetch":   ToolKindFetch,
+	"run_command": ToolKindExecute,
+	"skill":       ToolKindOther,
 }

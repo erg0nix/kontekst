@@ -1,3 +1,4 @@
+// Package hashline provides content-addressable line hashing for file editing.
 package hashline
 
 import (

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -68,107 +69,107 @@ func assertSchemaValid(t *testing.T, defName string, v any) {
 
 func TestSchemaResponses(t *testing.T) {
 	t.Run("InitializeResponse", func(t *testing.T) {
-		assertSchemaValid(t, "InitializeResponse", InitializeResponse{
+		assertSchemaValid(t, "InitializeResponse", types.InitializeResponse{
 			ProtocolVersion: 1,
-			AgentCapabilities: AgentCapabilities{
+			AgentCapabilities: types.AgentCapabilities{
 				LoadSession: true,
 			},
-			AgentInfo: &Implementation{
+			AgentInfo: &types.Implementation{
 				Name:    "kontekst",
 				Title:   "Kontekst",
 				Version: "0.1.0",
 			},
-			AuthMethods: []AuthMethod{},
+			AuthMethods: []types.AuthMethod{},
 		})
 	})
 
 	t.Run("NewSessionResponse", func(t *testing.T) {
-		assertSchemaValid(t, "NewSessionResponse", NewSessionResponse{
+		assertSchemaValid(t, "NewSessionResponse", types.NewSessionResponse{
 			SessionID: "sess_123",
 		})
 	})
 
 	t.Run("LoadSessionResponse", func(t *testing.T) {
-		assertSchemaValid(t, "LoadSessionResponse", LoadSessionResponse{
+		assertSchemaValid(t, "LoadSessionResponse", types.LoadSessionResponse{
 			SessionID: "sess_123",
 		})
 	})
 
 	t.Run("PromptResponse/EndTurn", func(t *testing.T) {
-		assertSchemaValid(t, "PromptResponse", PromptResponse{
-			StopReason: StopReasonEndTurn,
+		assertSchemaValid(t, "PromptResponse", types.PromptResponse{
+			StopReason: types.StopReasonEndTurn,
 		})
 	})
 
 	t.Run("PromptResponse/Cancelled", func(t *testing.T) {
-		assertSchemaValid(t, "PromptResponse", PromptResponse{
-			StopReason: StopReasonCancelled,
+		assertSchemaValid(t, "PromptResponse", types.PromptResponse{
+			StopReason: types.StopReasonCancelled,
 		})
 	})
 
 	t.Run("SetSessionModeResponse", func(t *testing.T) {
-		assertSchemaValid(t, "SetSessionModeResponse", SetSessionModeResponse{})
+		assertSchemaValid(t, "SetSessionModeResponse", types.SetSessionModeResponse{})
 	})
 
 	t.Run("SetSessionConfigOptionResponse", func(t *testing.T) {
-		assertSchemaValid(t, "SetSessionConfigOptionResponse", SetSessionConfigOptionResponse{
-			ConfigOptions: []SessionConfigOption{},
+		assertSchemaValid(t, "SetSessionConfigOptionResponse", types.SetSessionConfigOptionResponse{
+			ConfigOptions: []types.SessionConfigOption{},
 		})
 	})
 
 	t.Run("AuthenticateResponse", func(t *testing.T) {
-		assertSchemaValid(t, "AuthenticateResponse", AuthenticateResponse{})
+		assertSchemaValid(t, "AuthenticateResponse", types.AuthenticateResponse{})
 	})
 }
 
 func TestSchemaSessionUpdates(t *testing.T) {
 	t.Run("AgentMessageChunk", func(t *testing.T) {
-		assertSchemaValid(t, "SessionUpdate", AgentMessageChunk("hello world"))
+		assertSchemaValid(t, "SessionUpdate", types.AgentMessageChunk("hello world"))
 	})
 
 	t.Run("AgentThoughtChunk", func(t *testing.T) {
-		assertSchemaValid(t, "SessionUpdate", AgentThoughtChunk("thinking..."))
+		assertSchemaValid(t, "SessionUpdate", types.AgentThoughtChunk("thinking..."))
 	})
 
 	t.Run("ToolCall", func(t *testing.T) {
-		assertSchemaValid(t, "SessionUpdate", ToolCallStart(
+		assertSchemaValid(t, "SessionUpdate", types.ToolCallStart(
 			"call_1",
 			"Reading main.go",
-			ToolKindRead,
-			[]ToolCallLocation{{Path: "/project/main.go"}},
+			types.ToolKindRead,
+			[]types.ToolCallLocation{{Path: "/project/main.go"}},
 			map[string]any{"path": "/project/main.go"},
 		))
 	})
 
 	t.Run("ToolCallUpdate/Completed", func(t *testing.T) {
-		assertSchemaValid(t, "SessionUpdate", ToolCallUpdate(
+		assertSchemaValid(t, "SessionUpdate", types.ToolCallUpdate(
 			"call_1",
-			ToolCallStatusCompleted,
-			[]ToolCallContent{TextToolContent("file contents")},
+			types.ToolCallStatusCompleted,
+			[]types.ToolCallContent{types.TextToolContent("file contents")},
 			map[string]any{"content": "file contents"},
 		))
 	})
 
 	t.Run("ToolCallUpdate/Failed", func(t *testing.T) {
-		assertSchemaValid(t, "SessionUpdate", ToolCallUpdate(
+		assertSchemaValid(t, "SessionUpdate", types.ToolCallUpdate(
 			"call_1",
-			ToolCallStatusFailed,
-			[]ToolCallContent{TextToolContent("permission denied")},
+			types.ToolCallStatusFailed,
+			[]types.ToolCallContent{types.TextToolContent("permission denied")},
 			map[string]any{"error": "permission denied"},
 		))
 	})
 
 	t.Run("ToolCallUpdate/InProgressNoContent", func(t *testing.T) {
-		assertSchemaValid(t, "SessionUpdate", ToolCallUpdate(
+		assertSchemaValid(t, "SessionUpdate", types.ToolCallUpdate(
 			"call_1",
-			ToolCallStatusInProgress,
+			types.ToolCallStatusInProgress,
 			nil,
 			nil,
 		))
 	})
 
 	t.Run("AvailableCommandsUpdate", func(t *testing.T) {
-		assertSchemaValid(t, "SessionUpdate", AvailableCommandsUpdate([]Command{
+		assertSchemaValid(t, "SessionUpdate", types.AvailableCommandsUpdate([]types.Command{
 			{Name: "commit", Description: "Create a git commit"},
 			{Name: "review", Description: "Review code changes"},
 		}))
@@ -176,38 +177,38 @@ func TestSchemaSessionUpdates(t *testing.T) {
 }
 
 func TestSchemaSessionNotification(t *testing.T) {
-	assertSchemaValid(t, "SessionNotification", SessionNotification{
+	assertSchemaValid(t, "SessionNotification", types.SessionNotification{
 		SessionID: "sess_123",
-		Update:    AgentMessageChunk("hello"),
+		Update:    types.AgentMessageChunk("hello"),
 	})
 }
 
 func TestSchemaPermission(t *testing.T) {
 	t.Run("RequestPermissionRequest", func(t *testing.T) {
-		assertSchemaValid(t, "RequestPermissionRequest", RequestPermissionRequest{
+		assertSchemaValid(t, "RequestPermissionRequest", types.RequestPermissionRequest{
 			SessionID: "sess_1",
-			ToolCall: ToolCallDetail{
+			ToolCall: types.ToolCallDetail{
 				ToolCallID: "call_1",
 				Title:      ptrTo("write_file"),
-				Kind:       ptrTo(ToolKindEdit),
-				Status:     ptrTo(ToolCallStatusPending),
+				Kind:       ptrTo(types.ToolKindEdit),
+				Status:     ptrTo(types.ToolCallStatusPending),
 				RawInput:   map[string]any{"path": "/tmp/config.json"},
 			},
-			Options: []PermissionOption{
-				{OptionID: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
-				{OptionID: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
+			Options: []types.PermissionOption{
+				{OptionID: "allow", Name: "Allow", Kind: types.PermissionOptionKindAllowOnce},
+				{OptionID: "reject", Name: "Reject", Kind: types.PermissionOptionKindRejectOnce},
 			},
 		})
 	})
 
 	t.Run("RequestPermissionRequest/WithPreview", func(t *testing.T) {
-		assertSchemaValid(t, "RequestPermissionRequest", RequestPermissionRequest{
+		assertSchemaValid(t, "RequestPermissionRequest", types.RequestPermissionRequest{
 			SessionID: "sess_1",
-			ToolCall: ToolCallDetail{
+			ToolCall: types.ToolCallDetail{
 				ToolCallID: "call_1",
 				Title:      ptrTo("edit_file"),
-				Kind:       ptrTo(ToolKindEdit),
-				Status:     ptrTo(ToolCallStatusPending),
+				Kind:       ptrTo(types.ToolKindEdit),
+				Status:     ptrTo(types.ToolCallStatusPending),
 				RawInput:   map[string]any{"path": "test.txt", "edits": []any{}},
 				Preview: map[string]any{
 					"path": "test.txt",
@@ -220,78 +221,78 @@ func TestSchemaPermission(t *testing.T) {
 					"blocks": []any{},
 				},
 			},
-			Options: []PermissionOption{
-				{OptionID: "allow", Name: "Allow", Kind: PermissionOptionKindAllowOnce},
-				{OptionID: "reject", Name: "Reject", Kind: PermissionOptionKindRejectOnce},
+			Options: []types.PermissionOption{
+				{OptionID: "allow", Name: "Allow", Kind: types.PermissionOptionKindAllowOnce},
+				{OptionID: "reject", Name: "Reject", Kind: types.PermissionOptionKindRejectOnce},
 			},
 		})
 	})
 
 	t.Run("RequestPermissionResponse/Selected", func(t *testing.T) {
-		assertSchemaValid(t, "RequestPermissionResponse", RequestPermissionResponse{
-			Outcome: PermissionSelected("allow"),
+		assertSchemaValid(t, "RequestPermissionResponse", types.RequestPermissionResponse{
+			Outcome: types.PermissionSelected("allow"),
 		})
 	})
 
 	t.Run("RequestPermissionResponse/Cancelled", func(t *testing.T) {
-		assertSchemaValid(t, "RequestPermissionResponse", RequestPermissionResponse{
-			Outcome: PermissionCancelled(),
+		assertSchemaValid(t, "RequestPermissionResponse", types.RequestPermissionResponse{
+			Outcome: types.PermissionCancelled(),
 		})
 	})
 }
 
 func TestSchemaRequests(t *testing.T) {
 	t.Run("InitializeRequest", func(t *testing.T) {
-		assertSchemaValid(t, "InitializeRequest", InitializeRequest{
+		assertSchemaValid(t, "InitializeRequest", types.InitializeRequest{
 			ProtocolVersion: 1,
 		})
 	})
 
 	t.Run("NewSessionRequest", func(t *testing.T) {
-		assertSchemaValid(t, "NewSessionRequest", NewSessionRequest{
+		assertSchemaValid(t, "NewSessionRequest", types.NewSessionRequest{
 			Cwd:        "/home/user/project",
-			McpServers: []McpServer{},
+			McpServers: []types.McpServer{},
 		})
 	})
 
 	t.Run("NewSessionRequest/WithMeta", func(t *testing.T) {
-		assertSchemaValid(t, "NewSessionRequest", NewSessionRequest{
+		assertSchemaValid(t, "NewSessionRequest", types.NewSessionRequest{
 			Cwd:        "/tmp",
-			McpServers: []McpServer{},
+			McpServers: []types.McpServer{},
 			Meta:       map[string]any{"agentName": "myagent"},
 		})
 	})
 
 	t.Run("PromptRequest", func(t *testing.T) {
-		assertSchemaValid(t, "PromptRequest", PromptRequest{
+		assertSchemaValid(t, "PromptRequest", types.PromptRequest{
 			SessionID: "sess_1",
-			Prompt:    []ContentBlock{TextBlock("Fix the bug")},
+			Prompt:    []types.ContentBlock{types.TextBlock("Fix the bug")},
 		})
 	})
 
 	t.Run("CancelNotification", func(t *testing.T) {
-		assertSchemaValid(t, "CancelNotification", CancelNotification{
+		assertSchemaValid(t, "CancelNotification", types.CancelNotification{
 			SessionID: "sess_1",
 		})
 	})
 
 	t.Run("LoadSessionRequest", func(t *testing.T) {
-		assertSchemaValid(t, "LoadSessionRequest", LoadSessionRequest{
+		assertSchemaValid(t, "LoadSessionRequest", types.LoadSessionRequest{
 			SessionID:  "sess_1",
 			Cwd:        "/project",
-			McpServers: []McpServer{},
+			McpServers: []types.McpServer{},
 		})
 	})
 
 	t.Run("SetSessionModeRequest", func(t *testing.T) {
-		assertSchemaValid(t, "SetSessionModeRequest", SetSessionModeRequest{
+		assertSchemaValid(t, "SetSessionModeRequest", types.SetSessionModeRequest{
 			SessionID: "sess_1",
 			ModeID:    "plan",
 		})
 	})
 
 	t.Run("SetSessionConfigOptionRequest", func(t *testing.T) {
-		assertSchemaValid(t, "SetSessionConfigOptionRequest", SetSessionConfigOptionRequest{
+		assertSchemaValid(t, "SetSessionConfigOptionRequest", types.SetSessionConfigOptionRequest{
 			SessionID: "sess_1",
 			ConfigID:  "model",
 			Value:     "gpt-4",
@@ -300,7 +301,7 @@ func TestSchemaRequests(t *testing.T) {
 }
 
 func TestSchemaToolCallContent(t *testing.T) {
-	assertSchemaValid(t, "ToolCallContent", TextToolContent("hello world"))
+	assertSchemaValid(t, "ToolCallContent", types.TextToolContent("hello world"))
 }
 
 func ptrTo[T any](v T) *T { return &v }

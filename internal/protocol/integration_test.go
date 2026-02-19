@@ -16,6 +16,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 	"github.com/erg0nix/kontekst/internal/session"
 )
 
@@ -147,11 +148,11 @@ func TestIntegrationACPReadFile(t *testing.T) {
 
 	clientConn.handler = func(_ context.Context, method string, params json.RawMessage) (any, error) {
 		switch method {
-		case MethodRequestPermission:
-			return RequestPermissionResponse{Outcome: PermissionSelected("allow")}, nil
+		case types.MethodRequestPermission:
+			return types.RequestPermissionResponse{Outcome: types.PermissionSelected("allow")}, nil
 
-		case MethodFsReadTextFile:
-			var req ReadTextFileRequest
+		case types.MethodFsReadTextFile:
+			var req types.ReadTextFileRequest
 			json.Unmarshal(params, &req)
 			if req.Path != "/tmp/hello.txt" {
 				t.Errorf("read path = %q, want /tmp/hello.txt", req.Path)
@@ -163,37 +164,37 @@ func TestIntegrationACPReadFile(t *testing.T) {
 			case gotReadFile <- struct{}{}:
 			default:
 			}
-			return ReadTextFileResponse{Content: "hello world"}, nil
+			return types.ReadTextFileResponse{Content: "hello world"}, nil
 		}
 
 		return nil, nil
 	}
 
 	ctx := context.Background()
-	clientConn.Request(ctx, MethodInitialize, InitializeRequest{
+	clientConn.Request(ctx, types.MethodInitialize, types.InitializeRequest{
 		ProtocolVersion: 1,
-		ClientCapabilities: ClientCapabilities{
-			Fs: &FileSystemCapability{ReadTextFile: true},
+		ClientCapabilities: types.ClientCapabilities{
+			Fs: &types.FileSystemCapability{ReadTextFile: true},
 		},
 	})
 
-	result, _ := clientConn.Request(ctx, MethodSessionNew, NewSessionRequest{
-		Cwd: "/tmp", McpServers: []McpServer{},
+	result, _ := clientConn.Request(ctx, types.MethodSessionNew, types.NewSessionRequest{
+		Cwd: "/tmp", McpServers: []types.McpServer{},
 	})
-	var sessResp NewSessionResponse
+	var sessResp types.NewSessionResponse
 	json.Unmarshal(result, &sessResp)
 
-	promptResult, err := clientConn.Request(ctx, MethodSessionPrompt, PromptRequest{
+	promptResult, err := clientConn.Request(ctx, types.MethodSessionPrompt, types.PromptRequest{
 		SessionID: sessResp.SessionID,
-		Prompt:    []ContentBlock{TextBlock("read /tmp/hello.txt")},
+		Prompt:    []types.ContentBlock{types.TextBlock("read /tmp/hello.txt")},
 	})
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
 
-	var promptResp PromptResponse
+	var promptResp types.PromptResponse
 	json.Unmarshal(promptResult, &promptResp)
-	if promptResp.StopReason != StopReasonEndTurn {
+	if promptResp.StopReason != types.StopReasonEndTurn {
 		t.Errorf("stopReason = %v, want end_turn", promptResp.StopReason)
 	}
 
@@ -270,62 +271,62 @@ func TestIntegrationACPRunCommand(t *testing.T) {
 
 	clientConn.handler = func(_ context.Context, method string, params json.RawMessage) (any, error) {
 		switch method {
-		case MethodRequestPermission:
-			return RequestPermissionResponse{Outcome: PermissionSelected("allow")}, nil
+		case types.MethodRequestPermission:
+			return types.RequestPermissionResponse{Outcome: types.PermissionSelected("allow")}, nil
 
-		case MethodTerminalCreate:
+		case types.MethodTerminalCreate:
 			seenMethods.Store(method, true)
-			var req CreateTerminalRequest
+			var req types.CreateTerminalRequest
 			json.Unmarshal(params, &req)
 			if req.Command != "echo" {
 				t.Errorf("command = %q, want echo", req.Command)
 			}
-			return CreateTerminalResponse{TerminalID: "term_1"}, nil
+			return types.CreateTerminalResponse{TerminalID: "term_1"}, nil
 
-		case MethodTerminalWait:
+		case types.MethodTerminalWait:
 			seenMethods.Store(method, true)
 			code := uint32(0)
-			return WaitForExitResponse{ExitCode: &code}, nil
+			return types.WaitForExitResponse{ExitCode: &code}, nil
 
-		case MethodTerminalOutput:
+		case types.MethodTerminalOutput:
 			seenMethods.Store(method, true)
-			return TerminalOutputResponse{Output: "hello\n", Truncated: false}, nil
+			return types.TerminalOutputResponse{Output: "hello\n", Truncated: false}, nil
 
-		case MethodTerminalRelease:
+		case types.MethodTerminalRelease:
 			seenMethods.Store(method, true)
-			return ReleaseTerminalResponse{}, nil
+			return types.ReleaseTerminalResponse{}, nil
 		}
 
 		return nil, nil
 	}
 
 	ctx := context.Background()
-	clientConn.Request(ctx, MethodInitialize, InitializeRequest{
+	clientConn.Request(ctx, types.MethodInitialize, types.InitializeRequest{
 		ProtocolVersion:    1,
-		ClientCapabilities: ClientCapabilities{Terminal: true},
+		ClientCapabilities: types.ClientCapabilities{Terminal: true},
 	})
 
-	result, _ := clientConn.Request(ctx, MethodSessionNew, NewSessionRequest{
-		Cwd: "/tmp", McpServers: []McpServer{},
+	result, _ := clientConn.Request(ctx, types.MethodSessionNew, types.NewSessionRequest{
+		Cwd: "/tmp", McpServers: []types.McpServer{},
 	})
-	var sessResp NewSessionResponse
+	var sessResp types.NewSessionResponse
 	json.Unmarshal(result, &sessResp)
 
-	promptResult, err := clientConn.Request(ctx, MethodSessionPrompt, PromptRequest{
+	promptResult, err := clientConn.Request(ctx, types.MethodSessionPrompt, types.PromptRequest{
 		SessionID: sessResp.SessionID,
-		Prompt:    []ContentBlock{TextBlock("run echo hello")},
+		Prompt:    []types.ContentBlock{types.TextBlock("run echo hello")},
 	})
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
 
-	var promptResp PromptResponse
+	var promptResp types.PromptResponse
 	json.Unmarshal(promptResult, &promptResp)
-	if promptResp.StopReason != StopReasonEndTurn {
+	if promptResp.StopReason != types.StopReasonEndTurn {
 		t.Errorf("stopReason = %v, want end_turn", promptResp.StopReason)
 	}
 
-	for _, method := range []string{MethodTerminalCreate, MethodTerminalWait, MethodTerminalOutput, MethodTerminalRelease} {
+	for _, method := range []string{types.MethodTerminalCreate, types.MethodTerminalWait, types.MethodTerminalOutput, types.MethodTerminalRelease} {
 		if _, ok := seenMethods.Load(method); !ok {
 			t.Errorf("never received %s reverse request", method)
 		}
@@ -347,21 +348,21 @@ func TestIntegrationNoCapabilitiesUsesKontekstTools(t *testing.T) {
 	_, client := setupTestPair(t, runner)
 	ctx := context.Background()
 
-	client.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: 1})
+	client.Request(ctx, types.MethodInitialize, types.InitializeRequest{ProtocolVersion: 1})
 
-	result, _ := client.Request(ctx, MethodSessionNew, NewSessionRequest{
-		Cwd: "/tmp", McpServers: []McpServer{},
+	result, _ := client.Request(ctx, types.MethodSessionNew, types.NewSessionRequest{
+		Cwd: "/tmp", McpServers: []types.McpServer{},
 	})
-	var sessResp NewSessionResponse
+	var sessResp types.NewSessionResponse
 	json.Unmarshal(result, &sessResp)
 
 	client.handler = func(_ context.Context, _ string, _ json.RawMessage) (any, error) {
 		return nil, nil
 	}
 
-	client.Request(ctx, MethodSessionPrompt, PromptRequest{
+	client.Request(ctx, types.MethodSessionPrompt, types.PromptRequest{
 		SessionID: sessResp.SessionID,
-		Prompt:    []ContentBlock{TextBlock("hello")},
+		Prompt:    []types.ContentBlock{types.TextBlock("hello")},
 	})
 
 	if receivedConfig.Tools != nil {

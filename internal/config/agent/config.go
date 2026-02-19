@@ -1,3 +1,4 @@
+// Package agent loads and manages per-agent TOML configuration and defaults.
 package agent
 
 import (

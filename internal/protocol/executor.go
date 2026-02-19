@@ -6,17 +6,18 @@ import (
 	"fmt"
 
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 )
 
 // ToolExecutor delegates tool execution to the ACP client based on its declared capabilities.
 type ToolExecutor struct {
 	conn      *Connection
-	sessionID SessionID
-	caps      ClientCapabilities
+	sessionID types.SessionID
+	caps      types.ClientCapabilities
 }
 
-// NewToolExecutor creates an ToolExecutor that routes tool calls over the given connection.
-func NewToolExecutor(conn *Connection, sessionID SessionID, caps ClientCapabilities) *ToolExecutor {
+// NewToolExecutor creates a ToolExecutor that routes tool calls over the given connection.
+func NewToolExecutor(conn *Connection, sessionID types.SessionID, caps types.ClientCapabilities) *ToolExecutor {
 	return &ToolExecutor{
 		conn:      conn,
 		sessionID: sessionID,
@@ -128,7 +129,7 @@ func (e *ToolExecutor) executeReadFile(args map[string]any, ctx context.Context)
 		return "", fmt.Errorf("acp executor: read_file requires path")
 	}
 
-	req := ReadTextFileRequest{
+	req := types.ReadTextFileRequest{
 		SessionID: e.sessionID,
 		Path:      path,
 	}
@@ -140,12 +141,12 @@ func (e *ToolExecutor) executeReadFile(args map[string]any, ctx context.Context)
 		req.Limit = &limit
 	}
 
-	result, err := e.conn.Request(ctx, MethodFsReadTextFile, req)
+	result, err := e.conn.Request(ctx, types.MethodFsReadTextFile, req)
 	if err != nil {
 		return "", fmt.Errorf("acp executor: fs/read_text_file: %w", err)
 	}
 
-	var resp ReadTextFileResponse
+	var resp types.ReadTextFileResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
 		return "", fmt.Errorf("acp executor: unmarshal read response: %w", err)
 	}
@@ -161,13 +162,13 @@ func (e *ToolExecutor) executeWriteFile(args map[string]any, ctx context.Context
 
 	content, _ := args["content"].(string)
 
-	req := WriteTextFileRequest{
+	req := types.WriteTextFileRequest{
 		SessionID: e.sessionID,
 		Path:      path,
 		Content:   content,
 	}
 
-	_, err := e.conn.Request(ctx, MethodFsWriteTextFile, req)
+	_, err := e.conn.Request(ctx, types.MethodFsWriteTextFile, req)
 	if err != nil {
 		return "", fmt.Errorf("acp executor: fs/write_text_file: %w", err)
 	}
@@ -181,7 +182,7 @@ func (e *ToolExecutor) executeRunCommand(args map[string]any, ctx context.Contex
 		return "", fmt.Errorf("acp executor: run_command requires command")
 	}
 
-	req := CreateTerminalRequest{
+	req := types.CreateTerminalRequest{
 		SessionID: e.sessionID,
 		Command:   command,
 	}
@@ -195,47 +196,47 @@ func (e *ToolExecutor) executeRunCommand(args map[string]any, ctx context.Contex
 		req.Cwd = cwd
 	}
 
-	result, err := e.conn.Request(ctx, MethodTerminalCreate, req)
+	result, err := e.conn.Request(ctx, types.MethodTerminalCreate, req)
 	if err != nil {
 		return "", fmt.Errorf("acp executor: terminal/create: %w", err)
 	}
 
-	var createResp CreateTerminalResponse
+	var createResp types.CreateTerminalResponse
 	if err := json.Unmarshal(result, &createResp); err != nil {
 		return "", fmt.Errorf("acp executor: unmarshal create response: %w", err)
 	}
 
-	termReq := WaitForExitRequest{
+	termReq := types.WaitForExitRequest{
 		SessionID:  e.sessionID,
 		TerminalID: createResp.TerminalID,
 	}
 
-	exitResult, err := e.conn.Request(ctx, MethodTerminalWait, termReq)
+	exitResult, err := e.conn.Request(ctx, types.MethodTerminalWait, termReq)
 	if err != nil {
 		return "", fmt.Errorf("acp executor: terminal/wait_for_exit: %w", err)
 	}
 
-	var exitResp WaitForExitResponse
+	var exitResp types.WaitForExitResponse
 	if err := json.Unmarshal(exitResult, &exitResp); err != nil {
 		return "", fmt.Errorf("acp executor: unmarshal exit response: %w", err)
 	}
 
-	outReq := TerminalOutputRequest{
+	outReq := types.TerminalOutputRequest{
 		SessionID:  e.sessionID,
 		TerminalID: createResp.TerminalID,
 	}
 
-	outResult, err := e.conn.Request(ctx, MethodTerminalOutput, outReq)
+	outResult, err := e.conn.Request(ctx, types.MethodTerminalOutput, outReq)
 	if err != nil {
 		return "", fmt.Errorf("acp executor: terminal/output: %w", err)
 	}
 
-	var outResp TerminalOutputResponse
+	var outResp types.TerminalOutputResponse
 	if err := json.Unmarshal(outResult, &outResp); err != nil {
 		return "", fmt.Errorf("acp executor: unmarshal output response: %w", err)
 	}
 
-	_, _ = e.conn.Request(ctx, MethodTerminalRelease, ReleaseTerminalRequest{
+	_, _ = e.conn.Request(ctx, types.MethodTerminalRelease, types.ReleaseTerminalRequest{
 		SessionID:  e.sessionID,
 		TerminalID: createResp.TerminalID,
 	})
@@ -243,7 +244,7 @@ func (e *ToolExecutor) executeRunCommand(args map[string]any, ctx context.Contex
 	return formatCommandOutput(outResp, exitResp), nil
 }
 
-func formatCommandOutput(out TerminalOutputResponse, exit WaitForExitResponse) string {
+func formatCommandOutput(out types.TerminalOutputResponse, exit types.WaitForExitResponse) string {
 	output := out.Output
 
 	if exit.ExitCode != nil && *exit.ExitCode != 0 {

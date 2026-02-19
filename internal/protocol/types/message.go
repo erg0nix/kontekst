@@ -1,4 +1,4 @@
-package protocol
+package types
 
 // ContentBlock represents a typed content element within a prompt or response.
 type ContentBlock struct {
@@ -44,6 +44,8 @@ type CancelNotification struct {
 }
 
 // SessionNotification is a server notification carrying a session update event.
+// Update holds one of the maps returned by [AgentMessageChunk], [AgentThoughtChunk],
+// [ToolCallStart], [ToolCallUpdate], or [AvailableCommandsUpdate].
 type SessionNotification struct {
 	SessionID SessionID `json:"sessionId"`
 	Update    any       `json:"update"`

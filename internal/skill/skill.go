@@ -1,3 +1,4 @@
+// Package skill provides reusable prompt templates that can be invoked by models or users.
 package skill
 
 import "fmt"

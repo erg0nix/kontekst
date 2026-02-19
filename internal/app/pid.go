@@ -1,3 +1,4 @@
+// Package app provides server lifecycle management and service wiring.
 package app
 
 import (

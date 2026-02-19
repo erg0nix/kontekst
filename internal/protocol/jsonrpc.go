@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/erg0nix/kontekst/internal/protocol/types"
 )
 
 const maxMessageSize = 10 * 1024 * 1024
@@ -28,6 +30,29 @@ type Connection struct {
 	cancel  context.CancelFunc
 }
 
+// RPCError represents a JSON-RPC 2.0 error with a code and message.
+type RPCError struct {
+	Code    int
+	Message string
+}
+
+// Error returns a formatted string containing the RPC error code and message.
+func (e *RPCError) Error() string {
+	return fmt.Sprintf("RPC error %d: %s", e.Code, e.Message)
+}
+
+// NewRPCError creates an RPCError with the given error code and message.
+func NewRPCError(code types.ErrorCode, message string) *RPCError {
+	return &RPCError{Code: int(code), Message: message}
+}
+
+// NewConnection creates a Connection with the given handler and starts its read loop.
+func NewConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection {
+	c := newConnection(handler, w, r)
+	go c.readLoop()
+	return c
+}
+
 type jsonrpcMessage struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      *int            `json:"id,omitempty"`
@@ -45,29 +70,6 @@ type jsonrpcError struct {
 type jsonrpcResponse struct {
 	Result json.RawMessage
 	Error  *jsonrpcError
-}
-
-// RPCError represents a JSON-RPC 2.0 error with a code and message.
-type RPCError struct {
-	Code    int
-	Message string
-}
-
-// Error returns a formatted string containing the RPC error code and message.
-func (e *RPCError) Error() string {
-	return fmt.Sprintf("RPC error %d: %s", e.Code, e.Message)
-}
-
-// NewRPCError creates an RPCError with the given error code and message.
-func NewRPCError(code ErrorCode, message string) *RPCError {
-	return &RPCError{Code: int(code), Message: message}
-}
-
-// NewConnection creates a Connection with the given handler and starts its read loop.
-func NewConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection {
-	c := newConnection(handler, w, r)
-	go c.readLoop()
-	return c
 }
 
 func newConnection(handler MethodHandler, w io.Writer, r io.Reader) *Connection {
@@ -138,7 +140,7 @@ func (c *Connection) deliverResponse(msg jsonrpcMessage) {
 
 func (c *Connection) handleRequest(msg jsonrpcMessage) {
 	if c.handler == nil {
-		resp := jsonrpcMessage{JSONRPC: "2.0", ID: msg.ID, Error: &jsonrpcError{Code: int(ErrMethodNotFound), Message: "no handler"}}
+		resp := jsonrpcMessage{JSONRPC: "2.0", ID: msg.ID, Error: &jsonrpcError{Code: int(types.ErrMethodNotFound), Message: "no handler"}}
 		c.writeMessage(resp)
 		return
 	}
@@ -154,12 +156,12 @@ func (c *Connection) handleRequest(msg jsonrpcMessage) {
 		if errors.As(err, &rpcErr) {
 			resp.Error = &jsonrpcError{Code: rpcErr.Code, Message: rpcErr.Message}
 		} else {
-			resp.Error = &jsonrpcError{Code: int(ErrInternalError), Message: err.Error()}
+			resp.Error = &jsonrpcError{Code: int(types.ErrInternalError), Message: err.Error()}
 		}
 	} else {
 		data, marshalErr := json.Marshal(result)
 		if marshalErr != nil {
-			resp.Error = &jsonrpcError{Code: int(ErrInternalError), Message: marshalErr.Error()}
+			resp.Error = &jsonrpcError{Code: int(types.ErrInternalError), Message: marshalErr.Error()}
 		} else {
 			resp.Result = data
 		}
