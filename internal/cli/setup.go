@@ -6,22 +6,22 @@ import (
 	"path/filepath"
 
 	"github.com/erg0nix/kontekst/internal/agent"
-	"github.com/erg0nix/kontekst/internal/commands"
+	"github.com/erg0nix/kontekst/internal/command"
 	"github.com/erg0nix/kontekst/internal/config"
-	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
-	commandsConfig "github.com/erg0nix/kontekst/internal/config/commands"
-	skillsConfig "github.com/erg0nix/kontekst/internal/config/skills"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
+	commandsConfig "github.com/erg0nix/kontekst/internal/config/command"
+	skillsConfig "github.com/erg0nix/kontekst/internal/config/skill"
 	"github.com/erg0nix/kontekst/internal/context"
-	"github.com/erg0nix/kontekst/internal/sessions"
-	"github.com/erg0nix/kontekst/internal/skills"
-	"github.com/erg0nix/kontekst/internal/tools"
-	"github.com/erg0nix/kontekst/internal/tools/builtin"
+	"github.com/erg0nix/kontekst/internal/session"
+	"github.com/erg0nix/kontekst/internal/skill"
+	"github.com/erg0nix/kontekst/internal/tool"
+	"github.com/erg0nix/kontekst/internal/tool/builtin"
 )
 
 type setupResult struct {
 	Runner *agent.DefaultRunner
 	Agents *agent.Registry
-	Skills *skills.Registry
+	Skills *skill.Registry
 }
 
 func setupServices(cfg config.Config) setupResult {
@@ -36,7 +36,7 @@ func setupServices(cfg config.Config) setupResult {
 	if err := skillsConfig.EnsureDefaults(skillsDir); err != nil {
 		slog.Warn("failed to ensure default skills", "error", err)
 	}
-	skillsRegistry := skills.NewRegistry(skillsDir)
+	skillsRegistry := skill.NewRegistry(skillsDir)
 	if err := skillsRegistry.Load(); err != nil {
 		slog.Warn("failed to load skills", "error", err)
 	}
@@ -48,18 +48,18 @@ func setupServices(cfg config.Config) setupResult {
 	if err := commandsConfig.EnsureDefaults(commandsDir); err != nil {
 		slog.Warn("failed to ensure default commands", "error", err)
 	}
-	commandsRegistry := commands.NewRegistry(commandsDir)
+	commandsRegistry := command.NewRegistry(commandsDir)
 	if err := commandsRegistry.Load(); err != nil {
 		slog.Warn("failed to load commands", "error", err)
 	}
 
-	toolRegistry := tools.NewRegistry()
+	toolRegistry := tool.NewRegistry()
 	builtin.RegisterAll(toolRegistry, cfg.DataDir, cfg.Tools)
 	builtin.RegisterSkill(toolRegistry, skillsRegistry)
 	builtin.RegisterCommand(toolRegistry, commandsRegistry)
 
 	contextService := context.NewFileContextService(cfg.DataDir)
-	sessionService := &sessions.FileSessionService{BaseDir: cfg.DataDir}
+	sessionService := &session.FileSessionService{BaseDir: cfg.DataDir}
 
 	runner := &agent.DefaultRunner{
 		Tools:       toolRegistry,

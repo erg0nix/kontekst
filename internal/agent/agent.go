@@ -7,22 +7,22 @@ import (
 
 	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/providers"
-	"github.com/erg0nix/kontekst/internal/tools"
+	"github.com/erg0nix/kontekst/internal/provider"
+	"github.com/erg0nix/kontekst/internal/tool"
 )
 
-// Agent orchestrates the iterative loop of prompting an LLM, proposing tool calls, and executing approved tools.
+// Agent orchestrates the iterative loop of prompting an LLM, proposing tool calls, and executing approved tool.
 type Agent struct {
-	provider providers.Provider
-	tools    tools.ToolExecutor
+	provider provider.Provider
+	tools    tool.ToolExecutor
 	context  ctx.ContextWindow
 	config   RunConfig
 }
 
 // New creates an Agent with the given provider, tool executor, context window, and run configuration.
 func New(
-	provider providers.Provider,
-	toolExecutor tools.ToolExecutor,
+	provider provider.Provider,
+	toolExecutor tool.ToolExecutor,
 	contextWindow ctx.ContextWindow,
 	cfg RunConfig,
 ) *Agent {
@@ -141,7 +141,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan Command, eventChan
 		snapshot := agent.context.Snapshot()
 		eventChannel <- Event{Type: EvtTurnCompleted, RunID: runID, Response: chatResponse, Snapshot: &snapshot}
 
-		previewCtx := tools.WithWorkingDir(context.Background(), agent.config.WorkingDir)
+		previewCtx := tool.WithWorkingDir(context.Background(), agent.config.WorkingDir)
 		proposedCalls := pendingToolCalls.asProposed(agent.tools.Preview, previewCtx)
 
 		eventChannel <- Event{Type: EvtToolsProposed, RunID: runID, Calls: proposedCalls}

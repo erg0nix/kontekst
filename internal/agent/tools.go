@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/tools"
-	"github.com/erg0nix/kontekst/internal/tools/builtin"
+	"github.com/erg0nix/kontekst/internal/tool"
+	"github.com/erg0nix/kontekst/internal/tool/builtin"
 )
 
 func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventChannel chan<- Event) error {
@@ -70,7 +70,7 @@ func (agent *Agent) executeToolCall(runID core.RunID, call *pendingCall, callbac
 	defer cancel()
 
 	if agent.config.WorkingDir != "" {
-		ctx = tools.WithWorkingDir(ctx, agent.config.WorkingDir)
+		ctx = tool.WithWorkingDir(ctx, agent.config.WorkingDir)
 	}
 	ctx = builtin.WithSkillCallbacks(ctx, callbacks)
 

@@ -9,16 +9,16 @@ import (
 	"sync"
 
 	"github.com/erg0nix/kontekst/internal/agent"
-	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/skills"
+	"github.com/erg0nix/kontekst/internal/skill"
 )
 
 // Handler is the server-side ACP request handler that manages sessions and routes agent events.
 type Handler struct {
 	runner   agent.Runner
 	registry *agent.Registry
-	skills   *skills.Registry
+	skills   *skill.Registry
 	conn     *Connection
 	sessions sync.Map
 	caps     ClientCapabilities
@@ -46,7 +46,7 @@ func (s *sessionState) sendCommand(cmd agent.Command) bool {
 }
 
 // NewHandler creates a Handler with the given agent runner, registry, and skills registry.
-func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *skills.Registry) *Handler {
+func NewHandler(runner agent.Runner, registry *agent.Registry, skillsRegistry *skill.Registry) *Handler {
 	return &Handler{
 		runner:   runner,
 		registry: registry,
@@ -188,7 +188,7 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 
 	promptText := extractText(req.Prompt)
 
-	var skill *skills.Skill
+	var skill *skill.Skill
 	var skillContent string
 	if strings.HasPrefix(promptText, "/") {
 		skillName, args := parseSkillInvocation(promptText)

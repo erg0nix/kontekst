@@ -120,7 +120,7 @@ type Command struct {
 	Description string `json:"description"`
 }
 
-// AvailableCommandsUpdate creates a session update payload listing available slash commands.
+// AvailableCommandsUpdate creates a session update payload listing available slash command.
 func AvailableCommandsUpdate(commands []Command) map[string]any {
 	return map[string]any{
 		"sessionUpdate":     "available_commands_update",

@@ -8,8 +8,8 @@ import (
 
 	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/sessions"
-	"github.com/erg0nix/kontekst/internal/skills"
+	"github.com/erg0nix/kontekst/internal/session"
+	"github.com/erg0nix/kontekst/internal/skill"
 )
 
 type capturingContext struct {
@@ -50,10 +50,10 @@ func (m *mockSessionService) SetDefaultAgent(_ core.SessionID, _ string) error {
 	return nil
 }
 
-func (m *mockSessionService) List() ([]sessions.SessionInfo, error) { return nil, nil }
+func (m *mockSessionService) List() ([]session.SessionInfo, error) { return nil, nil }
 
-func (m *mockSessionService) Get(_ core.SessionID) (sessions.SessionInfo, error) {
-	return sessions.SessionInfo{}, nil
+func (m *mockSessionService) Get(_ core.SessionID) (session.SessionInfo, error) {
+	return session.SessionInfo{}, nil
 }
 
 func (m *mockSessionService) Delete(_ core.SessionID) error { return nil }
@@ -141,7 +141,7 @@ func TestStartRun_AgentsMDBeforeSkillContent(t *testing.T) {
 	_, events, err := runner.StartRun(RunConfig{
 		Prompt:       "do something",
 		WorkingDir:   dir,
-		Skill:        &skills.Skill{Name: "test-skill", Path: "/test"},
+		Skill:        &skill.Skill{Name: "test-skill", Path: "/test"},
 		SkillContent: "Skill instructions here.",
 	})
 	if err != nil {

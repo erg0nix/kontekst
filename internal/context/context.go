@@ -31,7 +31,7 @@ type ContextWindow interface {
 	Snapshot() core.ContextSnapshot
 }
 
-// ContextService creates ContextWindow instances for sessions.
+// ContextService creates ContextWindow instances for session.
 type ContextService interface {
 	NewWindow(sessionID core.SessionID) (ContextWindow, error)
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/agent"
 	appctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/sessions"
+	"github.com/erg0nix/kontekst/internal/session"
 )
 
 type mockContextWindow struct {
@@ -61,9 +61,9 @@ func (m *mockSessions) Create() (core.SessionID, string, error)        { return 
 func (m *mockSessions) Ensure(core.SessionID) (string, error)          { return "/tmp", nil }
 func (m *mockSessions) GetDefaultAgent(core.SessionID) (string, error) { return "", nil }
 func (m *mockSessions) SetDefaultAgent(core.SessionID, string) error   { return nil }
-func (m *mockSessions) List() ([]sessions.SessionInfo, error)          { return nil, nil }
-func (m *mockSessions) Get(core.SessionID) (sessions.SessionInfo, error) {
-	return sessions.SessionInfo{}, nil
+func (m *mockSessions) List() ([]session.SessionInfo, error)           { return nil, nil }
+func (m *mockSessions) Get(core.SessionID) (session.SessionInfo, error) {
+	return session.SessionInfo{}, nil
 }
 func (m *mockSessions) Delete(core.SessionID) error { return nil }
 

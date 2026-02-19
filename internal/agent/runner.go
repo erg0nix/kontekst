@@ -11,10 +11,10 @@ import (
 	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/providers"
-	"github.com/erg0nix/kontekst/internal/sessions"
-	"github.com/erg0nix/kontekst/internal/skills"
-	"github.com/erg0nix/kontekst/internal/tools"
+	"github.com/erg0nix/kontekst/internal/provider"
+	"github.com/erg0nix/kontekst/internal/session"
+	"github.com/erg0nix/kontekst/internal/skill"
+	"github.com/erg0nix/kontekst/internal/tool"
 )
 
 // RunConfig holds all parameters needed to start a single agent run.
@@ -29,10 +29,10 @@ type RunConfig struct {
 	ProviderModel       string
 	ProviderHTTPTimeout time.Duration
 	WorkingDir          string
-	Skill               *skills.Skill
+	Skill               *skill.Skill
 	SkillContent        string
 	ToolRole            bool
-	Tools               tools.ToolExecutor
+	Tools               tool.ToolExecutor
 }
 
 // Runner starts agent runs and returns channels for bidirectional communication.
@@ -42,9 +42,9 @@ type Runner interface {
 
 // DefaultRunner is the standard Runner implementation that wires together sessions, context, and an LLM provider.
 type DefaultRunner struct {
-	Tools       tools.ToolExecutor
+	Tools       tool.ToolExecutor
 	Context     context.ContextService
-	Sessions    sessions.SessionCreator
+	Sessions    session.SessionCreator
 	DebugConfig config.DebugConfig
 }
 
@@ -90,8 +90,8 @@ func (runner *DefaultRunner) StartRun(cfg RunConfig) (chan<- Command, <-chan Eve
 		}
 	}
 
-	provider := providers.NewOpenAIProvider(
-		providers.OpenAIConfig{
+	provider := provider.NewOpenAIProvider(
+		provider.OpenAIConfig{
 			Endpoint:    cfg.ProviderEndpoint,
 			HTTPTimeout: cfg.ProviderHTTPTimeout,
 		},

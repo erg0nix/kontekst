@@ -20,7 +20,7 @@ import (
 	"github.com/erg0nix/kontekst/internal/acp"
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/config"
-	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 
 	"github.com/spf13/cobra"
 )

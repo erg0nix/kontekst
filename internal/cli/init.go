@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/acp"
-	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 
 	"github.com/spf13/cobra"
 )

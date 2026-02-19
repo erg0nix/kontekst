@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 )
 
 // Registry discovers and loads agent configurations from the agents directory.

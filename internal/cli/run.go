@@ -16,9 +16,9 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/erg0nix/kontekst/internal/acp"
-	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/sessions"
+	"github.com/erg0nix/kontekst/internal/session"
 
 	"github.com/spf13/cobra"
 )
@@ -43,7 +43,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	if agentName == "" && sessionID != "" {
-		sessionService := &sessions.FileSessionService{BaseDir: app.Config.DataDir}
+		sessionService := &session.FileSessionService{BaseDir: app.Config.DataDir}
 		if defaultAgent, err := sessionService.GetDefaultAgent(core.SessionID(sessionID)); err == nil && defaultAgent != "" {
 			agentName = defaultAgent
 		}

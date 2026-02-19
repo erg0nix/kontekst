@@ -6,7 +6,7 @@ import (
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
-	"github.com/erg0nix/kontekst/internal/sessions"
+	"github.com/erg0nix/kontekst/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +25,7 @@ func runSessionsCmd(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	svc := &sessions.FileSessionService{BaseDir: app.Config.DataDir}
+	svc := &session.FileSessionService{BaseDir: app.Config.DataDir}
 	list, err := svc.List()
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func runSessionsCmd(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func printSessionsTable(list []sessions.SessionInfo, activeID string) {
+func printSessionsTable(list []session.SessionInfo, activeID string) {
 	t := newTable("", "SESSION ID", "AGENT", "MESSAGES", "SIZE", "MODIFIED")
 
 	for _, info := range list {
