@@ -55,32 +55,6 @@ func NewOpenAIProvider(cfg OpenAIConfig, debugCfg config.DebugConfig) *OpenAIPro
 	return provider
 }
 
-// CountTokens returns the token count for the given text, falling back to estimation if the endpoint is unavailable.
-func (p *OpenAIProvider) CountTokens(text string) (int, error) {
-	endpointURL := p.endpoint + "/tokenize"
-	requestBody, _ := json.Marshal(map[string]any{"content": text})
-	httpResp, err := p.client.Post(endpointURL, "application/json", bytes.NewReader(requestBody))
-	if err != nil {
-		return estimateTokens(text), nil
-	}
-	defer httpResp.Body.Close()
-
-	var payload map[string]any
-	if err := json.NewDecoder(httpResp.Body).Decode(&payload); err != nil {
-		return estimateTokens(text), nil
-	}
-
-	if tokens, ok := payload["tokens"].([]any); ok {
-		return len(tokens), nil
-	}
-
-	if count, ok := payload["count"].(float64); ok {
-		return int(count), nil
-	}
-
-	return estimateTokens(text), nil
-}
-
 // GenerateChat sends a chat completion request to the OpenAI-compatible endpoint and returns the parsed response.
 func (p *OpenAIProvider) GenerateChat(
 	messages []core.Message,
@@ -228,6 +202,32 @@ func (p *OpenAIProvider) GenerateChat(
 	}
 
 	return response, nil
+}
+
+// CountTokens returns the token count for the given text, falling back to estimation if the endpoint is unavailable.
+func (p *OpenAIProvider) CountTokens(text string) (int, error) {
+	endpointURL := p.endpoint + "/tokenize"
+	requestBody, _ := json.Marshal(map[string]any{"content": text})
+	httpResp, err := p.client.Post(endpointURL, "application/json", bytes.NewReader(requestBody))
+	if err != nil {
+		return estimateTokens(text), nil
+	}
+	defer httpResp.Body.Close()
+
+	var payload map[string]any
+	if err := json.NewDecoder(httpResp.Body).Decode(&payload); err != nil {
+		return estimateTokens(text), nil
+	}
+
+	if tokens, ok := payload["tokens"].([]any); ok {
+		return len(tokens), nil
+	}
+
+	if count, ok := payload["count"].(float64); ok {
+		return int(count), nil
+	}
+
+	return estimateTokens(text), nil
 }
 
 func estimateTokens(text string) int {

@@ -40,6 +40,18 @@ type DiffLine struct {
 	Hash      *string `json:"hash,omitempty"`
 }
 
+// SplitLines splits a string into lines, stripping a trailing empty line from a final newline.
+func SplitLines(s string) []string {
+	if s == "" {
+		return nil
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
 // GenerateUnifiedDiff produces a unified diff string between old and new content for the given path.
 func GenerateUnifiedDiff(path, oldContent, newContent string) string {
 	oldLines := SplitLines(oldContent)
@@ -112,6 +124,86 @@ func GenerateNewFileDiff(path, content string, maxLines int) string {
 	}
 
 	return builder.String()
+}
+
+// GenerateStructuredDiff produces a DiffPreview between old and new content without hashline annotations.
+func GenerateStructuredDiff(path, oldContent, newContent string) DiffPreview {
+	return GenerateStructuredDiffWithHashes(path, oldContent, newContent, nil, nil)
+}
+
+// GenerateStructuredDiffWithHashes produces a DiffPreview with optional hashline annotations on each line.
+func GenerateStructuredDiffWithHashes(path, oldContent, newContent string, oldHashes, newHashes map[int]string) DiffPreview {
+	oldLines := SplitLines(oldContent)
+	newLines := SplitLines(newContent)
+
+	preview := DiffPreview{
+		Path: path,
+		Summary: DiffSummary{
+			Operations: make(map[string]int),
+		},
+		Blocks: []DiffBlock{},
+	}
+
+	if len(oldLines) == 0 && len(newLines) == 0 {
+		return preview
+	}
+
+	if len(oldLines) == 0 {
+		block := generateNewFileBlock(newLines, newHashes)
+		preview.Blocks = append(preview.Blocks, block)
+		preview.Summary.LinesAdded = len(newLines)
+		preview.Summary.NetChange = len(newLines)
+		preview.Summary.TotalEdits = 1
+		preview.Summary.Operations["insert"] = 1
+		return preview
+	}
+
+	changes := findChanges(oldLines, newLines)
+	if len(changes) == 0 {
+		return preview
+	}
+
+	var hunkStart, hunkEnd int
+	hunkStart = -1
+
+	for _, change := range changes {
+		if hunkStart == -1 {
+			hunkStart = max(0, change.oldStart-contextLines)
+			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
+		} else if change.oldStart-contextLines <= hunkEnd {
+			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
+		} else {
+			block := formatStructuredHunk(oldLines, newLines, changes, hunkStart, hunkEnd, oldHashes, newHashes)
+			if len(block.Lines) > 0 {
+				preview.Blocks = append(preview.Blocks, block)
+			}
+			hunkStart = max(0, change.oldStart-contextLines)
+			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
+		}
+	}
+
+	if hunkStart != -1 {
+		block := formatStructuredHunk(oldLines, newLines, changes, hunkStart, hunkEnd, oldHashes, newHashes)
+		if len(block.Lines) > 0 {
+			preview.Blocks = append(preview.Blocks, block)
+		}
+	}
+
+	for _, block := range preview.Blocks {
+		for _, line := range block.Lines {
+			switch line.Type {
+			case "insert":
+				preview.Summary.LinesAdded++
+			case "delete":
+				preview.Summary.LinesRemoved++
+			}
+		}
+	}
+
+	preview.Summary.NetChange = preview.Summary.LinesAdded - preview.Summary.LinesRemoved
+	preview.Summary.TotalEdits = len(changes)
+
+	return preview
 }
 
 func computeHunks(oldLines, newLines []string) []string {
@@ -317,98 +409,6 @@ func filterChangesInRange(changes []change, start, end int) []change {
 		}
 	}
 	return result
-}
-
-// SplitLines splits a string into lines, stripping a trailing empty line from a final newline.
-func SplitLines(s string) []string {
-	if s == "" {
-		return nil
-	}
-	lines := strings.Split(s, "\n")
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	return lines
-}
-
-// GenerateStructuredDiff produces a DiffPreview between old and new content without hashline annotations.
-func GenerateStructuredDiff(path, oldContent, newContent string) DiffPreview {
-	return GenerateStructuredDiffWithHashes(path, oldContent, newContent, nil, nil)
-}
-
-// GenerateStructuredDiffWithHashes produces a DiffPreview with optional hashline annotations on each line.
-func GenerateStructuredDiffWithHashes(path, oldContent, newContent string, oldHashes, newHashes map[int]string) DiffPreview {
-	oldLines := SplitLines(oldContent)
-	newLines := SplitLines(newContent)
-
-	preview := DiffPreview{
-		Path: path,
-		Summary: DiffSummary{
-			Operations: make(map[string]int),
-		},
-		Blocks: []DiffBlock{},
-	}
-
-	if len(oldLines) == 0 && len(newLines) == 0 {
-		return preview
-	}
-
-	if len(oldLines) == 0 {
-		block := generateNewFileBlock(newLines, newHashes)
-		preview.Blocks = append(preview.Blocks, block)
-		preview.Summary.LinesAdded = len(newLines)
-		preview.Summary.NetChange = len(newLines)
-		preview.Summary.TotalEdits = 1
-		preview.Summary.Operations["insert"] = 1
-		return preview
-	}
-
-	changes := findChanges(oldLines, newLines)
-	if len(changes) == 0 {
-		return preview
-	}
-
-	var hunkStart, hunkEnd int
-	hunkStart = -1
-
-	for _, change := range changes {
-		if hunkStart == -1 {
-			hunkStart = max(0, change.oldStart-contextLines)
-			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
-		} else if change.oldStart-contextLines <= hunkEnd {
-			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
-		} else {
-			block := formatStructuredHunk(oldLines, newLines, changes, hunkStart, hunkEnd, oldHashes, newHashes)
-			if len(block.Lines) > 0 {
-				preview.Blocks = append(preview.Blocks, block)
-			}
-			hunkStart = max(0, change.oldStart-contextLines)
-			hunkEnd = min(len(oldLines), change.oldEnd+contextLines)
-		}
-	}
-
-	if hunkStart != -1 {
-		block := formatStructuredHunk(oldLines, newLines, changes, hunkStart, hunkEnd, oldHashes, newHashes)
-		if len(block.Lines) > 0 {
-			preview.Blocks = append(preview.Blocks, block)
-		}
-	}
-
-	for _, block := range preview.Blocks {
-		for _, line := range block.Lines {
-			switch line.Type {
-			case "insert":
-				preview.Summary.LinesAdded++
-			case "delete":
-				preview.Summary.LinesRemoved++
-			}
-		}
-	}
-
-	preview.Summary.NetChange = preview.Summary.LinesAdded - preview.Summary.LinesRemoved
-	preview.Summary.TotalEdits = len(changes)
-
-	return preview
 }
 
 func generateNewFileBlock(lines []string, hashes map[int]string) DiffBlock {

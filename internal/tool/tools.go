@@ -8,23 +8,6 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
-type contextKey string
-
-const workingDirKey contextKey = "workingDir"
-
-// WithWorkingDir returns a new context carrying the given working directory.
-func WithWorkingDir(ctx context.Context, dir string) context.Context {
-	return context.WithValue(ctx, workingDirKey, dir)
-}
-
-// WorkingDir extracts the working directory from the context, or returns empty string if unset.
-func WorkingDir(ctx context.Context) string {
-	if dir, ok := ctx.Value(workingDirKey).(string); ok {
-		return dir
-	}
-	return ""
-}
-
 // Tool defines the interface that all agent tools must implement.
 type Tool interface {
 	Name() string
@@ -120,4 +103,21 @@ func (registry *Registry) ToolDefinitions() []core.ToolDef {
 	}
 
 	return definitions
+}
+
+type contextKey string
+
+const workingDirKey contextKey = "workingDir"
+
+// WithWorkingDir returns a new context carrying the given working directory.
+func WithWorkingDir(ctx context.Context, dir string) context.Context {
+	return context.WithValue(ctx, workingDirKey, dir)
+}
+
+// WorkingDir extracts the working directory from the context, or returns empty string if unset.
+func WorkingDir(ctx context.Context) string {
+	if dir, ok := ctx.Value(workingDirKey).(string); ok {
+		return dir
+	}
+	return ""
 }

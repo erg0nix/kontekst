@@ -10,6 +10,15 @@ import (
 	toolpkg "github.com/erg0nix/kontekst/internal/tool"
 )
 
+// RegisterAll registers all builtin file and web tools into the registry.
+func RegisterAll(registry *toolpkg.Registry, baseDir string, toolsConfig config.ToolsConfig) {
+	RegisterReadFile(registry, baseDir)
+	RegisterListFiles(registry, baseDir)
+	RegisterWriteFile(registry, baseDir, toolsConfig.File)
+	RegisterEditFile(registry, baseDir, toolsConfig.File)
+	RegisterWebFetch(registry, toolsConfig.Web)
+}
+
 func resolveBaseDir(ctx context.Context, fallback string) string {
 	if dir := toolpkg.WorkingDir(ctx); dir != "" {
 		return dir
@@ -68,13 +77,4 @@ func getIntArg(key string, args map[string]any) (int, bool) {
 	default:
 		return 0, false
 	}
-}
-
-// RegisterAll registers all builtin file and web tools into the registry.
-func RegisterAll(registry *toolpkg.Registry, baseDir string, toolsConfig config.ToolsConfig) {
-	RegisterReadFile(registry, baseDir)
-	RegisterListFiles(registry, baseDir)
-	RegisterWriteFile(registry, baseDir, toolsConfig.File)
-	RegisterEditFile(registry, baseDir, toolsConfig.File)
-	RegisterWebFetch(registry, toolsConfig.Web)
 }

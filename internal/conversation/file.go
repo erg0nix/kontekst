@@ -10,6 +10,8 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+const chunkSize = 8 * 1024
+
 // SessionFile provides append-only storage and tail-based loading of messages in a JSONL file.
 type SessionFile struct {
 	path string
@@ -129,8 +131,6 @@ func (sf *SessionFile) LoadTail(tokenBudget int) ([]core.Message, error) {
 
 	return messages, nil
 }
-
-const chunkSize = 8 * 1024
 
 func splitLines(data []byte) [][]byte {
 	var lines [][]byte

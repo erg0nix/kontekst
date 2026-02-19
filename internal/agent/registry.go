@@ -29,6 +29,37 @@ type Summary struct {
 	HasConfig   bool
 }
 
+// NotFoundError is returned when a requested agent does not exist in the registry.
+type NotFoundError struct {
+	Name      string
+	Available []string
+}
+
+// Error returns a message identifying the missing agent and listing available alternatives.
+func (e *NotFoundError) Error() string {
+	msg := "agent not found: " + e.Name
+	if len(e.Available) > 0 {
+		msg += "; available: " + strings.Join(e.Available, ", ")
+	}
+	return msg
+}
+
+// ConfigError is returned when an agent's configuration file cannot be loaded or parsed.
+type ConfigError struct {
+	Name string
+	Err  error
+}
+
+// Error returns a message identifying the agent and the underlying configuration error.
+func (e *ConfigError) Error() string {
+	return "invalid config for agent " + e.Name + ": " + e.Err.Error()
+}
+
+// Unwrap returns the underlying error that caused the configuration failure.
+func (e *ConfigError) Unwrap() error {
+	return e.Err
+}
+
 // List returns summaries of all agents found in the agents directory.
 func (r *Registry) List() ([]Summary, error) {
 	entries, err := os.ReadDir(r.AgentsDir)
@@ -148,35 +179,4 @@ func (r *Registry) Exists(name string) bool {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-// NotFoundError is returned when a requested agent does not exist in the registry.
-type NotFoundError struct {
-	Name      string
-	Available []string
-}
-
-// Error returns a message identifying the missing agent and listing available alternatives.
-func (e *NotFoundError) Error() string {
-	msg := "agent not found: " + e.Name
-	if len(e.Available) > 0 {
-		msg += "; available: " + strings.Join(e.Available, ", ")
-	}
-	return msg
-}
-
-// ConfigError is returned when an agent's configuration file cannot be loaded or parsed.
-type ConfigError struct {
-	Name string
-	Err  error
-}
-
-// Error returns a message identifying the agent and the underlying configuration error.
-func (e *ConfigError) Error() string {
-	return "invalid config for agent " + e.Name + ": " + e.Err.Error()
-}
-
-// Unwrap returns the underlying error that caused the configuration failure.
-func (e *ConfigError) Unwrap() error {
-	return e.Err
 }
