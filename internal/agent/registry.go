@@ -6,27 +6,62 @@ import (
 	"strings"
 	"time"
 
-	agentConfig "github.com/erg0nix/kontekst/internal/config/agents"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 )
 
+// Registry discovers and loads agent configurations from the agents directory.
 type Registry struct {
 	AgentsDir string
 }
 
+// NewRegistry creates a Registry that looks for agents under dataDir/agents.
 func NewRegistry(dataDir string) *Registry {
 	return &Registry{
 		AgentsDir: filepath.Join(dataDir, "agents"),
 	}
 }
 
-type AgentSummary struct {
+// Summary holds metadata about a registered agent for listing purposes.
+type Summary struct {
 	Name        string
 	DisplayName string
 	HasPrompt   bool
 	HasConfig   bool
 }
 
-func (r *Registry) List() ([]AgentSummary, error) {
+// NotFoundError is returned when a requested agent does not exist in the registry.
+type NotFoundError struct {
+	Name      string
+	Available []string
+}
+
+// Error returns a message identifying the missing agent and listing available alternatives.
+func (e *NotFoundError) Error() string {
+	msg := "agent not found: " + e.Name
+	if len(e.Available) > 0 {
+		msg += "; available: " + strings.Join(e.Available, ", ")
+	}
+	return msg
+}
+
+// ConfigError is returned when an agent's configuration file cannot be loaded or parsed.
+type ConfigError struct {
+	Name string
+	Err  error
+}
+
+// Error returns a message identifying the agent and the underlying configuration error.
+func (e *ConfigError) Error() string {
+	return "invalid config for agent " + e.Name + ": " + e.Err.Error()
+}
+
+// Unwrap returns the underlying error that caused the configuration failure.
+func (e *ConfigError) Unwrap() error {
+	return e.Err
+}
+
+// List returns summaries of all agents found in the agents directory.
+func (r *Registry) List() ([]Summary, error) {
 	entries, err := os.ReadDir(r.AgentsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -35,7 +70,7 @@ func (r *Registry) List() ([]AgentSummary, error) {
 		return nil, err
 	}
 
-	var agents []AgentSummary
+	var agents []Summary
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -61,7 +96,7 @@ func (r *Registry) List() ([]AgentSummary, error) {
 			}
 		}
 
-		agents = append(agents, AgentSummary{
+		agents = append(agents, Summary{
 			Name:        name,
 			DisplayName: displayName,
 			HasPrompt:   hasPrompt,
@@ -72,6 +107,7 @@ func (r *Registry) List() ([]AgentSummary, error) {
 	return agents, nil
 }
 
+// Load reads and returns the full agent configuration for the named agent.
 func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	agentDir := filepath.Join(r.AgentsDir, name)
 	configPath := filepath.Join(agentDir, "config.toml")
@@ -86,7 +122,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 		for _, a := range available {
 			names = append(names, a.Name)
 		}
-		return nil, &AgentNotFoundError{Name: name, Available: names}
+		return nil, &NotFoundError{Name: name, Available: names}
 	}
 
 	cfg := &agentConfig.AgentConfig{
@@ -97,7 +133,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	if hasConfig {
 		tomlCfg, err := agentConfig.LoadTOML(configPath)
 		if err != nil {
-			return nil, &AgentConfigError{Name: name, Err: err}
+			return nil, &ConfigError{Name: name, Err: err}
 		}
 		if tomlCfg != nil {
 			if tomlCfg.Name != "" {
@@ -123,7 +159,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	if hasPrompt {
 		prompt, err := agentConfig.LoadPrompt(promptPath)
 		if err != nil {
-			return nil, &AgentConfigError{Name: name, Err: err}
+			return nil, &ConfigError{Name: name, Err: err}
 		}
 		cfg.SystemPrompt = prompt
 	}
@@ -131,6 +167,7 @@ func (r *Registry) Load(name string) (*agentConfig.AgentConfig, error) {
 	return cfg, nil
 }
 
+// Exists reports whether an agent with the given name has a config or prompt file.
 func (r *Registry) Exists(name string) bool {
 	agentDir := filepath.Join(r.AgentsDir, name)
 	configPath := filepath.Join(agentDir, "config.toml")
@@ -142,30 +179,4 @@ func (r *Registry) Exists(name string) bool {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-type AgentNotFoundError struct {
-	Name      string
-	Available []string
-}
-
-func (e *AgentNotFoundError) Error() string {
-	msg := "agent not found: " + e.Name
-	if len(e.Available) > 0 {
-		msg += "; available: " + strings.Join(e.Available, ", ")
-	}
-	return msg
-}
-
-type AgentConfigError struct {
-	Name string
-	Err  error
-}
-
-func (e *AgentConfigError) Error() string {
-	return "invalid config for agent " + e.Name + ": " + e.Err.Error()
-}
-
-func (e *AgentConfigError) Unwrap() error {
-	return e.Err
 }

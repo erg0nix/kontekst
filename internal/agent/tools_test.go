@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	ctx "github.com/erg0nix/kontekst/internal/context"
+	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/provider"
 )
 
 type mockContext struct {
@@ -16,7 +17,7 @@ func (m *mockContext) SystemContent() string {
 	return ""
 }
 
-func (m *mockContext) StartRun(params ctx.BudgetParams) error {
+func (m *mockContext) StartRun(params conversation.BudgetParams) error {
 	return nil
 }
 
@@ -39,8 +40,8 @@ func (m *mockContext) ActiveSkill() *core.SkillMetadata {
 
 func (m *mockContext) SetAgentSystemPrompt(prompt string) {}
 
-func (m *mockContext) Snapshot() core.ContextSnapshot {
-	return core.ContextSnapshot{}
+func (m *mockContext) Snapshot() conversation.Snapshot {
+	return conversation.Snapshot{}
 }
 
 type mockToolExecutor struct{}
@@ -59,8 +60,8 @@ func (m *mockToolExecutor) Preview(name string, args map[string]any, ctx context
 
 type mockProvider struct{}
 
-func (m *mockProvider) GenerateChat(messages []core.Message, tools []core.ToolDef, sampling *core.SamplingConfig, model string, useToolRole bool) (core.ChatResponse, error) {
-	return core.ChatResponse{}, nil
+func (m *mockProvider) GenerateChat(messages []core.Message, tools []core.ToolDef, sampling *core.SamplingConfig, model string, useToolRole bool) (provider.Response, error) {
+	return provider.Response{}, nil
 }
 
 func (m *mockProvider) CountTokens(text string) (int, error) {
@@ -69,16 +70,15 @@ func (m *mockProvider) CountTokens(text string) (int, error) {
 
 func TestExecuteTools_SingleTool(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
 		tools:    &mockToolExecutor{},
 	}
 
-	approved := true
 	calls := []*pendingCall{
-		{ID: "call1", Name: "test_tool", Args: map[string]any{}, Approved: &approved},
+		{ID: "call1", Name: "test_tool", Args: map[string]any{}, Approval: ApprovalGranted},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {
@@ -103,17 +103,16 @@ func TestExecuteTools_SingleTool(t *testing.T) {
 
 func TestExecuteTools_MultipleToolsProduceIndividualMessages(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
 		tools:    &mockToolExecutor{},
 	}
 
-	approved := true
 	calls := []*pendingCall{
-		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &approved},
-		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approved: &approved},
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approval: ApprovalGranted},
+		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approval: ApprovalGranted},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {
@@ -143,15 +142,14 @@ func TestExecuteTools_MultipleToolsProduceIndividualMessages(t *testing.T) {
 
 func TestExecuteTools_DeniedToolRecordsError(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
 	}
 
-	denied := false
 	calls := []*pendingCall{
-		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &denied, Reason: "not allowed"},
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approval: ApprovalDenied, Reason: "not allowed"},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {
@@ -170,19 +168,17 @@ func TestExecuteTools_DeniedToolRecordsError(t *testing.T) {
 
 func TestExecuteTools_MixedApprovedAndDenied(t *testing.T) {
 	ctx := &mockContext{}
-	eventCh := make(chan AgentEvent, 32)
+	eventCh := make(chan Event, 32)
 	ag := &Agent{
 		context:  ctx,
 		provider: &mockProvider{},
 		tools:    &mockToolExecutor{},
 	}
 
-	approved := true
-	denied := false
 	calls := []*pendingCall{
-		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &approved},
-		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approved: &denied, Reason: "denied"},
-		{ID: "call3", Name: "tool3", Args: map[string]any{}, Approved: &approved},
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approval: ApprovalGranted},
+		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approval: ApprovalDenied, Reason: "denied"},
+		{ID: "call3", Name: "tool3", Args: map[string]any{}, Approval: ApprovalGranted},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {

@@ -6,10 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	ctx "github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/sessions"
-	"github.com/erg0nix/kontekst/internal/skills"
+	"github.com/erg0nix/kontekst/internal/session"
+	"github.com/erg0nix/kontekst/internal/skill"
 )
 
 type capturingContext struct {
@@ -25,10 +24,10 @@ func (c *capturingContext) AddMessage(msg core.Message) error {
 }
 
 type mockContextService struct {
-	window ctx.ContextWindow
+	window ConversationWindow
 }
 
-func (m *mockContextService) NewWindow(_ core.SessionID) (ctx.ContextWindow, error) {
+func (m *mockContextService) NewWindow(_ core.SessionID) (ConversationWindow, error) {
 	return m.window, nil
 }
 
@@ -50,15 +49,15 @@ func (m *mockSessionService) SetDefaultAgent(_ core.SessionID, _ string) error {
 	return nil
 }
 
-func (m *mockSessionService) List() ([]sessions.SessionInfo, error) { return nil, nil }
+func (m *mockSessionService) List() ([]session.Info, error) { return nil, nil }
 
-func (m *mockSessionService) Get(_ core.SessionID) (sessions.SessionInfo, error) {
-	return sessions.SessionInfo{}, nil
+func (m *mockSessionService) Get(_ core.SessionID) (session.Info, error) {
+	return session.Info{}, nil
 }
 
 func (m *mockSessionService) Delete(_ core.SessionID) error { return nil }
 
-func drainEvents(events <-chan AgentEvent) {
+func drainEvents(events <-chan Event) {
 	for range events {
 	}
 }
@@ -70,7 +69,7 @@ func TestStartRun_WithAgentsMD(t *testing.T) {
 	}
 
 	capturer := &capturingContext{}
-	runner := &AgentRunner{
+	runner := &DefaultRunner{
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},
@@ -101,7 +100,7 @@ func TestStartRun_WithoutAgentsMD(t *testing.T) {
 	dir := t.TempDir()
 
 	capturer := &capturingContext{}
-	runner := &AgentRunner{
+	runner := &DefaultRunner{
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},
@@ -132,7 +131,7 @@ func TestStartRun_AgentsMDBeforeSkillContent(t *testing.T) {
 	}
 
 	capturer := &capturingContext{}
-	runner := &AgentRunner{
+	runner := &DefaultRunner{
 		Tools:    &mockToolExecutor{},
 		Context:  &mockContextService{window: capturer},
 		Sessions: &mockSessionService{},
@@ -141,7 +140,7 @@ func TestStartRun_AgentsMDBeforeSkillContent(t *testing.T) {
 	_, events, err := runner.StartRun(RunConfig{
 		Prompt:       "do something",
 		WorkingDir:   dir,
-		Skill:        &skills.Skill{Name: "test-skill", Path: "/test"},
+		Skill:        &skill.Skill{Name: "test-skill", Path: "/test"},
 		SkillContent: "Skill instructions here.",
 	})
 	if err != nil {

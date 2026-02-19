@@ -1,0 +1,86 @@
+package app
+
+import (
+	"log/slog"
+	"os"
+	"path/filepath"
+
+	"github.com/erg0nix/kontekst/internal/agent"
+	"github.com/erg0nix/kontekst/internal/command"
+	"github.com/erg0nix/kontekst/internal/config"
+	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
+	commandsConfig "github.com/erg0nix/kontekst/internal/config/command"
+	skillsConfig "github.com/erg0nix/kontekst/internal/config/skill"
+	"github.com/erg0nix/kontekst/internal/conversation"
+	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/session"
+	"github.com/erg0nix/kontekst/internal/skill"
+	"github.com/erg0nix/kontekst/internal/tool"
+	"github.com/erg0nix/kontekst/internal/tool/builtin"
+)
+
+// Services holds the wired-up services needed by the server and CLI.
+type Services struct {
+	Runner *agent.DefaultRunner
+	Agents *agent.Registry
+	Skills *skill.Registry
+}
+
+type conversationFactory struct {
+	svc *conversation.FileService
+}
+
+func (f conversationFactory) NewWindow(sessionID core.SessionID) (agent.ConversationWindow, error) {
+	return f.svc.NewWindow(sessionID)
+}
+
+// NewServices creates all application services from the given configuration.
+func NewServices(cfg config.Config) Services {
+	if err := agentConfig.EnsureDefaults(cfg.DataDir); err != nil {
+		slog.Warn("failed to ensure default agents", "error", err)
+	}
+
+	skillsDir := filepath.Join(cfg.DataDir, "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		slog.Warn("failed to create skills directory", "error", err)
+	}
+	if err := skillsConfig.EnsureDefaults(skillsDir); err != nil {
+		slog.Warn("failed to ensure default skills", "error", err)
+	}
+	skillsRegistry := skill.NewRegistry(skillsDir)
+	if err := skillsRegistry.Load(); err != nil {
+		slog.Warn("failed to load skills", "error", err)
+	}
+
+	commandsDir := filepath.Join(cfg.DataDir, "commands")
+	if err := os.MkdirAll(commandsDir, 0o755); err != nil {
+		slog.Warn("failed to create commands directory", "error", err)
+	}
+	if err := commandsConfig.EnsureDefaults(commandsDir); err != nil {
+		slog.Warn("failed to ensure default commands", "error", err)
+	}
+	commandsRegistry := command.NewRegistry(commandsDir)
+	if err := commandsRegistry.Load(); err != nil {
+		slog.Warn("failed to load commands", "error", err)
+	}
+
+	toolRegistry := tool.NewRegistry()
+	builtin.RegisterAll(toolRegistry, cfg.DataDir, cfg.Tools)
+	builtin.RegisterSkill(toolRegistry, skillsRegistry)
+	builtin.RegisterCommand(toolRegistry, commandsRegistry)
+
+	sessionService := &session.FileService{BaseDir: cfg.DataDir}
+
+	runner := &agent.DefaultRunner{
+		Tools:       toolRegistry,
+		Context:     conversationFactory{conversation.NewFileService(cfg.DataDir)},
+		Sessions:    sessionService,
+		DebugConfig: cfg.Debug,
+	}
+
+	return Services{
+		Runner: runner,
+		Agents: agent.NewRegistry(cfg.DataDir),
+		Skills: skillsRegistry,
+	}
+}

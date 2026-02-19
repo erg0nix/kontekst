@@ -9,14 +9,13 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/config"
-	"github.com/erg0nix/kontekst/internal/context"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/providers"
-	"github.com/erg0nix/kontekst/internal/sessions"
-	"github.com/erg0nix/kontekst/internal/skills"
-	"github.com/erg0nix/kontekst/internal/tools"
+	"github.com/erg0nix/kontekst/internal/provider"
+	"github.com/erg0nix/kontekst/internal/skill"
+	"github.com/erg0nix/kontekst/internal/tool"
 )
 
+// RunConfig holds all parameters needed to start a single agent run.
 type RunConfig struct {
 	Prompt              string
 	SessionID           core.SessionID
@@ -28,39 +27,42 @@ type RunConfig struct {
 	ProviderModel       string
 	ProviderHTTPTimeout time.Duration
 	WorkingDir          string
-	Skill               *skills.Skill
+	Skill               *skill.Skill
 	SkillContent        string
 	ToolRole            bool
-	Tools               tools.ToolExecutor
+	Tools               tool.ToolExecutor
 }
 
+// Runner starts agent runs and returns channels for bidirectional communication.
 type Runner interface {
-	StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error)
+	StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error)
 }
 
-type AgentRunner struct {
-	Tools       tools.ToolExecutor
-	Context     context.ContextService
-	Sessions    sessions.SessionService
+// DefaultRunner is the standard Runner implementation that wires together sessions, context, and an LLM provider.
+type DefaultRunner struct {
+	Tools       tool.ToolExecutor
+	Context     ConversationFactory
+	Sessions    SessionStore
 	DebugConfig config.DebugConfig
 }
 
-func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan AgentEvent, error) {
+// StartRun initializes a session and context window, then starts the agent loop in a background goroutine.
+func (r *DefaultRunner) StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error) {
 	sessionID := cfg.SessionID
 	if sessionID == "" {
-		newSessionID, _, err := runner.Sessions.Create()
+		newSessionID, _, err := r.Sessions.Create()
 		if err != nil {
 			return nil, nil, err
 		}
 
 		sessionID = newSessionID
 	} else {
-		if _, err := runner.Sessions.Ensure(sessionID); err != nil {
+		if _, err := r.Sessions.Ensure(sessionID); err != nil {
 			return nil, nil, err
 		}
 	}
 
-	ctxWindow, err := runner.Context.NewWindow(sessionID)
+	ctxWindow, err := r.Context.NewWindow(sessionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -86,23 +88,23 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 		}
 	}
 
-	provider := providers.NewOpenAIProvider(
-		providers.OpenAIConfig{
+	provider := provider.NewOpenAIProvider(
+		provider.OpenAIConfig{
 			Endpoint:    cfg.ProviderEndpoint,
 			HTTPTimeout: cfg.ProviderHTTPTimeout,
 		},
-		runner.DebugConfig,
+		r.DebugConfig,
 	)
 
 	toolExecutor := cfg.Tools
 	if toolExecutor == nil {
-		toolExecutor = runner.Tools
+		toolExecutor = r.Tools
 	}
 
 	agentEngine := New(provider, toolExecutor, ctxWindow, cfg)
 	commandChannel, eventChannel := agentEngine.Run(prompt)
 
-	outputChannel := make(chan AgentEvent, 32)
+	outputChannel := make(chan Event, 32)
 
 	go func() {
 		turnCounter := 0
@@ -149,4 +151,4 @@ func (runner *AgentRunner) StartRun(cfg RunConfig) (chan<- AgentCommand, <-chan 
 	return commandChannel, outputChannel, nil
 }
 
-var _ Runner = (*AgentRunner)(nil)
+var _ Runner = (*DefaultRunner)(nil)
