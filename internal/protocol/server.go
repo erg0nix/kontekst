@@ -49,6 +49,17 @@ func (h *Handler) ServeWith(dispatch MethodHandler, w io.Writer, r io.Reader) *C
 }
 
 // Dispatch routes an incoming JSON-RPC method call to the appropriate handler.
+//
+// ACP: Client → Server methods:
+//
+//	"initialize"          → [handleInitialize]  — protocol handshake
+//	"authenticate"        → no-op               — reserved for future auth
+//	"session/new"         → [handleNewSession]   — create session
+//	"session/load"        → [handleLoadSession]  — resume session
+//	"session/prompt"      → [handlePrompt]       — run agent loop (long-lived)
+//	"session/cancel"      → [handleCancel]       — cancel active prompt (notification)
+//	"session/set_mode"    → no-op stub
+//	"session/set_config"  → no-op stub
 func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
 	switch method {
 	case types.MethodInitialize:
@@ -76,6 +87,13 @@ func (h *Handler) Dispatch(ctx context.Context, method string, params json.RawMe
 	}
 }
 
+// handleInitialize performs the ACP handshake.
+//
+// ACP: "initialize"
+// Request:  [types.InitializeRequest] — protocol version and client capabilities.
+// Response: [types.InitializeResponse] — server capabilities, agent info, and auth methods.
+//
+// Stores the client's capabilities for later use (e.g. determining ACP tool support).
 func (h *Handler) handleInitialize(_ context.Context, params json.RawMessage) (types.InitializeResponse, error) {
 	var req types.InitializeRequest
 	if len(params) > 0 {
@@ -100,6 +118,13 @@ func (h *Handler) handleInitialize(_ context.Context, params json.RawMessage) (t
 	}, nil
 }
 
+// handleNewSession creates a fresh session with an agent.
+//
+// ACP: "session/new"
+// Request:  [types.NewSessionRequest] — working directory, MCP servers, and optional agent name in _meta.
+// Response: [types.NewSessionResponse] — the new session ID.
+//
+// Also pushes an available_commands_update notification if skills are registered.
 func (h *Handler) handleNewSession(ctx context.Context, params json.RawMessage) (types.NewSessionResponse, error) {
 	var req types.NewSessionRequest
 	if err := json.Unmarshal(params, &req); err != nil {
@@ -137,6 +162,11 @@ func (h *Handler) handleNewSession(ctx context.Context, params json.RawMessage) 
 	return types.NewSessionResponse{SessionID: sid}, nil
 }
 
+// handleLoadSession resumes an existing session by ID.
+//
+// ACP: "session/load"
+// Request:  [types.LoadSessionRequest] — session ID and working directory.
+// Response: [types.LoadSessionResponse] — the confirmed session ID.
 func (h *Handler) handleLoadSession(_ context.Context, params json.RawMessage) (types.LoadSessionResponse, error) {
 	var req types.LoadSessionRequest
 	if err := json.Unmarshal(params, &req); err != nil {
@@ -154,6 +184,16 @@ func (h *Handler) handleLoadSession(_ context.Context, params json.RawMessage) (
 	return types.LoadSessionResponse{SessionID: req.SessionID}, nil
 }
 
+// handlePrompt runs the agent loop for a user prompt.
+//
+// ACP: "session/prompt"
+// Request:  [types.PromptRequest] — session ID and prompt content blocks.
+// Response: [types.PromptResponse] — stop reason (end_turn, cancelled, etc.).
+//
+// This is a long-lived request. While the agent runs, the server streams
+// session/update notifications (text chunks, tool calls, tool results) and
+// may send session/request_permission requests back to the client.
+// The response is returned only when the agent loop completes.
 func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (types.PromptResponse, error) {
 	var req types.PromptRequest
 	if err := json.Unmarshal(params, &req); err != nil {
@@ -432,6 +472,10 @@ func outcomeIsAllowed(outcome types.PermissionOutcome, options []types.Permissio
 	return false
 }
 
+// handleCancel stops the active agent run in a session.
+//
+// ACP: "session/cancel" (notification — no response)
+// Params: [types.CancelNotification] — the session ID to cancel.
 func (h *Handler) handleCancel(params json.RawMessage) {
 	var notif types.CancelNotification
 	if err := json.Unmarshal(params, &notif); err != nil {

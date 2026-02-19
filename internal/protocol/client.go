@@ -64,6 +64,13 @@ func NewClient(conn *Connection) *Client {
 	return c
 }
 
+// dispatch routes server-initiated messages arriving on the client connection.
+//
+// ACP: Server → Client methods:
+//
+//	"session/update"             → [ClientCallbacks.OnUpdate]     — streaming session events (notification)
+//	"session/request_permission" → [ClientCallbacks.OnPermission] — tool approval request
+//	"_kontekst/context"          → [ClientCallbacks.OnContextSnapshot] — context window snapshot (notification)
 func (c *Client) dispatch(ctx context.Context, method string, params json.RawMessage) (any, error) {
 	switch method {
 	case types.MethodSessionUpdate:
