@@ -23,6 +23,7 @@ func NewRootCommand() *cobra.Command {
 		Use:           "kontekst [prompt]",
 		Short:         "kontekst CLI",
 		SilenceErrors: true,
+		SilenceUsage:  true,
 		Args:          cobra.ArbitraryArgs,
 		RunE:          runCmd,
 	}
@@ -111,8 +112,8 @@ func saveActiveSession(dataDir string, sessionID string) error {
 	return nil
 }
 
-func dialServer(serverAddr string, cb protocol.ClientCallbacks) (*protocol.Client, error) {
-	client, err := protocol.Dial(context.Background(), serverAddr, cb)
+func dialServer(ctx context.Context, serverAddr string, cb protocol.ClientCallbacks) (*protocol.Client, error) {
+	client, err := protocol.Dial(ctx, serverAddr, cb)
 	if err != nil {
 		printServerNotRunning(serverAddr, err)
 		return nil, err
@@ -148,12 +149,12 @@ func startServer(cfg config.Config, configPath string, foreground bool) error {
 
 	logFile := filepath.Join(cfg.DataDir, "server.log")
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
-		return err
+		return fmt.Errorf("start server: create data dir: %w", err)
 	}
 
 	out, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		return err
+		return fmt.Errorf("start server: open log: %w", err)
 	}
 	defer out.Close()
 
@@ -161,7 +162,7 @@ func startServer(cfg config.Config, configPath string, foreground bool) error {
 	serverCmd.Stderr = out
 
 	if err := serverCmd.Start(); err != nil {
-		return err
+		return fmt.Errorf("start server: %w", err)
 	}
 
 	lipgloss.Println(

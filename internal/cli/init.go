@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -82,9 +81,11 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 		},
 	}
 
+	ctx := cmd.Context()
+
 	var client *protocol.Client
 	for range 10 {
-		client, err = protocol.Dial(context.Background(), app.ServerAddr, callbacks)
+		client, err = protocol.Dial(ctx, app.ServerAddr, callbacks)
 		if err == nil {
 			break
 		}
@@ -94,8 +95,6 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("connect to server at %s: %w", app.ServerAddr, err)
 	}
 	defer client.Close()
-
-	ctx := cmd.Context()
 
 	_, err = client.Initialize(ctx, protocol.InitializeRequest{
 		ProtocolVersion: protocol.ProtocolVersion,

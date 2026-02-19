@@ -53,11 +53,12 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		agentName = agentConfig.DefaultAgentName
 	}
 
+	ctx := cmd.Context()
 	reader := bufio.NewReader(os.Stdin)
 	renderer := newMarkdownRenderer()
 	var lastSnapshot *conversation.Snapshot
 
-	client, err := dialServer(app.ServerAddr, protocol.ClientCallbacks{
+	client, err := dialServer(ctx, app.ServerAddr, protocol.ClientCallbacks{
 		OnUpdate: func(notif protocol.SessionNotification) {
 			handleSessionUpdate(notif, renderer)
 		},
@@ -75,8 +76,6 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer client.Close()
-
-	ctx := cmd.Context()
 
 	_, err = client.Initialize(ctx, protocol.InitializeRequest{
 		ProtocolVersion: protocol.ProtocolVersion,
