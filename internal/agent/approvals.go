@@ -8,11 +8,20 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
+// ApprovalState represents the state of a tool call approval decision.
+type ApprovalState int
+
+const (
+	ApprovalPending ApprovalState = iota
+	ApprovalGranted
+	ApprovalDenied
+)
+
 type pendingCall struct {
 	ID       string
 	Name     string
 	Args     map[string]any
-	Approved *bool
+	Approval ApprovalState
 	Reason   string
 }
 
@@ -69,7 +78,7 @@ func (b *pendingBatch) asToolCalls() []core.ToolCall {
 
 func collectApprovals(commandChannel <-chan Command, batch *pendingBatch) ([]*pendingCall, error) {
 	for {
-		if allDecided(batch) {
+		if areAllDecided(batch) {
 			return collectDecisions(batch), nil
 		}
 
@@ -82,14 +91,12 @@ func collectApprovals(commandChannel <-chan Command, batch *pendingBatch) ([]*pe
 		case CmdCancel:
 			return nil, errors.New("cancelled")
 		case CmdApproveTool:
-			if call, ok := batch.calls[command.CallID]; ok && call.Approved == nil {
-				v := true
-				call.Approved = &v
+			if call, ok := batch.calls[command.CallID]; ok && call.Approval == ApprovalPending {
+				call.Approval = ApprovalGranted
 			}
 		case CmdDenyTool:
-			if call, ok := batch.calls[command.CallID]; ok && call.Approved == nil {
-				v := false
-				call.Approved = &v
+			if call, ok := batch.calls[command.CallID]; ok && call.Approval == ApprovalPending {
+				call.Approval = ApprovalDenied
 				call.Reason = command.Reason
 			}
 		}
@@ -106,18 +113,18 @@ func collectDecisions(batch *pendingBatch) []*pendingCall {
 	return out
 }
 
-func allDecided(batch *pendingBatch) bool {
+func areAllDecided(batch *pendingBatch) bool {
 	for _, call := range batch.calls {
-		if call.Approved == nil {
+		if call.Approval == ApprovalPending {
 			return false
 		}
 	}
 	return true
 }
 
-func hasAnyDenied(calls []*pendingCall) bool {
+func anyWasDenied(calls []*pendingCall) bool {
 	for _, call := range calls {
-		if call.Approved != nil && !*call.Approved {
+		if call.Approval == ApprovalDenied {
 			return true
 		}
 	}

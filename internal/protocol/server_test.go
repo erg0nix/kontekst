@@ -485,9 +485,9 @@ func TestIsAllowOutcome(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := isAllowOutcome(tt.outcome, options)
+		got := outcomeIsAllowed(tt.outcome, options)
 		if got != tt.want {
-			t.Errorf("isAllowOutcome(%+v) = %v, want %v", tt.outcome, got, tt.want)
+			t.Errorf("outcomeIsAllowed(%+v) = %v, want %v", tt.outcome, got, tt.want)
 		}
 	}
 }

@@ -25,24 +25,30 @@ type Handler struct {
 }
 
 type sessionState struct {
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	agentName string
 	sessionID core.SessionID
 	cwd       string
 	commandCh chan<- agent.Command
 	cancelFn  context.CancelFunc
+	doneCh    chan struct{}
 }
 
 func (s *sessionState) sendCommand(cmd agent.Command) bool {
-	s.mu.Lock()
+	s.mu.RLock()
 	ch := s.commandCh
-	s.mu.Unlock()
+	done := s.doneCh
+	s.mu.RUnlock()
 
 	if ch == nil {
 		return false
 	}
-	ch <- cmd
-	return true
+	select {
+	case ch <- cmd:
+		return true
+	case <-done:
+		return false
+	}
 }
 
 // NewHandler creates a Handler with the given agent runner, registry, and skills registry.
@@ -120,7 +126,7 @@ func (h *Handler) handleInitialize(_ context.Context, params json.RawMessage) (I
 	}, nil
 }
 
-func (h *Handler) handleNewSession(_ context.Context, params json.RawMessage) (NewSessionResponse, error) {
+func (h *Handler) handleNewSession(ctx context.Context, params json.RawMessage) (NewSessionResponse, error) {
 	var req NewSessionRequest
 	if err := json.Unmarshal(params, &req); err != nil {
 		return NewSessionResponse{}, NewRPCError(ErrInvalidParams, err.Error())
@@ -147,7 +153,7 @@ func (h *Handler) handleNewSession(_ context.Context, params json.RawMessage) (N
 			commands = append(commands, Command{Name: s.Name, Description: s.Description})
 		}
 		if len(commands) > 0 {
-			_ = h.conn.Notify(context.Background(), MethodSessionUpdate, SessionNotification{
+			_ = h.conn.Notify(ctx, MethodSessionUpdate, SessionNotification{
 				SessionID: sid,
 				Update:    AvailableCommandsUpdate(commands),
 			})
@@ -241,6 +247,7 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 	sess.mu.Lock()
 	sess.cancelFn = cancelFn
 	sess.commandCh = commandCh
+	sess.doneCh = make(chan struct{})
 	sess.mu.Unlock()
 
 	return h.forwardEvents(runCtx, req.SessionID, sess, eventCh)
@@ -249,11 +256,15 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 func (h *Handler) forwardEvents(ctx context.Context, sid SessionID, sess *sessionState, eventCh <-chan agent.Event) (PromptResponse, error) {
 	defer func() {
 		sess.mu.Lock()
+		if sess.doneCh != nil {
+			close(sess.doneCh)
+		}
 		if sess.cancelFn != nil {
 			sess.cancelFn()
 		}
 		sess.commandCh = nil
 		sess.cancelFn = nil
+		sess.doneCh = nil
 		sess.mu.Unlock()
 	}()
 
@@ -289,19 +300,19 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 		return PromptResponse{}, false, nil
 
 	case agent.EvtTokenDelta:
-		h.sendUpdate(sid, AgentMessageChunk(event.Token))
+		h.sendUpdate(ctx, sid, AgentMessageChunk(event.Token))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtReasoningDelta:
-		h.sendUpdate(sid, AgentThoughtChunk(event.Reasoning))
+		h.sendUpdate(ctx, sid, AgentThoughtChunk(event.Reasoning))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtTurnCompleted:
 		if event.Response.Reasoning != "" {
-			h.sendUpdate(sid, AgentThoughtChunk(event.Response.Reasoning))
+			h.sendUpdate(ctx, sid, AgentThoughtChunk(event.Response.Reasoning))
 		}
 		if event.Response.Content != "" {
-			h.sendUpdate(sid, AgentMessageChunk(event.Response.Content))
+			h.sendUpdate(ctx, sid, AgentMessageChunk(event.Response.Content))
 		}
 		if event.Snapshot != nil {
 			_ = h.conn.Notify(ctx, MethodKontekstContext, event.Snapshot)
@@ -312,7 +323,7 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 		for _, call := range event.Calls {
 			rawInput := parseRawInput(call.ArgumentsJSON)
 			kind := ToolKindFromName(call.Name)
-			h.sendUpdate(sid, ToolCallStart(
+			h.sendUpdate(ctx, sid, ToolCallStart(
 				ToolCallID(call.CallID),
 				call.Name,
 				kind,
@@ -331,7 +342,7 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 				continue
 			}
 
-			if isAllowOutcome(permResp.Outcome, options) {
+			if outcomeIsAllowed(permResp.Outcome, options) {
 				sess.sendCommand(agent.Command{Type: agent.CmdApproveTool, CallID: call.CallID})
 			} else {
 				reason := "denied by user"
@@ -344,17 +355,17 @@ func (h *Handler) processEvent(ctx context.Context, sid SessionID, sess *session
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolStarted:
-		h.sendUpdate(sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusInProgress, nil, nil))
+		h.sendUpdate(ctx, sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusInProgress, nil, nil))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolCompleted:
 		content := []ToolCallContent{TextToolContent(event.Output)}
-		h.sendUpdate(sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusCompleted, content, map[string]any{"content": event.Output}))
+		h.sendUpdate(ctx, sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusCompleted, content, map[string]any{"content": event.Output}))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolFailed:
 		content := []ToolCallContent{TextToolContent(event.Error)}
-		h.sendUpdate(sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusFailed, content, map[string]any{"error": event.Error}))
+		h.sendUpdate(ctx, sid, ToolCallUpdate(ToolCallID(event.CallID), ToolCallStatusFailed, content, map[string]any{"error": event.Error}))
 		return PromptResponse{}, false, nil
 
 	case agent.EvtToolsCompleted:
@@ -408,7 +419,7 @@ func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call age
 	return resp, nil
 }
 
-func isAllowOutcome(outcome PermissionOutcome, options []PermissionOption) bool {
+func outcomeIsAllowed(outcome PermissionOutcome, options []PermissionOption) bool {
 	if outcome.Outcome != "selected" {
 		return false
 	}
@@ -435,8 +446,8 @@ func (h *Handler) handleCancel(params json.RawMessage) {
 	sess.sendCommand(agent.Command{Type: agent.CmdCancel})
 }
 
-func (h *Handler) sendUpdate(sid SessionID, update any) {
-	_ = h.conn.Notify(context.Background(), MethodSessionUpdate, SessionNotification{
+func (h *Handler) sendUpdate(ctx context.Context, sid SessionID, update any) {
+	_ = h.conn.Notify(ctx, MethodSessionUpdate, SessionNotification{
 		SessionID: sid,
 		Update:    update,
 	})

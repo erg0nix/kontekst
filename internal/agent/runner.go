@@ -47,22 +47,22 @@ type DefaultRunner struct {
 }
 
 // StartRun initializes a session and context window, then starts the agent loop in a background goroutine.
-func (runner *DefaultRunner) StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error) {
+func (r *DefaultRunner) StartRun(cfg RunConfig) (chan<- Command, <-chan Event, error) {
 	sessionID := cfg.SessionID
 	if sessionID == "" {
-		newSessionID, _, err := runner.Sessions.Create()
+		newSessionID, _, err := r.Sessions.Create()
 		if err != nil {
 			return nil, nil, err
 		}
 
 		sessionID = newSessionID
 	} else {
-		if _, err := runner.Sessions.Ensure(sessionID); err != nil {
+		if _, err := r.Sessions.Ensure(sessionID); err != nil {
 			return nil, nil, err
 		}
 	}
 
-	ctxWindow, err := runner.Context.NewWindow(sessionID)
+	ctxWindow, err := r.Context.NewWindow(sessionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -93,12 +93,12 @@ func (runner *DefaultRunner) StartRun(cfg RunConfig) (chan<- Command, <-chan Eve
 			Endpoint:    cfg.ProviderEndpoint,
 			HTTPTimeout: cfg.ProviderHTTPTimeout,
 		},
-		runner.DebugConfig,
+		r.DebugConfig,
 	)
 
 	toolExecutor := cfg.Tools
 	if toolExecutor == nil {
-		toolExecutor = runner.Tools
+		toolExecutor = r.Tools
 	}
 
 	agentEngine := New(provider, toolExecutor, ctxWindow, cfg)

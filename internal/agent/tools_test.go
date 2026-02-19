@@ -77,9 +77,8 @@ func TestExecuteTools_SingleTool(t *testing.T) {
 		tools:    &mockToolExecutor{},
 	}
 
-	approved := true
 	calls := []*pendingCall{
-		{ID: "call1", Name: "test_tool", Args: map[string]any{}, Approved: &approved},
+		{ID: "call1", Name: "test_tool", Args: map[string]any{}, Approval: ApprovalGranted},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {
@@ -111,10 +110,9 @@ func TestExecuteTools_MultipleToolsProduceIndividualMessages(t *testing.T) {
 		tools:    &mockToolExecutor{},
 	}
 
-	approved := true
 	calls := []*pendingCall{
-		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &approved},
-		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approved: &approved},
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approval: ApprovalGranted},
+		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approval: ApprovalGranted},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {
@@ -150,9 +148,8 @@ func TestExecuteTools_DeniedToolRecordsError(t *testing.T) {
 		provider: &mockProvider{},
 	}
 
-	denied := false
 	calls := []*pendingCall{
-		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &denied, Reason: "not allowed"},
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approval: ApprovalDenied, Reason: "not allowed"},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {
@@ -178,12 +175,10 @@ func TestExecuteTools_MixedApprovedAndDenied(t *testing.T) {
 		tools:    &mockToolExecutor{},
 	}
 
-	approved := true
-	denied := false
 	calls := []*pendingCall{
-		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approved: &approved},
-		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approved: &denied, Reason: "denied"},
-		{ID: "call3", Name: "tool3", Args: map[string]any{}, Approved: &approved},
+		{ID: "call1", Name: "tool1", Args: map[string]any{}, Approval: ApprovalGranted},
+		{ID: "call2", Name: "tool2", Args: map[string]any{}, Approval: ApprovalDenied, Reason: "denied"},
+		{ID: "call3", Name: "tool3", Args: map[string]any{}, Approval: ApprovalGranted},
 	}
 
 	if err := ag.executeTools("run1", calls, eventCh); err != nil {

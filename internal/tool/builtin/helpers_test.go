@@ -26,9 +26,9 @@ func TestIsSafeRelative(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := isSafeRelative(tt.path)
+		got := isRelativePathSafe(tt.path)
 		if got != tt.want {
-			t.Errorf("isSafeRelative(%q) = %v, want %v", tt.path, got, tt.want)
+			t.Errorf("isRelativePathSafe(%q) = %v, want %v", tt.path, got, tt.want)
 		}
 	}
 }

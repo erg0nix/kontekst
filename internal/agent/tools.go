@@ -10,18 +10,18 @@ import (
 	"github.com/erg0nix/kontekst/internal/tool/builtin"
 )
 
-func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventChannel chan<- Event) error {
+func (a *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventChannel chan<- Event) error {
 	skillCallbacks := &builtin.SkillCallbacks{
 		ContextInjector: func(msg core.Message) error {
-			return agent.context.AddMessage(msg)
+			return a.context.AddMessage(msg)
 		},
 		SetActiveSkill: func(skill *core.SkillMetadata) {
-			agent.context.SetActiveSkill(skill)
+			a.context.SetActiveSkill(skill)
 		},
 	}
 
 	for _, call := range calls {
-		output, err := agent.executeToolCall(runID, call, skillCallbacks, eventChannel)
+		output, err := a.executeToolCall(runID, call, skillCallbacks, eventChannel)
 
 		var result core.ToolResult
 		if err != nil {
@@ -40,7 +40,7 @@ func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventCh
 			}
 		}
 
-		tokens, _ := agent.provider.CountTokens(result.Output)
+		tokens, _ := a.provider.CountTokens(result.Output)
 		msg := core.Message{
 			Role:       core.RoleTool,
 			Content:    result.Output,
@@ -48,7 +48,7 @@ func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventCh
 			Tokens:     tokens,
 		}
 
-		if err := agent.context.AddMessage(msg); err != nil {
+		if err := a.context.AddMessage(msg); err != nil {
 			return err
 		}
 	}
@@ -57,8 +57,8 @@ func (agent *Agent) executeTools(runID core.RunID, calls []*pendingCall, eventCh
 	return nil
 }
 
-func (agent *Agent) executeToolCall(runID core.RunID, call *pendingCall, callbacks *builtin.SkillCallbacks, eventChannel chan<- Event) (string, error) {
-	if call.Approved != nil && !*call.Approved {
+func (a *Agent) executeToolCall(runID core.RunID, call *pendingCall, callbacks *builtin.SkillCallbacks, eventChannel chan<- Event) (string, error) {
+	if call.Approval == ApprovalDenied {
 		reason := call.Reason
 		if reason == "" {
 			reason = "user denied"
@@ -69,13 +69,13 @@ func (agent *Agent) executeToolCall(runID core.RunID, call *pendingCall, callbac
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	if agent.config.WorkingDir != "" {
-		ctx = tool.WithWorkingDir(ctx, agent.config.WorkingDir)
+	if a.config.WorkingDir != "" {
+		ctx = tool.WithWorkingDir(ctx, a.config.WorkingDir)
 	}
 	ctx = builtin.WithSkillCallbacks(ctx, callbacks)
 
 	eventChannel <- Event{Type: EvtToolStarted, RunID: runID, CallID: call.ID}
-	output, err := agent.tools.Execute(call.Name, call.Args, ctx)
+	output, err := a.tools.Execute(call.Name, call.Args, ctx)
 
 	if err != nil {
 		eventChannel <- Event{Type: EvtToolFailed, RunID: runID, CallID: call.ID, Error: err.Error()}

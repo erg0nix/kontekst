@@ -23,3 +23,15 @@ var FantasySystemPrompt string
 //
 //go:embed prompts/init-prompt.md
 var InitSystemPrompt string
+
+//go:embed configs/default.toml
+var defaultConfig string
+
+//go:embed configs/coder.toml
+var coderConfig string
+
+//go:embed configs/fantasy.toml
+var fantasyConfig string
+
+//go:embed configs/init.toml
+var initConfig string

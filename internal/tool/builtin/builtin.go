@@ -26,7 +26,7 @@ func resolveBaseDir(ctx context.Context, fallback string) string {
 	return fallback
 }
 
-func isSafeRelative(path string) bool {
+func isRelativePathSafe(path string) bool {
 	if path == "" {
 		return false
 	}
@@ -45,7 +45,7 @@ func validatePath(args map[string]any) (string, error) {
 		return "", errors.New("missing required argument: path")
 	}
 
-	if !isSafeRelative(path) {
+	if !isRelativePathSafe(path) {
 		return "", errors.New("absolute or parent-traversal paths are not allowed")
 	}
 

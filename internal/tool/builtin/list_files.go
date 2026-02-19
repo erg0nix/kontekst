@@ -37,7 +37,7 @@ func (tool *ListFiles) Execute(args map[string]any, ctx context.Context) (string
 		return "", errors.New("missing pattern")
 	}
 
-	if !isSafeRelative(pattern) {
+	if !isRelativePathSafe(pattern) {
 		return "", errors.New("absolute or parent paths are not allowed")
 	}
 

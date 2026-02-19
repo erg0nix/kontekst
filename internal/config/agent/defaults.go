@@ -18,82 +18,10 @@ type bundledAgent struct {
 }
 
 var bundledAgents = []bundledAgent{
-	{
-		name:   "default",
-		prompt: DefaultSystemPrompt,
-		config: `name = "Default Assistant"
-context_size = 4096
-tool_role = false
-
-[provider]
-endpoint = "http://127.0.0.1:8080"
-model = "gpt-oss-20b-Q4_K_M.gguf"
-
-[sampling]
-temperature = 0.7
-top_p = 0.9
-top_k = 40
-repeat_penalty = 1.1
-max_tokens = 4096
-`,
-	},
-	{
-		name:   "coder",
-		prompt: CoderSystemPrompt,
-		config: `name = "Coder"
-context_size = 4096
-tool_role = false
-
-[provider]
-endpoint = "http://127.0.0.1:8080"
-model = "gpt-oss-20b-Q4_K_M.gguf"
-
-[sampling]
-temperature = 0.3
-top_p = 0.9
-top_k = 40
-repeat_penalty = 1.1
-max_tokens = 4096
-`,
-	},
-	{
-		name:   "fantasy",
-		prompt: FantasySystemPrompt,
-		config: `name = "Fantasy Writer"
-context_size = 4096
-tool_role = false
-
-[provider]
-endpoint = "http://127.0.0.1:8080"
-model = "gpt-oss-20b-Q4_K_M.gguf"
-
-[sampling]
-temperature = 0.9
-top_p = 0.9
-top_k = 60
-repeat_penalty = 1.1
-max_tokens = 4096
-`,
-	},
-	{
-		name:   InitAgentName,
-		prompt: InitSystemPrompt,
-		config: `name = "Project Initializer"
-context_size = 16384
-tool_role = false
-
-[provider]
-endpoint = "http://127.0.0.1:8080"
-model = "gpt-oss-20b-Q4_K_M.gguf"
-
-[sampling]
-temperature = 0.3
-top_p = 0.9
-top_k = 40
-repeat_penalty = 1.1
-max_tokens = 4096
-`,
-	},
+	{name: "default", prompt: DefaultSystemPrompt, config: defaultConfig},
+	{name: "coder", prompt: CoderSystemPrompt, config: coderConfig},
+	{name: "fantasy", prompt: FantasySystemPrompt, config: fantasyConfig},
+	{name: InitAgentName, prompt: InitSystemPrompt, config: initConfig},
 }
 
 // EnsureDefaults creates bundled agent configurations under baseDir if they do not already exist.
