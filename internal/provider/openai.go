@@ -88,7 +88,7 @@ func (p *OpenAIProvider) GenerateChat(
 	sampling *core.SamplingConfig,
 	model string,
 	useToolRole bool,
-) (core.ChatResponse, error) {
+) (Response, error) {
 	requestID := core.NewRequestID()
 
 	messages = normalizeMessages(messages, useToolRole)
@@ -98,7 +98,7 @@ func (p *OpenAIProvider) GenerateChat(
 			if p.requestLogger != nil {
 				p.requestLogger.LogError(requestID, 0, []byte(err.Error()), messages, nil)
 			}
-			return core.ChatResponse{}, fmt.Errorf("role validation failed (request_id=%s): %w", requestID, err)
+			return Response{}, fmt.Errorf("role validation failed (request_id=%s): %w", requestID, err)
 		}
 	}
 
@@ -179,7 +179,7 @@ func (p *OpenAIProvider) GenerateChat(
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return core.ChatResponse{}, fmt.Errorf("failed to marshal request: %w", err)
+		return Response{}, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	if p.requestLogger != nil {
@@ -194,7 +194,7 @@ func (p *OpenAIProvider) GenerateChat(
 		if p.requestLogger != nil {
 			p.requestLogger.LogError(requestID, 0, []byte(err.Error()), messages, payload)
 		}
-		return core.ChatResponse{}, fmt.Errorf("provider request failed (request_id=%s): %w", requestID, err)
+		return Response{}, fmt.Errorf("provider request failed (request_id=%s): %w", requestID, err)
 	}
 	defer httpResp.Body.Close()
 
@@ -206,21 +206,21 @@ func (p *OpenAIProvider) GenerateChat(
 		}
 
 		if len(bodyBytes) > 0 {
-			return core.ChatResponse{}, fmt.Errorf("provider error (request_id=%s): %s: %s",
+			return Response{}, fmt.Errorf("provider error (request_id=%s): %s: %s",
 				requestID, httpResp.Status, strings.TrimSpace(string(bodyBytes)))
 		}
 
-		return core.ChatResponse{}, fmt.Errorf("provider error (request_id=%s): %s", requestID, httpResp.Status)
+		return Response{}, fmt.Errorf("provider error (request_id=%s): %s", requestID, httpResp.Status)
 	}
 
 	var responsePayload map[string]any
 	if err := json.NewDecoder(httpResp.Body).Decode(&responsePayload); err != nil {
-		return core.ChatResponse{}, fmt.Errorf("decode response: %w", err)
+		return Response{}, fmt.Errorf("decode response: %w", err)
 	}
 
 	response, err := parseResponsePayload(responsePayload)
 	if err != nil {
-		return core.ChatResponse{}, fmt.Errorf("provider response parse failed (request_id=%s): %w", requestID, err)
+		return Response{}, fmt.Errorf("provider response parse failed (request_id=%s): %w", requestID, err)
 	}
 
 	if p.requestLogger != nil {
@@ -251,26 +251,26 @@ func toToolCalls(calls []core.ToolCall) []map[string]any {
 	return toolCalls
 }
 
-func parseResponsePayload(payload map[string]any) (core.ChatResponse, error) {
+func parseResponsePayload(payload map[string]any) (Response, error) {
 	choices, ok := payload["choices"].([]any)
 	if !ok || len(choices) == 0 {
-		return core.ChatResponse{}, errors.New("no choices in response")
+		return Response{}, errors.New("no choices in response")
 	}
 
 	choice, ok := choices[0].(map[string]any)
 	if !ok {
-		return core.ChatResponse{}, errors.New("malformed choice in response")
+		return Response{}, errors.New("malformed choice in response")
 	}
 
 	message, ok := choice["message"].(map[string]any)
 	if !ok {
-		return core.ChatResponse{}, errors.New("malformed message in response")
+		return Response{}, errors.New("malformed message in response")
 	}
 
 	content, _ := message["content"].(string)
 	reasoning, _ := message["reasoning_content"].(string)
 
-	return core.ChatResponse{
+	return Response{
 		Content:   content,
 		Reasoning: reasoning,
 		ToolCalls: parseToolCalls(message),
@@ -319,15 +319,28 @@ func parseToolCalls(message map[string]any) []core.ToolCall {
 	return toolCalls
 }
 
-func parseUsage(response map[string]any) *core.Usage {
+func parseUsage(response map[string]any) *Usage {
 	usageMap, ok := response["usage"].(map[string]any)
 	if !ok {
 		return nil
 	}
 
-	return &core.Usage{
-		PromptTokens:     core.IntFromAny(usageMap["prompt_tokens"]),
-		CompletionTokens: core.IntFromAny(usageMap["completion_tokens"]),
-		TotalTokens:      core.IntFromAny(usageMap["total_tokens"]),
+	return &Usage{
+		PromptTokens:     intFromAny(usageMap["prompt_tokens"]),
+		CompletionTokens: intFromAny(usageMap["completion_tokens"]),
+		TotalTokens:      intFromAny(usageMap["total_tokens"]),
+	}
+}
+
+func intFromAny(v any) int {
+	switch n := v.(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case int64:
+		return int(n)
+	default:
+		return 0
 	}
 }

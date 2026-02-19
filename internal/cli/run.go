@@ -16,6 +16,7 @@ import (
 	"github.com/muesli/termenv"
 
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
+	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/protocol"
 	"github.com/erg0nix/kontekst/internal/session"
@@ -54,7 +55,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 
 	reader := bufio.NewReader(os.Stdin)
 	renderer := newMarkdownRenderer()
-	var lastSnapshot *core.ContextSnapshot
+	var lastSnapshot *conversation.Snapshot
 
 	client, err := dialServer(app.ServerAddr, protocol.ClientCallbacks{
 		OnUpdate: func(notif protocol.SessionNotification) {
@@ -64,7 +65,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 			return handlePermission(req, autoApprove, reader)
 		},
 		OnContextSnapshot: func(raw json.RawMessage) {
-			var snap core.ContextSnapshot
+			var snap conversation.Snapshot
 			if err := json.Unmarshal(raw, &snap); err == nil {
 				lastSnapshot = &snap
 			}
@@ -291,7 +292,7 @@ func newMarkdownRenderer() *glamour.TermRenderer {
 	return r
 }
 
-func printContextSnapshot(snap core.ContextSnapshot) {
+func printContextSnapshot(snap conversation.Snapshot) {
 	pct := 0
 	if snap.ContextSize > 0 {
 		pct = snap.TotalTokens * 100 / snap.ContextSize

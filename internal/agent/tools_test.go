@@ -6,6 +6,7 @@ import (
 
 	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/provider"
 )
 
 type mockContext struct {
@@ -39,8 +40,8 @@ func (m *mockContext) ActiveSkill() *core.SkillMetadata {
 
 func (m *mockContext) SetAgentSystemPrompt(prompt string) {}
 
-func (m *mockContext) Snapshot() core.ContextSnapshot {
-	return core.ContextSnapshot{}
+func (m *mockContext) Snapshot() conversation.Snapshot {
+	return conversation.Snapshot{}
 }
 
 type mockToolExecutor struct{}
@@ -59,8 +60,8 @@ func (m *mockToolExecutor) Preview(name string, args map[string]any, ctx context
 
 type mockProvider struct{}
 
-func (m *mockProvider) GenerateChat(messages []core.Message, tools []core.ToolDef, sampling *core.SamplingConfig, model string, useToolRole bool) (core.ChatResponse, error) {
-	return core.ChatResponse{}, nil
+func (m *mockProvider) GenerateChat(messages []core.Message, tools []core.ToolDef, sampling *core.SamplingConfig, model string, useToolRole bool) (provider.Response, error) {
+	return provider.Response{}, nil
 }
 
 func (m *mockProvider) CountTokens(text string) (int, error) {

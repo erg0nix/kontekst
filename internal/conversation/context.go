@@ -28,7 +28,7 @@ type Window interface {
 	SetAgentSystemPrompt(prompt string)
 	SetActiveSkill(skill *core.SkillMetadata)
 	ActiveSkill() *core.SkillMetadata
-	Snapshot() core.ContextSnapshot
+	Snapshot() Snapshot
 }
 
 // Service creates Window instances for session.
@@ -171,7 +171,7 @@ func (cw *contextWindow) ActiveSkill() *core.SkillMetadata {
 	return cw.activeSkill
 }
 
-func (cw *contextWindow) Snapshot() core.ContextSnapshot {
+func (cw *contextWindow) Snapshot() Snapshot {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
@@ -184,16 +184,16 @@ func (cw *contextWindow) Snapshot() core.ContextSnapshot {
 		historyBudget = 0
 	}
 
-	messages := make([]core.MessageStats, 0, 1+len(cw.history)+len(cw.memory))
-	messages = append(messages, core.MessageStats{Role: core.RoleSystem, Tokens: cw.systemTokens, Source: "system"})
+	messages := make([]MessageStats, 0, 1+len(cw.history)+len(cw.memory))
+	messages = append(messages, MessageStats{Role: core.RoleSystem, Tokens: cw.systemTokens, Source: "system"})
 	for _, msg := range cw.history {
-		messages = append(messages, core.MessageStats{Role: msg.Role, Tokens: msg.Tokens, Source: "history"})
+		messages = append(messages, MessageStats{Role: msg.Role, Tokens: msg.Tokens, Source: "history"})
 	}
 	for _, msg := range cw.memory {
-		messages = append(messages, core.MessageStats{Role: msg.Role, Tokens: msg.Tokens, Source: "memory"})
+		messages = append(messages, MessageStats{Role: msg.Role, Tokens: msg.Tokens, Source: "memory"})
 	}
 
-	return core.ContextSnapshot{
+	return Snapshot{
 		ContextSize:     cw.contextSize,
 		SystemTokens:    cw.systemTokens,
 		ToolTokens:      cw.toolTokens,

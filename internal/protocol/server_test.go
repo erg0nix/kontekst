@@ -11,7 +11,8 @@ import (
 
 	"github.com/erg0nix/kontekst/internal/agent"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
-	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/conversation"
+	"github.com/erg0nix/kontekst/internal/provider"
 )
 
 type mockRunner struct {
@@ -109,7 +110,7 @@ func TestServerSimplePrompt(t *testing.T) {
 	runner := &mockRunner{
 		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
-			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: core.ChatResponse{Content: "Hello!"}},
+			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: provider.Response{Content: "Hello!"}},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
 	}
@@ -171,7 +172,7 @@ func TestServerToolApproval(t *testing.T) {
 	runner := &mockRunner{
 		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
-			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: core.ChatResponse{Content: "I'll read the file"}},
+			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: provider.Response{Content: "I'll read the file"}},
 			{Type: agent.EvtToolsProposed, RunID: "run_1", Calls: []agent.ProposedToolCall{
 				{CallID: "call_1", Name: "read_file", ArgumentsJSON: `{"path":"/tmp/test.go"}`},
 			}},
@@ -228,7 +229,7 @@ func TestServerToolDenied(t *testing.T) {
 	runner := &mockRunner{
 		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
-			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: core.ChatResponse{Content: "I'll write the file"}},
+			{Type: agent.EvtTurnCompleted, RunID: "run_1", Response: provider.Response{Content: "I'll write the file"}},
 			{Type: agent.EvtToolsProposed, RunID: "run_1", Calls: []agent.ProposedToolCall{
 				{CallID: "call_1", Name: "write_file", ArgumentsJSON: `{"path":"/tmp/out.go"}`},
 			}},
@@ -701,8 +702,8 @@ func TestServerContextSnapshot(t *testing.T) {
 		events: []agent.Event{
 			{Type: agent.EvtRunStarted, RunID: "run_1"},
 			{Type: agent.EvtTurnCompleted, RunID: "run_1",
-				Response: core.ChatResponse{Content: "Hi"},
-				Snapshot: &core.ContextSnapshot{ContextSize: 4096, HistoryTokens: 100},
+				Response: provider.Response{Content: "Hi"},
+				Snapshot: &conversation.Snapshot{ContextSize: 4096, HistoryTokens: 100},
 			},
 			{Type: agent.EvtRunCompleted, RunID: "run_1"},
 		},
@@ -730,7 +731,7 @@ func TestServerContextSnapshot(t *testing.T) {
 
 	select {
 	case raw := <-contextReceived:
-		var snapshot core.ContextSnapshot
+		var snapshot conversation.Snapshot
 		if err := json.Unmarshal(raw, &snapshot); err != nil {
 			t.Fatalf("unmarshal snapshot: %v", err)
 		}

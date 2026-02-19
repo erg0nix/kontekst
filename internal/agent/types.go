@@ -1,6 +1,10 @@
 package agent
 
-import "github.com/erg0nix/kontekst/internal/core"
+import (
+	"github.com/erg0nix/kontekst/internal/conversation"
+	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/provider"
+)
 
 // CommandType identifies the kind of command sent from a client to the agent.
 type CommandType string
@@ -59,8 +63,8 @@ type Event struct {
 	Calls     []ProposedToolCall
 	CallID    string
 	Output    string
-	Response  core.ChatResponse
-	Snapshot  *core.ContextSnapshot
+	Response  provider.Response
+	Snapshot  *conversation.Snapshot
 	Error     string
 }
 

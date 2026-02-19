@@ -30,7 +30,7 @@ func (m *mockContextWindow) CompleteRun()                             {}
 func (m *mockContextWindow) SetActiveSkill(*core.SkillMetadata)       {}
 func (m *mockContextWindow) ActiveSkill() *core.SkillMetadata         { return nil }
 func (m *mockContextWindow) SetAgentSystemPrompt(string)              {}
-func (m *mockContextWindow) Snapshot() core.ContextSnapshot           { return core.ContextSnapshot{} }
+func (m *mockContextWindow) Snapshot() conversation.Snapshot          { return conversation.Snapshot{} }
 
 func (m *mockContextWindow) BuildContext() ([]core.Message, error) {
 	m.mu.Lock()

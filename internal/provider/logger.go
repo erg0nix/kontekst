@@ -28,7 +28,7 @@ type LogEntry struct {
 	Tools      []core.ToolDef       `json:"tools,omitempty"`
 	Sampling   *core.SamplingConfig `json:"sampling,omitempty"`
 	Payload    map[string]any       `json:"payload,omitempty"`
-	Response   *core.ChatResponse   `json:"response,omitempty"`
+	Response   *Response            `json:"response,omitempty"`
 	Duration   string               `json:"duration,omitempty"`
 	Error      string               `json:"error,omitempty"`
 	StatusCode int                  `json:"status_code,omitempty"`
@@ -65,7 +65,7 @@ func (l *RequestLogger) LogRequest(requestID core.RequestID, messages []core.Mes
 }
 
 // LogResponse records a provider response with its duration if response logging is enabled.
-func (l *RequestLogger) LogResponse(requestID core.RequestID, response core.ChatResponse, duration time.Duration) {
+func (l *RequestLogger) LogResponse(requestID core.RequestID, response Response, duration time.Duration) {
 	if !l.logResponses {
 		return
 	}

@@ -12,6 +12,6 @@ type Provider interface {
 		sampling *core.SamplingConfig,
 		model string,
 		useToolRole bool,
-	) (core.ChatResponse, error)
+	) (Response, error)
 	CountTokens(text string) (int, error)
 }
