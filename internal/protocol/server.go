@@ -229,7 +229,7 @@ func (h *Handler) handlePrompt(ctx context.Context, params json.RawMessage) (Pro
 	}
 
 	if hasACPTools(h.caps) {
-		runCfg.Tools = NewACPToolExecutor(h.conn, req.SessionID, h.caps)
+		runCfg.Tools = NewToolExecutor(h.conn, req.SessionID, h.caps)
 	}
 
 	commandCh, eventCh, err := h.runner.StartRun(runCfg)

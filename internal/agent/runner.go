@@ -43,8 +43,8 @@ type Runner interface {
 // DefaultRunner is the standard Runner implementation that wires together sessions, context, and an LLM provider.
 type DefaultRunner struct {
 	Tools       tool.ToolExecutor
-	Context     conversation.ContextService
-	Sessions    session.SessionCreator
+	Context     conversation.Service
+	Sessions    session.Creator
 	DebugConfig config.DebugConfig
 }
 

@@ -18,8 +18,8 @@ type BudgetParams struct {
 	UserPromptTokens int
 }
 
-// ContextWindow manages the message history and system prompt for a single session's conversation context.
-type ContextWindow interface {
+// Window manages the message history and system prompt for a single session's conversation context.
+type Window interface {
 	SystemContent() string
 	StartRun(params BudgetParams) error
 	CompleteRun()
@@ -31,23 +31,23 @@ type ContextWindow interface {
 	Snapshot() core.ContextSnapshot
 }
 
-// ContextService creates ContextWindow instances for session.
-type ContextService interface {
-	NewWindow(sessionID core.SessionID) (ContextWindow, error)
+// Service creates Window instances for session.
+type Service interface {
+	NewWindow(sessionID core.SessionID) (Window, error)
 }
 
-// FileContextService implements ContextService using JSONL session files on disk.
-type FileContextService struct {
+// FileService implements Service using JSONL session files on disk.
+type FileService struct {
 	dataDir string
 }
 
-// NewFileContextService creates a FileContextService rooted at the given data directory.
-func NewFileContextService(dataDir string) *FileContextService {
-	return &FileContextService{dataDir: dataDir}
+// NewFileService creates a FileService rooted at the given data directory.
+func NewFileService(dataDir string) *FileService {
+	return &FileService{dataDir: dataDir}
 }
 
-// NewWindow creates a new ContextWindow backed by the session's JSONL file.
-func (service *FileContextService) NewWindow(sessionID core.SessionID) (ContextWindow, error) {
+// NewWindow creates a new Window backed by the session's JSONL file.
+func (service *FileService) NewWindow(sessionID core.SessionID) (Window, error) {
 	sessionDir := filepath.Join(service.dataDir, "sessions")
 
 	if err := os.MkdirAll(sessionDir, 0o755); err != nil {

@@ -15,7 +15,7 @@ import (
 type Agent struct {
 	provider provider.Provider
 	tools    tool.ToolExecutor
-	context  conversation.ContextWindow
+	context  conversation.Window
 	config   RunConfig
 }
 
@@ -23,7 +23,7 @@ type Agent struct {
 func New(
 	provider provider.Provider,
 	toolExecutor tool.ToolExecutor,
-	contextWindow conversation.ContextWindow,
+	contextWindow conversation.Window,
 	cfg RunConfig,
 ) *Agent {
 	return &Agent{

@@ -8,16 +8,16 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
-// ACPToolExecutor delegates tool execution to the ACP client based on its declared capabilities.
-type ACPToolExecutor struct {
+// ToolExecutor delegates tool execution to the ACP client based on its declared capabilities.
+type ToolExecutor struct {
 	conn      *Connection
 	sessionID SessionID
 	caps      ClientCapabilities
 }
 
-// NewACPToolExecutor creates an ACPToolExecutor that routes tool calls over the given connection.
-func NewACPToolExecutor(conn *Connection, sessionID SessionID, caps ClientCapabilities) *ACPToolExecutor {
-	return &ACPToolExecutor{
+// NewToolExecutor creates an ToolExecutor that routes tool calls over the given connection.
+func NewToolExecutor(conn *Connection, sessionID SessionID, caps ClientCapabilities) *ToolExecutor {
+	return &ToolExecutor{
 		conn:      conn,
 		sessionID: sessionID,
 		caps:      caps,
@@ -25,7 +25,7 @@ func NewACPToolExecutor(conn *Connection, sessionID SessionID, caps ClientCapabi
 }
 
 // ToolDefinitions returns tool definitions based on the client's declared capabilities.
-func (e *ACPToolExecutor) ToolDefinitions() []core.ToolDef {
+func (e *ToolExecutor) ToolDefinitions() []core.ToolDef {
 	var defs []core.ToolDef
 
 	if e.caps.Fs != nil && e.caps.Fs.ReadTextFile {
@@ -104,7 +104,7 @@ func (e *ACPToolExecutor) ToolDefinitions() []core.ToolDef {
 }
 
 // Execute runs the named tool by delegating to the appropriate ACP method on the client.
-func (e *ACPToolExecutor) Execute(name string, args map[string]any, ctx context.Context) (string, error) {
+func (e *ToolExecutor) Execute(name string, args map[string]any, ctx context.Context) (string, error) {
 	switch name {
 	case "read_file":
 		return e.executeReadFile(args, ctx)
@@ -118,11 +118,11 @@ func (e *ACPToolExecutor) Execute(name string, args map[string]any, ctx context.
 }
 
 // Preview returns an empty string because ACP-delegated tools do not support previews.
-func (e *ACPToolExecutor) Preview(_ string, _ map[string]any, _ context.Context) (string, error) {
+func (e *ToolExecutor) Preview(_ string, _ map[string]any, _ context.Context) (string, error) {
 	return "", nil
 }
 
-func (e *ACPToolExecutor) executeReadFile(args map[string]any, ctx context.Context) (string, error) {
+func (e *ToolExecutor) executeReadFile(args map[string]any, ctx context.Context) (string, error) {
 	path, _ := args["path"].(string)
 	if path == "" {
 		return "", fmt.Errorf("acp executor: read_file requires path")
@@ -153,7 +153,7 @@ func (e *ACPToolExecutor) executeReadFile(args map[string]any, ctx context.Conte
 	return resp.Content, nil
 }
 
-func (e *ACPToolExecutor) executeWriteFile(args map[string]any, ctx context.Context) (string, error) {
+func (e *ToolExecutor) executeWriteFile(args map[string]any, ctx context.Context) (string, error) {
 	path, _ := args["path"].(string)
 	if path == "" {
 		return "", fmt.Errorf("acp executor: write_file requires path")
@@ -175,7 +175,7 @@ func (e *ACPToolExecutor) executeWriteFile(args map[string]any, ctx context.Cont
 	return fmt.Sprintf("wrote to %s", path), nil
 }
 
-func (e *ACPToolExecutor) executeRunCommand(args map[string]any, ctx context.Context) (string, error) {
+func (e *ToolExecutor) executeRunCommand(args map[string]any, ctx context.Context) (string, error) {
 	command, _ := args["command"].(string)
 	if command == "" {
 		return "", fmt.Errorf("acp executor: run_command requires command")

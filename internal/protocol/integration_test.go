@@ -48,10 +48,10 @@ func (m *mockContextWindow) AddMessage(msg core.Message) error {
 }
 
 type mockCtxService struct {
-	window conversation.ContextWindow
+	window conversation.Window
 }
 
-func (m *mockCtxService) NewWindow(core.SessionID) (conversation.ContextWindow, error) {
+func (m *mockCtxService) NewWindow(core.SessionID) (conversation.Window, error) {
 	return m.window, nil
 }
 
@@ -61,9 +61,9 @@ func (m *mockSessions) Create() (core.SessionID, string, error)        { return 
 func (m *mockSessions) Ensure(core.SessionID) (string, error)          { return "/tmp", nil }
 func (m *mockSessions) GetDefaultAgent(core.SessionID) (string, error) { return "", nil }
 func (m *mockSessions) SetDefaultAgent(core.SessionID, string) error   { return nil }
-func (m *mockSessions) List() ([]session.SessionInfo, error)           { return nil, nil }
-func (m *mockSessions) Get(core.SessionID) (session.SessionInfo, error) {
-	return session.SessionInfo{}, nil
+func (m *mockSessions) List() ([]session.Info, error)                  { return nil, nil }
+func (m *mockSessions) Get(core.SessionID) (session.Info, error) {
+	return session.Info{}, nil
 }
 func (m *mockSessions) Delete(core.SessionID) error { return nil }
 
@@ -365,6 +365,6 @@ func TestIntegrationNoCapabilitiesUsesKontekstTools(t *testing.T) {
 	})
 
 	if receivedConfig.Tools != nil {
-		t.Error("expected nil Tools (kontekst mode), got ACPToolExecutor")
+		t.Error("expected nil Tools (kontekst mode), got ToolExecutor")
 	}
 }

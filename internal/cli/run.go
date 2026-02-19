@@ -43,7 +43,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	if agentName == "" && sessionID != "" {
-		sessionService := &session.FileSessionService{BaseDir: app.Config.DataDir}
+		sessionService := &session.FileService{BaseDir: app.Config.DataDir}
 		if defaultAgent, err := sessionService.GetDefaultAgent(core.SessionID(sessionID)); err == nil && defaultAgent != "" {
 			agentName = defaultAgent
 		}

@@ -48,7 +48,7 @@ func TestACPToolExecutorDefinitions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			exec := NewACPToolExecutor(nil, "sess_1", tt.caps)
+			exec := NewToolExecutor(nil, "sess_1", tt.caps)
 			defs := exec.ToolDefinitions()
 
 			if len(defs) != len(tt.wantTools) {
@@ -65,7 +65,7 @@ func TestACPToolExecutorDefinitions(t *testing.T) {
 }
 
 func TestACPToolExecutorPreview(t *testing.T) {
-	exec := NewACPToolExecutor(nil, "sess_1", ClientCapabilities{})
+	exec := NewToolExecutor(nil, "sess_1", ClientCapabilities{})
 	result, err := exec.Preview("read_file", nil, context.Background())
 	if err != nil {
 		t.Fatalf("Preview returned error: %v", err)
@@ -76,7 +76,7 @@ func TestACPToolExecutorPreview(t *testing.T) {
 }
 
 func TestACPToolExecutorUnknownTool(t *testing.T) {
-	exec := NewACPToolExecutor(nil, "sess_1", ClientCapabilities{})
+	exec := NewToolExecutor(nil, "sess_1", ClientCapabilities{})
 	_, err := exec.Execute("nonexistent", nil, context.Background())
 	if err == nil {
 		t.Fatal("expected error for unknown tool")
@@ -111,7 +111,7 @@ func TestACPToolExecutorReadFile(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewACPToolExecutor(serverConn, "sess_1", ClientCapabilities{
+	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{
 		Fs: &FileSystemCapability{ReadTextFile: true},
 	})
 
@@ -151,7 +151,7 @@ func TestACPToolExecutorReadFileWithLineAndLimit(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewACPToolExecutor(serverConn, "sess_1", ClientCapabilities{
+	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{
 		Fs: &FileSystemCapability{ReadTextFile: true},
 	})
 
@@ -199,7 +199,7 @@ func TestACPToolExecutorWriteFile(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewACPToolExecutor(serverConn, "sess_1", ClientCapabilities{
+	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{
 		Fs: &FileSystemCapability{WriteTextFile: true},
 	})
 
@@ -262,7 +262,7 @@ func TestACPToolExecutorRunCommand(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewACPToolExecutor(serverConn, "sess_1", ClientCapabilities{Terminal: true})
+	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{Terminal: true})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -305,7 +305,7 @@ func TestACPToolExecutorRunCommandNonZeroExit(t *testing.T) {
 	serverConn.Start()
 	defer serverConn.Close()
 
-	exec := NewACPToolExecutor(serverConn, "sess_1", ClientCapabilities{Terminal: true})
+	exec := NewToolExecutor(serverConn, "sess_1", ClientCapabilities{Terminal: true})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -404,7 +404,7 @@ func TestServerACPToolExecutorWired(t *testing.T) {
 	}
 
 	if !receivedTools {
-		t.Error("RunConfig.Tools was nil, expected ACPToolExecutor")
+		t.Error("RunConfig.Tools was nil, expected ToolExecutor")
 	}
 }
 

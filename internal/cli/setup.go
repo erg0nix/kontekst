@@ -58,8 +58,8 @@ func setupServices(cfg config.Config) setupResult {
 	builtin.RegisterSkill(toolRegistry, skillsRegistry)
 	builtin.RegisterCommand(toolRegistry, commandsRegistry)
 
-	contextService := conversation.NewFileContextService(cfg.DataDir)
-	sessionService := &session.FileSessionService{BaseDir: cfg.DataDir}
+	contextService := conversation.NewFileService(cfg.DataDir)
+	sessionService := &session.FileService{BaseDir: cfg.DataDir}
 
 	runner := &agent.DefaultRunner{
 		Tools:       toolRegistry,

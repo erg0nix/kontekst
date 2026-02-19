@@ -10,12 +10,12 @@ import (
 	"github.com/erg0nix/kontekst/internal/core"
 )
 
-func newTestService(t *testing.T) *FileSessionService {
+func newTestService(t *testing.T) *FileService {
 	t.Helper()
-	return &FileSessionService{BaseDir: t.TempDir()}
+	return &FileService{BaseDir: t.TempDir()}
 }
 
-func createSessionFile(t *testing.T, svc *FileSessionService, id core.SessionID, content string) {
+func createSessionFile(t *testing.T, svc *FileService, id core.SessionID, content string) {
 	t.Helper()
 	dir := svc.sessionDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

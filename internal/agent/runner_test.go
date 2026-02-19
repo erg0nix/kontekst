@@ -25,10 +25,10 @@ func (c *capturingContext) AddMessage(msg core.Message) error {
 }
 
 type mockContextService struct {
-	window conversation.ContextWindow
+	window conversation.Window
 }
 
-func (m *mockContextService) NewWindow(_ core.SessionID) (conversation.ContextWindow, error) {
+func (m *mockContextService) NewWindow(_ core.SessionID) (conversation.Window, error) {
 	return m.window, nil
 }
 
@@ -50,10 +50,10 @@ func (m *mockSessionService) SetDefaultAgent(_ core.SessionID, _ string) error {
 	return nil
 }
 
-func (m *mockSessionService) List() ([]session.SessionInfo, error) { return nil, nil }
+func (m *mockSessionService) List() ([]session.Info, error) { return nil, nil }
 
-func (m *mockSessionService) Get(_ core.SessionID) (session.SessionInfo, error) {
-	return session.SessionInfo{}, nil
+func (m *mockSessionService) Get(_ core.SessionID) (session.Info, error) {
+	return session.Info{}, nil
 }
 
 func (m *mockSessionService) Delete(_ core.SessionID) error { return nil }
