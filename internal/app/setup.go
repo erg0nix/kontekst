@@ -1,4 +1,4 @@
-package cli
+package app
 
 import (
 	"log/slog"
@@ -19,6 +19,13 @@ import (
 	"github.com/erg0nix/kontekst/internal/tool/builtin"
 )
 
+// Services holds the wired-up services needed by the server and CLI.
+type Services struct {
+	Runner *agent.DefaultRunner
+	Agents *agent.Registry
+	Skills *skill.Registry
+}
+
 type conversationFactory struct {
 	svc *conversation.FileService
 }
@@ -27,13 +34,8 @@ func (f conversationFactory) NewWindow(sessionID core.SessionID) (agent.Conversa
 	return f.svc.NewWindow(sessionID)
 }
 
-type setupResult struct {
-	Runner *agent.DefaultRunner
-	Agents *agent.Registry
-	Skills *skill.Registry
-}
-
-func setupServices(cfg config.Config) setupResult {
+// NewServices creates all application services from the given configuration.
+func NewServices(cfg config.Config) Services {
 	if err := agentConfig.EnsureDefaults(cfg.DataDir); err != nil {
 		slog.Warn("failed to ensure default agents", "error", err)
 	}
@@ -76,7 +78,7 @@ func setupServices(cfg config.Config) setupResult {
 		DebugConfig: cfg.Debug,
 	}
 
-	return setupResult{
+	return Services{
 		Runner: runner,
 		Agents: agent.NewRegistry(cfg.DataDir),
 		Skills: skillsRegistry,

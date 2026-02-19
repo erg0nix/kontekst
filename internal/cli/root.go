@@ -11,6 +11,7 @@ import (
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
+	"github.com/erg0nix/kontekst/internal/app"
 	"github.com/erg0nix/kontekst/internal/config"
 	"github.com/erg0nix/kontekst/internal/protocol"
 
@@ -82,7 +83,7 @@ func netSplitHostPort(addr string) (string, string, error) {
 }
 
 func alreadyRunning(dataDir string) bool {
-	return readPID(filepath.Join(dataDir, "server.pid")) != 0
+	return app.ReadPID(filepath.Join(dataDir, "server.pid")) != 0
 }
 
 func loadActiveSession(dataDir string) string {
