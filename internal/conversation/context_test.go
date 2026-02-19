@@ -8,7 +8,7 @@ import (
 )
 
 func TestContextWindow_SystemPromptFirst(t *testing.T) {
-	cw := newTestContextWindow(t)
+	cw := newTestWindow(t)
 	systemContent := "You are a helpful assistant."
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: systemContent, SystemTokens: 10}); err != nil {
@@ -38,7 +38,7 @@ func TestContextWindow_SystemPromptFirst(t *testing.T) {
 }
 
 func TestContextWindow_SystemContentWithActiveSkill(t *testing.T) {
-	cw := newTestContextWindow(t)
+	cw := newTestWindow(t)
 	cw.SetAgentSystemPrompt("Base system prompt.")
 	cw.SetActiveSkill(&core.SkillMetadata{Name: "test-skill", Path: "/path/to/skill"})
 
@@ -65,7 +65,7 @@ func TestContextWindow_HistoryFromFile(t *testing.T) {
 	writeMessages(t, sessionPath, historicalMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 100}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -90,7 +90,7 @@ func TestContextWindow_AddMessageGoesToMemoryAndFile(t *testing.T) {
 	sessionPath := filepath.Join(dir, "session.jsonl")
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 10}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -135,7 +135,7 @@ func TestContextWindow_BuildContextOrder(t *testing.T) {
 	writeMessages(t, sessionPath, historicalMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system content", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -167,7 +167,7 @@ func TestContextWindow_BuildContextOrder(t *testing.T) {
 }
 
 func TestContextWindow_CompleteRunClearsMemory(t *testing.T) {
-	cw := newTestContextWindow(t)
+	cw := newTestWindow(t)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 10}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -194,7 +194,7 @@ func TestContextWindow_MultipleRunsAccumulateHistory(t *testing.T) {
 	sessionPath := filepath.Join(dir, "session.jsonl")
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -237,7 +237,7 @@ func TestContextWindow_HistoryBudgetCalculation(t *testing.T) {
 	writeMessages(t, sessionPath, historicalMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	systemTokens := 100
 	if err := cw.StartRun(BudgetParams{ContextSize: 1000, SystemContent: "system", SystemTokens: systemTokens}); err != nil {
@@ -269,7 +269,7 @@ func TestContextWindow_LargeSystemPromptLeavesRoomForHistory(t *testing.T) {
 	writeMessages(t, sessionPath, historicalMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	largeSystemTokens := 800
 	if err := cw.StartRun(BudgetParams{ContextSize: 1000, SystemContent: "large system prompt", SystemTokens: largeSystemTokens}); err != nil {
@@ -293,7 +293,7 @@ func TestContextWindow_LargeSystemPromptLeavesRoomForHistory(t *testing.T) {
 }
 
 func TestContextWindow_EmptySession(t *testing.T) {
-	cw := newTestContextWindow(t)
+	cw := newTestWindow(t)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 10}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -324,7 +324,7 @@ func TestContextWindow_SessionWithOnlyToolMessages(t *testing.T) {
 	writeMessages(t, sessionPath, toolMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -361,7 +361,7 @@ func TestContextWindow_VeryLargeContextSize(t *testing.T) {
 	writeMessages(t, sessionPath, historicalMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 1000000, SystemContent: "system", SystemTokens: 100}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -378,7 +378,7 @@ func TestContextWindow_VeryLargeContextSize(t *testing.T) {
 }
 
 func TestContextWindow_ActiveSkill(t *testing.T) {
-	cw := newTestContextWindow(t)
+	cw := newTestWindow(t)
 
 	if skill := cw.ActiveSkill(); skill != nil {
 		t.Error("expected nil active skill initially")
@@ -397,12 +397,12 @@ func TestContextWindow_ActiveSkill(t *testing.T) {
 	}
 }
 
-func newTestContextWindow(t *testing.T) *contextWindow {
+func newTestWindow(t *testing.T) *Window {
 	t.Helper()
 
 	dir := t.TempDir()
 	sessionPath := filepath.Join(dir, "session.jsonl")
 	sf := NewSessionFile(sessionPath)
 
-	return newContextWindow(sf)
+	return NewWindow(sf)
 }

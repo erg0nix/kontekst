@@ -18,7 +18,7 @@ func TestContextWindow_Snapshot(t *testing.T) {
 	writeMessages(t, sessionPath, historicalMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	systemTokens := 100
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: systemTokens}); err != nil {
@@ -66,7 +66,7 @@ func TestContextWindow_Snapshot(t *testing.T) {
 }
 
 func TestContextWindow_SnapshotEmpty(t *testing.T) {
-	cw := newTestContextWindow(t)
+	cw := newTestWindow(t)
 
 	systemTokens := 50
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: systemTokens}); err != nil {
@@ -108,7 +108,7 @@ func TestContextWindow_SnapshotMessageDetails(t *testing.T) {
 	writeMessages(t, sessionPath, historicalMessages...)
 
 	sf := NewSessionFile(sessionPath)
-	cw := newContextWindow(sf)
+	cw := NewWindow(sf)
 
 	if err := cw.StartRun(BudgetParams{ContextSize: 4096, SystemContent: "system", SystemTokens: 50}); err != nil {
 		t.Fatalf("StartRun failed: %v", err)

@@ -15,9 +15,3 @@ type Info struct {
 	CreatedAt    time.Time
 	ModifiedAt   time.Time
 }
-
-// Creator creates and ensures session existence.
-type Creator interface {
-	Create() (core.SessionID, string, error)
-	Ensure(sessionID core.SessionID) (string, error)
-}

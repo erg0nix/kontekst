@@ -18,25 +18,7 @@ type BudgetParams struct {
 	UserPromptTokens int
 }
 
-// Window manages the message history and system prompt for a single session's conversation context.
-type Window interface {
-	SystemContent() string
-	StartRun(params BudgetParams) error
-	CompleteRun()
-	AddMessage(msg core.Message) error
-	BuildContext() ([]core.Message, error)
-	SetAgentSystemPrompt(prompt string)
-	SetActiveSkill(skill *core.SkillMetadata)
-	ActiveSkill() *core.SkillMetadata
-	Snapshot() Snapshot
-}
-
-// Service creates Window instances for session.
-type Service interface {
-	NewWindow(sessionID core.SessionID) (Window, error)
-}
-
-// FileService implements Service using JSONL session files on disk.
+// FileService creates Window instances backed by JSONL session files on disk.
 type FileService struct {
 	dataDir string
 }
@@ -47,7 +29,7 @@ func NewFileService(dataDir string) *FileService {
 }
 
 // NewWindow creates a new Window backed by the session's JSONL file.
-func (service *FileService) NewWindow(sessionID core.SessionID) (Window, error) {
+func (service *FileService) NewWindow(sessionID core.SessionID) (*Window, error) {
 	sessionDir := filepath.Join(service.dataDir, "sessions")
 
 	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
@@ -57,10 +39,11 @@ func (service *FileService) NewWindow(sessionID core.SessionID) (Window, error) 
 	sessionPath := filepath.Join(sessionDir, string(sessionID)+".jsonl")
 	sessionFile := NewSessionFile(sessionPath)
 
-	return newContextWindow(sessionFile), nil
+	return NewWindow(sessionFile), nil
 }
 
-type contextWindow struct {
+// Window manages the message history and system prompt for a single session's conversation context.
+type Window struct {
 	sessionFile       *SessionFile
 	history           []core.Message
 	memory            []core.Message
@@ -73,13 +56,13 @@ type contextWindow struct {
 	mu                sync.Mutex
 }
 
-func newContextWindow(sessionFile *SessionFile) *contextWindow {
-	return &contextWindow{
+func NewWindow(sessionFile *SessionFile) *Window {
+	return &Window{
 		sessionFile: sessionFile,
 	}
 }
 
-func (cw *contextWindow) SystemContent() string {
+func (cw *Window) SystemContent() string {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
@@ -92,7 +75,7 @@ func (cw *contextWindow) SystemContent() string {
 	return content
 }
 
-func (cw *contextWindow) StartRun(params BudgetParams) error {
+func (cw *Window) StartRun(params BudgetParams) error {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
@@ -117,14 +100,14 @@ func (cw *contextWindow) StartRun(params BudgetParams) error {
 	return nil
 }
 
-func (cw *contextWindow) CompleteRun() {
+func (cw *Window) CompleteRun() {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
 	cw.memory = nil
 }
 
-func (cw *contextWindow) AddMessage(msg core.Message) error {
+func (cw *Window) AddMessage(msg core.Message) error {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
@@ -137,7 +120,7 @@ func (cw *contextWindow) AddMessage(msg core.Message) error {
 	return nil
 }
 
-func (cw *contextWindow) BuildContext() ([]core.Message, error) {
+func (cw *Window) BuildContext() ([]core.Message, error) {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
@@ -150,28 +133,28 @@ func (cw *contextWindow) BuildContext() ([]core.Message, error) {
 	return out, nil
 }
 
-func (cw *contextWindow) SetAgentSystemPrompt(prompt string) {
+func (cw *Window) SetAgentSystemPrompt(prompt string) {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
 	cw.agentSystemPrompt = prompt
 }
 
-func (cw *contextWindow) SetActiveSkill(skill *core.SkillMetadata) {
+func (cw *Window) SetActiveSkill(skill *core.SkillMetadata) {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
 	cw.activeSkill = skill
 }
 
-func (cw *contextWindow) ActiveSkill() *core.SkillMetadata {
+func (cw *Window) ActiveSkill() *core.SkillMetadata {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
 	return cw.activeSkill
 }
 
-func (cw *contextWindow) Snapshot() Snapshot {
+func (cw *Window) Snapshot() Snapshot {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 

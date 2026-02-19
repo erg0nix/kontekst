@@ -12,11 +12,20 @@ import (
 	commandsConfig "github.com/erg0nix/kontekst/internal/config/command"
 	skillsConfig "github.com/erg0nix/kontekst/internal/config/skill"
 	"github.com/erg0nix/kontekst/internal/conversation"
+	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/session"
 	"github.com/erg0nix/kontekst/internal/skill"
 	"github.com/erg0nix/kontekst/internal/tool"
 	"github.com/erg0nix/kontekst/internal/tool/builtin"
 )
+
+type conversationFactory struct {
+	svc *conversation.FileService
+}
+
+func (f conversationFactory) NewWindow(sessionID core.SessionID) (agent.ConversationWindow, error) {
+	return f.svc.NewWindow(sessionID)
+}
 
 type setupResult struct {
 	Runner *agent.DefaultRunner
@@ -58,12 +67,11 @@ func setupServices(cfg config.Config) setupResult {
 	builtin.RegisterSkill(toolRegistry, skillsRegistry)
 	builtin.RegisterCommand(toolRegistry, commandsRegistry)
 
-	contextService := conversation.NewFileService(cfg.DataDir)
 	sessionService := &session.FileService{BaseDir: cfg.DataDir}
 
 	runner := &agent.DefaultRunner{
 		Tools:       toolRegistry,
-		Context:     contextService,
+		Context:     conversationFactory{conversation.NewFileService(cfg.DataDir)},
 		Sessions:    sessionService,
 		DebugConfig: cfg.Debug,
 	}

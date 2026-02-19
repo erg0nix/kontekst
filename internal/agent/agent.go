@@ -7,23 +7,22 @@ import (
 
 	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
-	"github.com/erg0nix/kontekst/internal/provider"
 	"github.com/erg0nix/kontekst/internal/tool"
 )
 
-// Agent orchestrates the iterative loop of prompting an LLM, proposing tool calls, and executing approved tool.
+// Agent orchestrates the iterative loop of prompting an LLM, proposing tool calls, and executing approved tools.
 type Agent struct {
-	provider provider.Provider
+	provider LLM
 	tools    tool.ToolExecutor
-	context  conversation.Window
+	context  ConversationWindow
 	config   RunConfig
 }
 
-// New creates an Agent with the given provider, tool executor, context window, and run configuration.
+// New creates an Agent with the given LLM provider, tool executor, context window, and run configuration.
 func New(
-	provider provider.Provider,
+	provider LLM,
 	toolExecutor tool.ToolExecutor,
-	contextWindow conversation.Window,
+	contextWindow ConversationWindow,
 	cfg RunConfig,
 ) *Agent {
 	return &Agent{

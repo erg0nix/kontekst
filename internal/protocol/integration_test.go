@@ -48,10 +48,10 @@ func (m *mockContextWindow) AddMessage(msg core.Message) error {
 }
 
 type mockCtxService struct {
-	window conversation.Window
+	window agent.ConversationWindow
 }
 
-func (m *mockCtxService) NewWindow(core.SessionID) (conversation.Window, error) {
+func (m *mockCtxService) NewWindow(core.SessionID) (agent.ConversationWindow, error) {
 	return m.window, nil
 }
 

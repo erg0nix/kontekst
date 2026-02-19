@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/config"
-	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/provider"
-	"github.com/erg0nix/kontekst/internal/session"
 	"github.com/erg0nix/kontekst/internal/skill"
 	"github.com/erg0nix/kontekst/internal/tool"
 )
@@ -43,8 +41,8 @@ type Runner interface {
 // DefaultRunner is the standard Runner implementation that wires together sessions, context, and an LLM provider.
 type DefaultRunner struct {
 	Tools       tool.ToolExecutor
-	Context     conversation.Service
-	Sessions    session.Creator
+	Context     ConversationFactory
+	Sessions    SessionStore
 	DebugConfig config.DebugConfig
 }
 
