@@ -11,7 +11,7 @@ import (
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 	commandsConfig "github.com/erg0nix/kontekst/internal/config/command"
 	skillsConfig "github.com/erg0nix/kontekst/internal/config/skill"
-	"github.com/erg0nix/kontekst/internal/context"
+	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/session"
 	"github.com/erg0nix/kontekst/internal/skill"
 	"github.com/erg0nix/kontekst/internal/tool"
@@ -58,7 +58,7 @@ func setupServices(cfg config.Config) setupResult {
 	builtin.RegisterSkill(toolRegistry, skillsRegistry)
 	builtin.RegisterCommand(toolRegistry, commandsRegistry)
 
-	contextService := context.NewFileContextService(cfg.DataDir)
+	contextService := conversation.NewFileContextService(cfg.DataDir)
 	sessionService := &session.FileSessionService{BaseDir: cfg.DataDir}
 
 	runner := &agent.DefaultRunner{

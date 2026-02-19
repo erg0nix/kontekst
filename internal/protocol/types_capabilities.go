@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 // InitializeRequest is the client's handshake request containing protocol version and capabilities.
 type InitializeRequest struct {

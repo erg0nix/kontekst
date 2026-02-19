@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 // StatusResponse contains server status information returned by the _kontekst/status method.
 type StatusResponse struct {

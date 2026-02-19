@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 import (
 	"context"
@@ -398,12 +398,12 @@ func (h *Handler) requestPermission(ctx context.Context, sid SessionID, call age
 
 	result, err := h.conn.Request(ctx, MethodRequestPermission, req)
 	if err != nil {
-		return RequestPermissionResponse{}, fmt.Errorf("acp: request permission: %w", err)
+		return RequestPermissionResponse{}, fmt.Errorf("protocol: request permission: %w", err)
 	}
 
 	var resp RequestPermissionResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return RequestPermissionResponse{}, fmt.Errorf("acp: unmarshal permission response: %w", err)
+		return RequestPermissionResponse{}, fmt.Errorf("protocol: unmarshal permission response: %w", err)
 	}
 	return resp, nil
 }

@@ -15,9 +15,9 @@ import (
 	"github.com/charmbracelet/x/term"
 	"github.com/muesli/termenv"
 
-	"github.com/erg0nix/kontekst/internal/acp"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
 	"github.com/erg0nix/kontekst/internal/core"
+	"github.com/erg0nix/kontekst/internal/protocol"
 	"github.com/erg0nix/kontekst/internal/session"
 
 	"github.com/spf13/cobra"
@@ -56,11 +56,11 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	renderer := newMarkdownRenderer()
 	var lastSnapshot *core.ContextSnapshot
 
-	client, err := dialServer(app.ServerAddr, acp.ClientCallbacks{
-		OnUpdate: func(notif acp.SessionNotification) {
+	client, err := dialServer(app.ServerAddr, protocol.ClientCallbacks{
+		OnUpdate: func(notif protocol.SessionNotification) {
 			handleSessionUpdate(notif, renderer)
 		},
-		OnPermission: func(req acp.RequestPermissionRequest) acp.RequestPermissionResponse {
+		OnPermission: func(req protocol.RequestPermissionRequest) protocol.RequestPermissionResponse {
 			return handlePermission(req, autoApprove, reader)
 		},
 		OnContextSnapshot: func(raw json.RawMessage) {
@@ -77,9 +77,9 @@ func runCmd(cmd *cobra.Command, args []string) error {
 
 	ctx := cmd.Context()
 
-	_, err = client.Initialize(ctx, acp.InitializeRequest{
-		ProtocolVersion: acp.ProtocolVersion,
-		ClientInfo:      &acp.Implementation{Name: "kontekst-cli"},
+	_, err = client.Initialize(ctx, protocol.InitializeRequest{
+		ProtocolVersion: protocol.ProtocolVersion,
+		ClientInfo:      &protocol.Implementation{Name: "kontekst-cli"},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -92,12 +92,12 @@ func runCmd(cmd *cobra.Command, args []string) error {
 
 	workingDir, _ := os.Getwd()
 
-	var sid acp.SessionID
+	var sid protocol.SessionID
 	if sessionID != "" {
-		resp, err := client.LoadSession(ctx, acp.LoadSessionRequest{
-			SessionID:  acp.SessionID(sessionID),
+		resp, err := client.LoadSession(ctx, protocol.LoadSessionRequest{
+			SessionID:  protocol.SessionID(sessionID),
 			Cwd:        workingDir,
-			McpServers: []acp.McpServer{},
+			McpServers: []protocol.McpServer{},
 		})
 		if err == nil {
 			sid = resp.SessionID
@@ -105,9 +105,9 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	if sid == "" {
-		sessResp, err := client.NewSession(ctx, acp.NewSessionRequest{
+		sessResp, err := client.NewSession(ctx, protocol.NewSessionRequest{
 			Cwd:        workingDir,
-			McpServers: []acp.McpServer{},
+			McpServers: []protocol.McpServer{},
 			Meta:       meta,
 		})
 		if err != nil {
@@ -120,9 +120,9 @@ func runCmd(cmd *cobra.Command, args []string) error {
 		slog.Warn("failed to save active session", "error", err)
 	}
 
-	promptResp, err := client.Prompt(ctx, acp.PromptRequest{
+	promptResp, err := client.Prompt(ctx, protocol.PromptRequest{
 		SessionID: sid,
-		Prompt:    []acp.ContentBlock{acp.TextBlock(prompt)},
+		Prompt:    []protocol.ContentBlock{protocol.TextBlock(prompt)},
 	})
 	if err != nil {
 		lipgloss.Println(styledError("prompt failed", err.Error()))
@@ -135,9 +135,9 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	switch promptResp.StopReason {
-	case acp.StopReasonEndTurn:
+	case protocol.StopReasonEndTurn:
 		lipgloss.Print("\n" + styleSuccess.Render("run completed") + "\n")
-	case acp.StopReasonCancelled:
+	case protocol.StopReasonCancelled:
 		lipgloss.Println(styleWarning.Render("cancelled"))
 	default:
 		lipgloss.Println(styleWarning.Render("stopped: " + string(promptResp.StopReason)))
@@ -146,7 +146,7 @@ func runCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func handleSessionUpdate(notif acp.SessionNotification, renderer *glamour.TermRenderer) {
+func handleSessionUpdate(notif protocol.SessionNotification, renderer *glamour.TermRenderer) {
 	m, ok := notif.Update.(map[string]any)
 	if !ok {
 		return
@@ -227,9 +227,9 @@ func truncate(s string, max int) string {
 	return s[:max-3] + "..."
 }
 
-func handlePermission(req acp.RequestPermissionRequest, autoApprove bool, reader *bufio.Reader) acp.RequestPermissionResponse {
+func handlePermission(req protocol.RequestPermissionRequest, autoApprove bool, reader *bufio.Reader) protocol.RequestPermissionResponse {
 	if autoApprove {
-		return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("allow")}
+		return protocol.RequestPermissionResponse{Outcome: protocol.PermissionSelected("allow")}
 	}
 
 	title := ""
@@ -254,10 +254,10 @@ func handlePermission(req acp.RequestPermissionRequest, autoApprove bool, reader
 	line, _ := reader.ReadString('\n')
 
 	if len(line) > 0 && (line[0] == 'y' || line[0] == 'Y') {
-		return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("allow")}
+		return protocol.RequestPermissionResponse{Outcome: protocol.PermissionSelected("allow")}
 	}
 
-	return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("reject")}
+	return protocol.RequestPermissionResponse{Outcome: protocol.PermissionSelected("reject")}
 }
 
 func compactStyle() ansi.StyleConfig {

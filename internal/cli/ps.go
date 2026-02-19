@@ -15,7 +15,7 @@ import (
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 	"github.com/charmbracelet/lipgloss/v2/table"
 
-	"github.com/erg0nix/kontekst/internal/acp"
+	"github.com/erg0nix/kontekst/internal/protocol"
 
 	"github.com/spf13/cobra"
 )
@@ -49,7 +49,7 @@ func addServerRow(ctx context.Context, t *table.Table, dataDir string, serverAdd
 	}
 
 	var uptime string
-	client, err := acp.Dial(ctx, serverAddr, acp.ClientCallbacks{})
+	client, err := protocol.Dial(ctx, serverAddr, protocol.ClientCallbacks{})
 	if err == nil {
 		defer client.Close()
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)

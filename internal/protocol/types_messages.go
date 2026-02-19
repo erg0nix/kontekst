@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 // ContentBlock represents a typed content element within a prompt or response.
 type ContentBlock struct {

@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 // ToolCallID is a unique identifier for a tool call within a session.
 type ToolCallID string

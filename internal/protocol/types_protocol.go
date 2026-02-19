@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 // ProtocolVersion is the current ACP protocol version.
 const ProtocolVersion = 1

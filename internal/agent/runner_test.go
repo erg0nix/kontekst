@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	ctx "github.com/erg0nix/kontekst/internal/context"
+	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/session"
 	"github.com/erg0nix/kontekst/internal/skill"
@@ -25,10 +25,10 @@ func (c *capturingContext) AddMessage(msg core.Message) error {
 }
 
 type mockContextService struct {
-	window ctx.ContextWindow
+	window conversation.ContextWindow
 }
 
-func (m *mockContextService) NewWindow(_ core.SessionID) (ctx.ContextWindow, error) {
+func (m *mockContextService) NewWindow(_ core.SessionID) (conversation.ContextWindow, error) {
 	return m.window, nil
 }
 

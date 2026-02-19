@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	ctx "github.com/erg0nix/kontekst/internal/context"
+	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/provider"
 	"github.com/erg0nix/kontekst/internal/tool"
@@ -15,7 +15,7 @@ import (
 type Agent struct {
 	provider provider.Provider
 	tools    tool.ToolExecutor
-	context  ctx.ContextWindow
+	context  conversation.ContextWindow
 	config   RunConfig
 }
 
@@ -23,7 +23,7 @@ type Agent struct {
 func New(
 	provider provider.Provider,
 	toolExecutor tool.ToolExecutor,
-	contextWindow ctx.ContextWindow,
+	contextWindow conversation.ContextWindow,
 	cfg RunConfig,
 ) *Agent {
 	return &Agent{
@@ -69,7 +69,7 @@ func (agent *Agent) loop(prompt string, commandChannel <-chan Command, eventChan
 		}
 	}
 
-	if err := agent.context.StartRun(ctx.BudgetParams{
+	if err := agent.context.StartRun(conversation.BudgetParams{
 		ContextSize:      agent.config.ContextSize,
 		SystemContent:    systemContent,
 		SystemTokens:     systemTokens,

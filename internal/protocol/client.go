@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 import (
 	"context"
@@ -35,7 +35,7 @@ type Client struct {
 func Dial(ctx context.Context, addr string, callbacks ClientCallbacks) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		return nil, fmt.Errorf("acp: dial %s: %w", addr, err)
+		return nil, fmt.Errorf("protocol: dial %s: %w", addr, err)
 	}
 
 	client := &Client{
@@ -102,7 +102,7 @@ func (c *Client) Initialize(ctx context.Context, req InitializeRequest) (Initial
 
 	var resp InitializeResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return InitializeResponse{}, fmt.Errorf("acp: unmarshal initialize response: %w", err)
+		return InitializeResponse{}, fmt.Errorf("protocol: unmarshal initialize response: %w", err)
 	}
 	return resp, nil
 }
@@ -116,7 +116,7 @@ func (c *Client) NewSession(ctx context.Context, req NewSessionRequest) (NewSess
 
 	var resp NewSessionResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return NewSessionResponse{}, fmt.Errorf("acp: unmarshal session response: %w", err)
+		return NewSessionResponse{}, fmt.Errorf("protocol: unmarshal session response: %w", err)
 	}
 	return resp, nil
 }
@@ -130,7 +130,7 @@ func (c *Client) LoadSession(ctx context.Context, req LoadSessionRequest) (LoadS
 
 	var resp LoadSessionResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return LoadSessionResponse{}, fmt.Errorf("acp: unmarshal load session response: %w", err)
+		return LoadSessionResponse{}, fmt.Errorf("protocol: unmarshal load session response: %w", err)
 	}
 	return resp, nil
 }
@@ -144,7 +144,7 @@ func (c *Client) Prompt(ctx context.Context, req PromptRequest) (PromptResponse,
 
 	var resp PromptResponse
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return PromptResponse{}, fmt.Errorf("acp: unmarshal prompt response: %w", err)
+		return PromptResponse{}, fmt.Errorf("protocol: unmarshal prompt response: %w", err)
 	}
 	return resp, nil
 }
@@ -158,17 +158,17 @@ func (c *Client) Cancel(ctx context.Context, sessionID SessionID) error {
 func (c *Client) Status(ctx context.Context) (StatusResponse, error) {
 	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
 	if err != nil {
-		return StatusResponse{}, fmt.Errorf("acp: initialize: %w", err)
+		return StatusResponse{}, fmt.Errorf("protocol: initialize: %w", err)
 	}
 
 	statusResult, err := c.conn.Request(ctx, MethodKontekstStatus, nil)
 	if err != nil {
-		return StatusResponse{}, fmt.Errorf("acp: status request: %w", err)
+		return StatusResponse{}, fmt.Errorf("protocol: status request: %w", err)
 	}
 
 	var resp StatusResponse
 	if err := json.Unmarshal(statusResult, &resp); err != nil {
-		return StatusResponse{}, fmt.Errorf("acp: unmarshal status response: %w", err)
+		return StatusResponse{}, fmt.Errorf("protocol: unmarshal status response: %w", err)
 	}
 	return resp, nil
 }
@@ -177,12 +177,12 @@ func (c *Client) Status(ctx context.Context) (StatusResponse, error) {
 func (c *Client) Shutdown(ctx context.Context) error {
 	_, err := c.conn.Request(ctx, MethodInitialize, InitializeRequest{ProtocolVersion: ProtocolVersion})
 	if err != nil {
-		return fmt.Errorf("acp: initialize: %w", err)
+		return fmt.Errorf("protocol: initialize: %w", err)
 	}
 
 	_, err = c.conn.Request(ctx, MethodKontekstShutdown, nil)
 	if err != nil {
-		return fmt.Errorf("acp: shutdown: %w", err)
+		return fmt.Errorf("protocol: shutdown: %w", err)
 	}
 	return nil
 }

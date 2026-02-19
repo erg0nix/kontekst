@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 // PermissionOption represents a single approval choice presented to the user for a tool call.
 type PermissionOption struct {

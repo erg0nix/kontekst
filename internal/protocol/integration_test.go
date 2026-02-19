@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/erg0nix/kontekst/internal/agent"
-	appctx "github.com/erg0nix/kontekst/internal/context"
+	"github.com/erg0nix/kontekst/internal/conversation"
 	"github.com/erg0nix/kontekst/internal/core"
 	"github.com/erg0nix/kontekst/internal/session"
 )
@@ -24,13 +24,13 @@ type mockContextWindow struct {
 	messages []core.Message
 }
 
-func (m *mockContextWindow) SystemContent() string              { return "" }
-func (m *mockContextWindow) StartRun(appctx.BudgetParams) error { return nil }
-func (m *mockContextWindow) CompleteRun()                       {}
-func (m *mockContextWindow) SetActiveSkill(*core.SkillMetadata) {}
-func (m *mockContextWindow) ActiveSkill() *core.SkillMetadata   { return nil }
-func (m *mockContextWindow) SetAgentSystemPrompt(string)        {}
-func (m *mockContextWindow) Snapshot() core.ContextSnapshot     { return core.ContextSnapshot{} }
+func (m *mockContextWindow) SystemContent() string                    { return "" }
+func (m *mockContextWindow) StartRun(conversation.BudgetParams) error { return nil }
+func (m *mockContextWindow) CompleteRun()                             {}
+func (m *mockContextWindow) SetActiveSkill(*core.SkillMetadata)       {}
+func (m *mockContextWindow) ActiveSkill() *core.SkillMetadata         { return nil }
+func (m *mockContextWindow) SetAgentSystemPrompt(string)              {}
+func (m *mockContextWindow) Snapshot() core.ContextSnapshot           { return core.ContextSnapshot{} }
 
 func (m *mockContextWindow) BuildContext() ([]core.Message, error) {
 	m.mu.Lock()
@@ -48,10 +48,10 @@ func (m *mockContextWindow) AddMessage(msg core.Message) error {
 }
 
 type mockCtxService struct {
-	window appctx.ContextWindow
+	window conversation.ContextWindow
 }
 
-func (m *mockCtxService) NewWindow(core.SessionID) (appctx.ContextWindow, error) {
+func (m *mockCtxService) NewWindow(core.SessionID) (conversation.ContextWindow, error) {
 	return m.window, nil
 }
 

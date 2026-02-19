@@ -17,10 +17,10 @@ import (
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
-	"github.com/erg0nix/kontekst/internal/acp"
 	"github.com/erg0nix/kontekst/internal/agent"
 	"github.com/erg0nix/kontekst/internal/config"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
+	"github.com/erg0nix/kontekst/internal/protocol"
 
 	"github.com/spf13/cobra"
 )
@@ -74,7 +74,7 @@ func runStdio(cfg config.Config) error {
 	cfg.Debug = config.LoadDebugConfigFromEnv(cfg.Debug)
 
 	services := setupServices(cfg)
-	handler := acp.NewHandler(services.Runner, services.Agents, services.Skills)
+	handler := protocol.NewHandler(services.Runner, services.Agents, services.Skills)
 	conn := handler.Serve(os.Stdout, os.Stdin)
 
 	<-conn.Done()
@@ -147,20 +147,20 @@ func runServer(cfg config.Config) error {
 func handleConnection(conn net.Conn, services setupResult, cfg config.Config, startTime time.Time, shutdownCh chan struct{}) {
 	defer conn.Close()
 
-	handler := acp.NewHandler(services.Runner, services.Agents, services.Skills)
+	handler := protocol.NewHandler(services.Runner, services.Agents, services.Skills)
 
 	dispatch := func(ctx context.Context, method string, params json.RawMessage) (any, error) {
 		switch method {
-		case acp.MethodKontekstStatus:
+		case protocol.MethodKontekstStatus:
 			uptime := time.Since(startTime).Round(time.Second).String()
-			return acp.StatusResponse{
+			return protocol.StatusResponse{
 				Bind:      cfg.Bind,
 				Uptime:    uptime,
 				StartedAt: startTime.Format(time.RFC3339),
 				DataDir:   cfg.DataDir,
 			}, nil
 
-		case acp.MethodKontekstShutdown:
+		case protocol.MethodKontekstShutdown:
 			go func() {
 				select {
 				case shutdownCh <- struct{}{}:

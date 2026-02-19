@@ -8,7 +8,7 @@ import (
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
-	"github.com/erg0nix/kontekst/internal/acp"
+	"github.com/erg0nix/kontekst/internal/protocol"
 
 	"github.com/spf13/cobra"
 )
@@ -31,7 +31,7 @@ func newStopCmd() *cobra.Command {
 }
 
 func stopKontekstServer(ctx context.Context, serverAddr string) {
-	client, err := acp.Dial(ctx, serverAddr, acp.ClientCallbacks{})
+	client, err := protocol.Dial(ctx, serverAddr, protocol.ClientCallbacks{})
 	if err != nil {
 		lipgloss.Println(styleDim.Render("kontekst server not running"))
 		return

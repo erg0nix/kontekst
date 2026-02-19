@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/erg0nix/kontekst/internal/acp"
 	agentConfig "github.com/erg0nix/kontekst/internal/config/agent"
+	"github.com/erg0nix/kontekst/internal/protocol"
 
 	"github.com/spf13/cobra"
 )
@@ -47,8 +47,8 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 		"list_files": true,
 	}
 
-	callbacks := acp.ClientCallbacks{
-		OnUpdate: func(notif acp.SessionNotification) {
+	callbacks := protocol.ClientCallbacks{
+		OnUpdate: func(notif protocol.SessionNotification) {
 			m, ok := notif.Update.(map[string]any)
 			if !ok {
 				return
@@ -69,22 +69,22 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 				fmt.Printf("  tool: %s(%s)\n", title, string(inputJSON))
 			}
 		},
-		OnPermission: func(req acp.RequestPermissionRequest) acp.RequestPermissionResponse {
+		OnPermission: func(req protocol.RequestPermissionRequest) protocol.RequestPermissionResponse {
 			toolName := ""
 			if req.ToolCall.Title != nil {
 				toolName = *req.ToolCall.Title
 			}
 
 			if allowedTools[toolName] {
-				return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("allow")}
+				return protocol.RequestPermissionResponse{Outcome: protocol.PermissionSelected("allow")}
 			}
-			return acp.RequestPermissionResponse{Outcome: acp.PermissionSelected("reject")}
+			return protocol.RequestPermissionResponse{Outcome: protocol.PermissionSelected("reject")}
 		},
 	}
 
-	var client *acp.Client
+	var client *protocol.Client
 	for range 10 {
-		client, err = acp.Dial(context.Background(), app.ServerAddr, callbacks)
+		client, err = protocol.Dial(context.Background(), app.ServerAddr, callbacks)
 		if err == nil {
 			break
 		}
@@ -97,9 +97,9 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 
 	ctx := cmd.Context()
 
-	_, err = client.Initialize(ctx, acp.InitializeRequest{
-		ProtocolVersion: acp.ProtocolVersion,
-		ClientInfo:      &acp.Implementation{Name: "kontekst-cli"},
+	_, err = client.Initialize(ctx, protocol.InitializeRequest{
+		ProtocolVersion: protocol.ProtocolVersion,
+		ClientInfo:      &protocol.Implementation{Name: "kontekst-cli"},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -107,9 +107,9 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 
 	workingDir, _ := os.Getwd()
 
-	sessResp, err := client.NewSession(ctx, acp.NewSessionRequest{
+	sessResp, err := client.NewSession(ctx, protocol.NewSessionRequest{
 		Cwd:        workingDir,
-		McpServers: []acp.McpServer{},
+		McpServers: []protocol.McpServer{},
 		Meta:       map[string]any{"agentName": agentConfig.InitAgentName},
 	})
 	if err != nil {
@@ -118,15 +118,15 @@ func runInitCmd(cmd *cobra.Command, _ []string) error {
 
 	fmt.Println("analyzing project...")
 
-	promptResp, err := client.Prompt(ctx, acp.PromptRequest{
+	promptResp, err := client.Prompt(ctx, protocol.PromptRequest{
 		SessionID: sessResp.SessionID,
-		Prompt:    []acp.ContentBlock{acp.TextBlock("Analyze this project and generate an AGENTS.md file.")},
+		Prompt:    []protocol.ContentBlock{protocol.TextBlock("Analyze this project and generate an AGENTS.md file.")},
 	})
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}
 
-	if promptResp.StopReason != acp.StopReasonEndTurn {
+	if promptResp.StopReason != protocol.StopReasonEndTurn {
 		return fmt.Errorf("agent stopped unexpectedly: %s", promptResp.StopReason)
 	}
 

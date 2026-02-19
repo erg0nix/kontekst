@@ -11,8 +11,8 @@ import (
 
 	lipgloss "github.com/charmbracelet/lipgloss/v2"
 
-	"github.com/erg0nix/kontekst/internal/acp"
 	"github.com/erg0nix/kontekst/internal/config"
+	"github.com/erg0nix/kontekst/internal/protocol"
 
 	"github.com/spf13/cobra"
 )
@@ -110,8 +110,8 @@ func saveActiveSession(dataDir string, sessionID string) error {
 	return nil
 }
 
-func dialServer(serverAddr string, cb acp.ClientCallbacks) (*acp.Client, error) {
-	client, err := acp.Dial(context.Background(), serverAddr, cb)
+func dialServer(serverAddr string, cb protocol.ClientCallbacks) (*protocol.Client, error) {
+	client, err := protocol.Dial(context.Background(), serverAddr, cb)
 	if err != nil {
 		printServerNotRunning(serverAddr, err)
 		return nil, err

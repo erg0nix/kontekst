@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 import (
 	"bufio"
@@ -178,7 +178,7 @@ func (c *Connection) handleNotification(msg jsonrpcMessage) {
 func (c *Connection) writeMessage(msg jsonrpcMessage) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("acp: marshal message: %w", err)
+		return fmt.Errorf("protocol: marshal message: %w", err)
 	}
 
 	c.mu.Lock()
@@ -187,7 +187,7 @@ func (c *Connection) writeMessage(msg jsonrpcMessage) error {
 	data = append(data, '\n')
 	_, err = c.writer.Write(data)
 	if err != nil {
-		return fmt.Errorf("acp: write: %w", err)
+		return fmt.Errorf("protocol: write: %w", err)
 	}
 	return nil
 }
@@ -209,7 +209,7 @@ func (c *Connection) Request(ctx context.Context, method string, params any) (js
 			c.mu.Lock()
 			delete(c.pending, id)
 			c.mu.Unlock()
-			return nil, fmt.Errorf("acp: marshal params: %w", err)
+			return nil, fmt.Errorf("protocol: marshal params: %w", err)
 		}
 	}
 
@@ -239,7 +239,7 @@ func (c *Connection) Request(ctx context.Context, method string, params any) (js
 		c.mu.Unlock()
 		return nil, ctx.Err()
 	case <-c.done:
-		return nil, fmt.Errorf("acp: connection closed")
+		return nil, fmt.Errorf("protocol: connection closed")
 	}
 }
 
@@ -250,7 +250,7 @@ func (c *Connection) Notify(ctx context.Context, method string, params any) erro
 		var err error
 		rawParams, err = json.Marshal(params)
 		if err != nil {
-			return fmt.Errorf("acp: marshal params: %w", err)
+			return fmt.Errorf("protocol: marshal params: %w", err)
 		}
 	}
 

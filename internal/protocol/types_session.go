@@ -1,4 +1,4 @@
-package acp
+package protocol
 
 // SessionID is a unique identifier for an ACP session.
 type SessionID string
